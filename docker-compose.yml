@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:15
+    container_name: library_db
+    restart: always
+    environment:
+      POSTGRES_USER: library
+      POSTGRES_PASSWORD: librarypass
+      POSTGRES_DB: librarydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: library_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://library:librarypass@db:5432/librarydb
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
