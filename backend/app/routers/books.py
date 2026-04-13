@@ -1,53 +1,31 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ..database import get_db
-from ..models import Book, User
-from ..schemas import BookCreate, BookResponse
-from ..auth.dependencies import get_current_user
+from ..database import SessionLocal
+from .. import models, schemas
+from ..models import Book
 
-router = APIRouter(
-    prefix="/books",
-    tags=["Books"]
-)
+router = APIRouter(prefix="/books", tags=["Books"])
 
 
-# 📚 Create book
-@router.post("/", response_model=BookResponse)
-def create_book(
-    book: BookCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    new_book = Book(
-        title=book.title,
-        author=book.author
-    )
-
-    db.add(new_book)
-    db.commit()
-    db.refresh(new_book)
-
-    return new_book
+# 📦 DB dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 # 📚 Get all books
-@router.get("/", response_model=list[BookResponse])
-def get_books(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    books = db.query(Book).all()
-    return books
+@router.get("/", response_model=list[schemas.BookResponse])
+def get_books(db: Session = Depends(get_db)):
+    return db.query(Book).all()
 
 
-# 📖 Get one book
-@router.get("/{book_id}", response_model=BookResponse)
-def get_book(
-    book_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+# 📖 Get single book
+@router.get("/{book_id}", response_model=schemas.BookResponse)
+def get_book(book_id: int, db: Session = Depends(get_db)):
     book = db.query(Book).filter(Book.id == book_id).first()
 
     if not book:
@@ -56,21 +34,33 @@ def get_book(
     return book
 
 
+# ➕ Create book
+@router.post("/", response_model=schemas.BookResponse)
+def create_book(book: schemas.BookCreate, db: Session = Depends(get_db)):
+    if book.isbn:
+        existing = db.query(Book).filter(Book.isbn == book.isbn).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Book already exists")
+
+    new_book = models.Book(**book.model_dump())
+
+    db.add(new_book)
+    db.commit()
+    db.refresh(new_book)
+
+    return new_book
+
+
 # ✏️ Update book
-@router.put("/{book_id}", response_model=BookResponse)
-def update_book(
-    book_id: int,
-    updated: BookCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+@router.put("/{book_id}", response_model=schemas.BookResponse)
+def update_book(book_id: int, updated: schemas.BookUpdate, db: Session = Depends(get_db)):
     book = db.query(Book).filter(Book.id == book_id).first()
 
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    book.title = updated.title
-    book.author = updated.author
+    for key, value in updated.model_dump().items():
+        setattr(book, key, value)
 
     db.commit()
     db.refresh(book)
@@ -80,11 +70,7 @@ def update_book(
 
 # 🗑️ Delete book
 @router.delete("/{book_id}")
-def delete_book(
-    book_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+def delete_book(book_id: int, db: Session = Depends(get_db)):
     book = db.query(Book).filter(Book.id == book_id).first()
 
     if not book:

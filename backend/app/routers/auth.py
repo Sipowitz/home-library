@@ -1,21 +1,34 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
-from ..database import get_db
-from ..models import User
-from ..schemas import UserCreate, UserResponse, Token
+
+from ..database import SessionLocal
+from .. import models, schemas
 from ..auth.hashing import hash_password, verify_password
-from ..auth.jwt import create_access_token
+from ..auth.jwt_handler import create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-@router.post("/register", response_model=UserResponse)
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.username == user.username).first()
-    if existing:
+# ✅ DB Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# ✅ REGISTER
+@router.post("/register")
+def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    existing_user = db.query(models.User).filter(
+        models.User.username == user.username
+    ).first()
+
+    if existing_user:
         raise HTTPException(status_code=400, detail="Username already exists")
 
-    new_user = User(
+    new_user = models.User(
         username=user.username,
         hashed_password=hash_password(user.password)
     )
@@ -24,17 +37,24 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    return new_user
+    return {"message": "User created successfully"}
 
 
-@router.post("/login", response_model=Token)
-def login(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.username == user.username).first()
+# ✅ LOGIN (FIXED — uses Form, not OAuth2)
+@router.post("/login")
+def login(
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(
+        models.User.username == username
+    ).first()
 
-    if not db_user or not verify_password(user.password, db_user.hashed_password):
+    if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    access_token = create_access_token({"sub": db_user.username})
+    access_token = create_access_token(data={"sub": user.username})
 
     return {
         "access_token": access_token,

@@ -1,21 +1,10 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
-class BookCreate(BaseModel):
-    title: str
-    author: str
-
-
-class BookResponse(BaseModel):
-    id: int
-    title: str
-    author: str
-
-    class Config:
-        from_attributes = True
-
-
-from pydantic import BaseModel
+# -------------------
+# 👤 USER SCHEMAS
+# -------------------
 
 class UserCreate(BaseModel):
     username: str
@@ -30,6 +19,30 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+# -------------------
+# 📚 BOOK SCHEMAS
+# -------------------
+
+class BookBase(BaseModel):
+    title: str
+    author: str
+    year: Optional[int] = None
+    isbn: Optional[str] = None
+    description: Optional[str] = None
+    read: Optional[bool] = False
+    location: Optional[str] = None
+
+
+class BookCreate(BookBase):
+    pass
+
+
+class BookUpdate(BookBase):
+    pass
+
+
+class BookResponse(BookBase):
+    id: int
+
+    class Config:
+        from_attributes = True
