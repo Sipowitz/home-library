@@ -19,3 +19,14 @@ from .routers import books, auth
 
 app.include_router(books.router)
 app.include_router(auth.router)
+
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

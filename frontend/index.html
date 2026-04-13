@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home Library</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: auto; }
+        input { margin: 5px 0; display: block; }
+        button { margin: 5px 0; }
+    </style>
+</head>
+<body>
+
+<h1>📚 Home Library</h1>
+
+<h2>🔐 Login</h2>
+<input id="username" placeholder="username">
+<input id="password" type="password" placeholder="password">
+<button onclick="login()">Login</button>
+
+<h2>➕ Add Book</h2>
+<input id="title" placeholder="title">
+<input id="author" placeholder="author">
+<button onclick="addBook()">Add Book</button>
+
+<h2>📖 Books</h2>
+<button onclick="getBooks()">Refresh</button>
+<ul id="books"></ul>
+
+<script>
+let token = "";
+
+// 🔐 LOGIN (FIXED)
+async function login() {
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    const body = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+
+    const res = await fetch("http://localhost:8000/auth/login", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: body
+    });
+
+    const data = await res.json();
+    console.log("LOGIN RESPONSE:", data);
+
+    token = data.access_token;
+
+    if (!token) {
+        alert("❌ Login failed");
+    } else {
+        alert("✅ Logged in!");
+    }
+}
+
+// ➕ ADD BOOK
+async function addBook() {
+    if (!token) {
+        alert("Please login first");
+        return;
+    }
+
+    const res = await fetch("http://localhost:8000/books/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+            title: document.getElementById("title").value,
+            author: document.getElementById("author").value
+        })
+    });
+
+    const data = await res.json();
+    console.log("ADD BOOK:", data);
+
+    getBooks();
+}
+
+// 📚 GET BOOKS
+async function getBooks() {
+    if (!token) {
+        alert("Please login first");
+        return;
+    }
+
+    const res = await fetch("http://localhost:8000/books/", {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+
+    const books = await res.json();
+    console.log("BOOKS:", books);
+
+    const list = document.getElementById("books");
+    list.innerHTML = "";
+
+    books.forEach(book => {
+        const li = document.createElement("li");
+        li.textContent = book.title + " - " + book.author;
+        list.appendChild(li);
+    });
+}
+</script>
+
+</body>
+</html>
