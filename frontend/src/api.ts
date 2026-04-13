@@ -16,7 +16,7 @@ export async function login(username: string, password: string) {
 
   const data = await res.json()
 
-  if (!res.ok) throw new Error(data.detail)
+  if (!res.ok) throw new Error(data.detail || "Login failed")
 
   localStorage.setItem("token", data.access_token)
 }
@@ -42,6 +42,11 @@ export async function getBooks() {
 export async function createBook(book: {
   title: string
   author: string
+  year?: number
+  isbn?: string
+  description?: string
+  read?: boolean
+  location?: string
 }) {
   const token = localStorage.getItem("token")
 
@@ -75,12 +80,17 @@ export async function deleteBook(id: number) {
 }
 
 
-// ✏️ UPDATE BOOK (for later)
+// ✏️ UPDATE BOOK
 export async function updateBook(
   id: number,
   book: {
     title?: string
     author?: string
+    year?: number
+    isbn?: string
+    description?: string
+    read?: boolean
+    location?: string
   }
 ) {
   const token = localStorage.getItem("token")
