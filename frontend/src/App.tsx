@@ -33,7 +33,11 @@ export default function App() {
   const [newBook, setNewBook] = useState<Partial<Book>>({})
   const [showAddForm, setShowAddForm] = useState(false)
 
+  const [isFetching, setIsFetching] = useState(false)
+  const [fetched, setFetched] = useState(false)
+
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
+
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState<Book | null>(null)
 
@@ -66,11 +70,37 @@ export default function App() {
     setLoggedIn(false)
   }
 
+  async function handleISBNLookup(isbn: string) {
+    try {
+      setIsFetching(true)
+      const data = await fetchBookByISBN(isbn)
+
+      setNewBook((prev) => ({
+        ...prev,
+        ...data,
+        isbn,
+      }))
+
+      setFetched(true)
+    } catch {
+      alert("Book not found")
+    } finally {
+      setIsFetching(false)
+    }
+  }
+
   async function handleAddBook() {
-    if (!newBook.title || !newBook.author) return
+    if (!newBook.title || !newBook.author) {
+      alert("Missing title or author")
+      return
+    }
+
     await createBook(newBook)
+
     setNewBook({})
+    setFetched(false)
     setShowAddForm(false)
+
     loadBooks()
   }
 
@@ -88,16 +118,7 @@ export default function App() {
     loadBooks()
   }
 
-  async function handleISBNLookup(isbn: string) {
-    try {
-      const data = await fetchBookByISBN(isbn)
-      setNewBook((prev) => ({ ...prev, ...data, isbn }))
-    } catch {
-      alert("Book not found")
-    }
-  }
-
-  // ESC key
+  // ESC
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -155,13 +176,10 @@ export default function App() {
                         placeholder="ISBN"
                         className="p-2 bg-gray-700 w-full"
                         value={newBook.isbn || ""}
-                        onChange={(e)=>setNewBook({...newBook,isbn:e.target.value})}
+                        onChange={(e)=>{setNewBook({...newBook,isbn:e.target.value}); setFetched(false)}}
                       />
-                      <button
-                        onClick={()=>newBook.isbn && handleISBNLookup(newBook.isbn)}
-                        className="bg-blue-600 px-3 rounded"
-                      >
-                        Search
+                      <button onClick={()=>newBook.isbn && handleISBNLookup(newBook.isbn)} className="bg-blue-600 px-3 rounded">
+                        {isFetching ? "..." : "Search"}
                       </button>
                     </div>
 
@@ -175,9 +193,11 @@ export default function App() {
                       onChange={(e)=>setNewBook({...newBook,author:e.target.value})}
                     />
 
+                    {fetched && <div className="text-green-400 text-sm">✓ Book data loaded</div>}
+
                     <div className="flex gap-2">
                       <button onClick={handleAddBook} className="bg-green-600 flex-1 py-2 rounded">Add</button>
-                      <button onClick={()=>setShowAddForm(false)} className="bg-gray-600 flex-1 py-2 rounded">Cancel</button>
+                      <button onClick={()=>{setShowAddForm(false); setNewBook({}); setFetched(false)}} className="bg-gray-600 flex-1 py-2 rounded">Cancel</button>
                     </div>
 
                   </div>
@@ -189,18 +209,11 @@ export default function App() {
                 {books.map(book => (
                   <div
                     key={book.id}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelectedBook(book)
-                      setEditing(false)
-                    }}
+                    onClick={(e)=>{e.stopPropagation(); setSelectedBook(book); setEditing(false)}}
                     className="cursor-pointer"
                   >
                     <div className="aspect-[2/3] bg-gray-800 rounded overflow-hidden">
-                      <img
-                        src={book.cover_url || "https://via.placeholder.com/300x400"}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={book.cover_url || "https://via.placeholder.com/300x400"} className="w-full h-full object-cover"/>
                     </div>
                     <div className="mt-2">
                       <div className="text-sm font-semibold">{book.title}</div>
@@ -215,50 +228,114 @@ export default function App() {
 
         {/* PANEL */}
         {selectedBook && (
-          <div
-            className="hidden md:flex w-96 bg-gray-900 p-4 flex-col border-l border-gray-800 rounded-xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="hidden md:flex w-96 bg-gray-900 p-4 flex-col border-l border-gray-800 rounded-xl shadow-2xl" onClick={(e)=>e.stopPropagation()}>
+
             <button onClick={()=>setSelectedBook(null)} className="mb-2">
               <X />
             </button>
 
-            <img src={selectedBook.cover_url || "https://via.placeholder.com/300x400"} className="w-32 mx-auto rounded"/>
+            {/* COVER */}
+            <img
+              src={(editing ? editData?.cover_url : selectedBook.cover_url) || "https://via.placeholder.com/300x400"}
+              className="w-32 mx-auto rounded"
+            />
 
-            <h2 className="text-xl font-bold text-center mt-2">{selectedBook.title}</h2>
-            <p className="text-gray-400 text-center">{selectedBook.author}</p>
+            {!editing ? (
+              <>
+                <h2 className="text-xl font-bold text-center mt-2">{selectedBook.title}</h2>
+                <p className="text-gray-400 text-center">{selectedBook.author}</p>
 
-            <div className="mt-4 space-y-1 text-sm">
-              <div><b>Year:</b> {selectedBook.year}</div>
-              <div><b>ISBN:</b> {selectedBook.isbn}</div>
-              <div><b>Location:</b> {selectedBook.location}</div>
-              <div><b>Status:</b> {selectedBook.read ? "Read" : "Unread"}</div>
-            </div>
+                <div className="mt-4 space-y-1 text-sm">
+                  <div><b>Year:</b> {selectedBook.year}</div>
+                  <div><b>ISBN:</b> {selectedBook.isbn}</div>
+                  <div><b>Location:</b> {selectedBook.location}</div>
+                  <div><b>Status:</b> {selectedBook.read ? "Read" : "Unread"}</div>
+                </div>
 
-            <div className="mt-4">
-              <b>Description</b>
-              <p>{selectedBook.description}</p>
-            </div>
+                <div className="mt-4">
+                  <b>Description</b>
+                  <p>{selectedBook.description}</p>
+                </div>
 
-            <div className="mt-auto">
-              <button onClick={()=>handleDelete(selectedBook.id)} className="bg-red-600 w-full py-2">
+                <button
+                  onClick={() => {
+                    setEditing(true)
+                    setEditData(selectedBook)
+                  }}
+                  className="mt-4 bg-yellow-600 py-2 rounded"
+                >
+                  Edit
+                </button>
+              </>
+            ) : (
+              <div className="space-y-3 mt-4 text-sm">
+
+                <label>Title</label>
+                <input className="w-full p-2 bg-gray-700 rounded"
+                  value={editData?.title || ""}
+                  onChange={(e)=>setEditData({...editData!,title:e.target.value})}
+                />
+
+                <label>Author</label>
+                <input className="w-full p-2 bg-gray-700 rounded"
+                  value={editData?.author || ""}
+                  onChange={(e)=>setEditData({...editData!,author:e.target.value})}
+                />
+
+                <label>Year</label>
+                <input className="w-full p-2 bg-gray-700 rounded"
+                  value={editData?.year || ""}
+                  onChange={(e)=>setEditData({...editData!,year:Number(e.target.value)})}
+                />
+
+                <label>ISBN</label>
+                <input className="w-full p-2 bg-gray-700 rounded"
+                  value={editData?.isbn || ""}
+                  onChange={(e)=>setEditData({...editData!,isbn:e.target.value})}
+                />
+
+                <label>Location</label>
+                <input className="w-full p-2 bg-gray-700 rounded"
+                  value={editData?.location || ""}
+                  onChange={(e)=>setEditData({...editData!,location:e.target.value})}
+                />
+
+                <label>Description</label>
+                <textarea className="w-full p-2 bg-gray-700 rounded"
+                  value={editData?.description || ""}
+                  onChange={(e)=>setEditData({...editData!,description:e.target.value})}
+                />
+
+                <label>Cover URL</label>
+                <input className="w-full p-2 bg-gray-700 rounded"
+                  value={editData?.cover_url || ""}
+                  onChange={(e)=>setEditData({...editData!,cover_url:e.target.value})}
+                />
+
+                {/* READ TOGGLE */}
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editData?.read || false}
+                    onChange={(e)=>setEditData({...editData!,read:e.target.checked})}
+                  />
+                  Mark as read
+                </label>
+
+                <div className="flex gap-2 pt-3">
+                  <button onClick={handleSave} className="bg-green-600 flex-1 py-2 rounded">Save</button>
+                  <button onClick={()=>setEditing(false)} className="bg-gray-600 flex-1 py-2 rounded">Cancel</button>
+                </div>
+
+              </div>
+            )}
+
+            {!editing && (
+              <button onClick={()=>handleDelete(selectedBook.id)} className="mt-auto bg-red-600 py-2 rounded">
                 Delete
               </button>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* MOBILE PANEL */}
-        {selectedBook && (
-          <div
-            className="md:hidden fixed inset-0 bg-gray-900 z-50 p-4"
-            onClick={(e)=>e.stopPropagation()}
-          >
-            <button onClick={()=>setSelectedBook(null)} className="mb-2">
-              <X />
-            </button>
-            <img src={selectedBook.cover_url || "https://via.placeholder.com/300x400"} className="w-32 mx-auto rounded"/>
-            <h2 className="text-xl text-center">{selectedBook.title}</h2>
           </div>
         )}
 
