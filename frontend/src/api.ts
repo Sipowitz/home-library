@@ -108,3 +108,22 @@ export async function updateBook(
 
   return res.json()
 }
+
+// 📦 FETCH BOOK FROM ISBN (Open Library)
+export async function fetchBookByISBN(isbn: string) {
+  const res = await fetch(
+    `https://openlibrary.org/isbn/${isbn}.json`
+  )
+
+  if (!res.ok) throw new Error("Book not found")
+
+  const data = await res.json()
+
+  return {
+    title: data.title,
+    author: data.by_statement || "",
+    cover_url: data.covers
+      ? `https://covers.openlibrary.org/b/id/${data.covers[0]}-L.jpg`
+      : "",
+  }
+}

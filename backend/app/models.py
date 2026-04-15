@@ -34,5 +34,7 @@ class Book(Base):
     read = Column(Boolean, default=False)
     location = Column(String, nullable=True)
 
+    cover_url = Column(String, nullable=True)  # 👈 ADD THIS
+
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="books")

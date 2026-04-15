@@ -1,12 +1,5 @@
 import { useEffect, useState } from "react"
-import {
-  Book as BookIcon,
-  Trash2,
-  Pencil,
-  LogOut,
-  Plus,
-  CheckCircle,
-} from "lucide-react"
+import { Book as BookIcon, LogOut, X } from "lucide-react"
 
 import {
   getBooks,
@@ -14,6 +7,7 @@ import {
   createBook,
   deleteBook,
   updateBook,
+  fetchBookByISBN,
 } from "./api"
 
 type Book = {
@@ -25,6 +19,7 @@ type Book = {
   description?: string
   read?: boolean
   location?: string
+  cover_url?: string
 }
 
 export default function App() {
@@ -35,11 +30,12 @@ export default function App() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
 
-  const [newTitle, setNewTitle] = useState("")
-  const [newAuthor, setNewAuthor] = useState("")
+  const [newBook, setNewBook] = useState<Partial<Book>>({})
+  const [showAddForm, setShowAddForm] = useState(false)
 
-  const [expandedId, setExpandedId] = useState<number | null>(null)
-  const [editingBook, setEditingBook] = useState<Book | null>(null)
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [editData, setEditData] = useState<Book | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -50,12 +46,8 @@ export default function App() {
   }, [])
 
   async function loadBooks() {
-    try {
-      const data = await getBooks()
-      setBooks(data)
-    } catch {
-      setLoggedIn(false)
-    }
+    const data = await getBooks()
+    setBooks(data)
   }
 
   async function handleLogin() {
@@ -65,227 +57,211 @@ export default function App() {
       setError("")
       loadBooks()
     } catch {
-      setError("Invalid username or password")
+      setError("Invalid login")
     }
   }
 
   function handleLogout() {
     localStorage.removeItem("token")
     setLoggedIn(false)
-    setBooks([])
   }
 
   async function handleAddBook() {
-    if (!newTitle || !newAuthor) return
-    await createBook({ title: newTitle, author: newAuthor })
-    setNewTitle("")
-    setNewAuthor("")
+    if (!newBook.title || !newBook.author) return
+    await createBook(newBook)
+    setNewBook({})
+    setShowAddForm(false)
     loadBooks()
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Delete this book?")) return
     await deleteBook(id)
+    setSelectedBook(null)
     loadBooks()
   }
 
-  async function handleSaveEdit() {
-    if (!editingBook) return
-    await updateBook(editingBook.id, editingBook)
-    setEditingBook(null)
+  async function handleSave() {
+    if (!editData) return
+    await updateBook(editData.id, editData)
+    setSelectedBook(editData)
+    setEditing(false)
     loadBooks()
   }
+
+  async function handleISBNLookup(isbn: string) {
+    try {
+      const data = await fetchBookByISBN(isbn)
+      setNewBook((prev) => ({ ...prev, ...data, isbn }))
+    } catch {
+      alert("Book not found")
+    }
+  }
+
+  // ESC key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedBook(null)
+        setEditing(false)
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-gray-900 text-white p-6">
-      <div className="max-w-5xl mx-auto">
+    <div
+      className="min-h-screen bg-gray-950 text-white p-4 md:p-6"
+      onClick={() => {
+        if (selectedBook) {
+          setSelectedBook(null)
+          setEditing(false)
+        }
+      }}
+    >
+      <div className="max-w-7xl mx-auto flex gap-6">
 
-        {/* HEADER */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold flex items-center gap-3">
-            <BookIcon className="w-8 h-8 text-blue-400" />
-            My Library
-          </h1>
+        {/* MAIN */}
+        <div className="flex-1">
 
-          {loggedIn && (
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg transition"
-            >
-              <LogOut size={16} />
-              Logout
-            </button>
-          )}
-        </div>
-
-        {!loggedIn ? (
-          <div className="max-w-sm mx-auto bg-gray-800 p-6 rounded-xl shadow-lg">
-            <div className="flex flex-col gap-3">
-              <input
-                className="p-3 rounded bg-gray-700"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-              <input
-                className="p-3 rounded bg-gray-700"
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              {error && <div className="text-red-400">{error}</div>}
-              <button
-                onClick={handleLogin}
-                className="bg-blue-600 hover:bg-blue-700 p-3 rounded-lg font-semibold"
-              >
-                Login
-              </button>
-            </div>
+          {/* HEADER */}
+          <div className="flex justify-between mb-6">
+            <h1 className="text-2xl flex items-center gap-2">
+              <BookIcon /> My Library
+            </h1>
+            {loggedIn && <button onClick={handleLogout}><LogOut /></button>}
           </div>
-        ) : (
-          <>
-            {/* ADD BOOK */}
-            <div className="bg-gray-800 p-5 rounded-xl mb-8 shadow">
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <Plus size={18} />
-                Add New Book
-              </h2>
 
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 p-2 bg-gray-700 rounded"
-                  placeholder="Title"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                />
-                <input
-                  className="flex-1 p-2 bg-gray-700 rounded"
-                  placeholder="Author"
-                  value={newAuthor}
-                  onChange={(e) => setNewAuthor(e.target.value)}
-                />
-                <button
-                  onClick={handleAddBook}
-                  className="bg-green-600 hover:bg-green-700 px-4 rounded flex items-center gap-1"
-                >
-                  <Plus size={16} />
-                  Add
-                </button>
-              </div>
+          {!loggedIn ? (
+            <div className="max-w-sm mx-auto bg-gray-800 p-6 rounded">
+              <input onChange={(e)=>setUsername(e.target.value)} className="w-full mb-2 p-2 bg-gray-700" placeholder="Username"/>
+              <input type="password" onChange={(e)=>setPassword(e.target.value)} className="w-full mb-2 p-2 bg-gray-700" placeholder="Password"/>
+              <button onClick={handleLogin} className="bg-blue-600 w-full p-2">Login</button>
+              {error && <div>{error}</div>}
             </div>
+          ) : (
+            <>
+              {/* ADD */}
+              <div className="bg-gray-800 p-4 mb-6 rounded">
+                {!showAddForm ? (
+                  <button onClick={(e)=>{e.stopPropagation(); setShowAddForm(true)}} className="w-full bg-blue-600 py-2 rounded">
+                    + Add Book
+                  </button>
+                ) : (
+                  <div className="space-y-2" onClick={(e)=>e.stopPropagation()}>
 
-            {/* BOOK GRID */}
-            {books.length === 0 ? (
-              <div className="text-center text-gray-400">
-                No books yet 📭
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-5">
-                {books.map((book) => (
-                  <div
-                    key={book.id}
-                    className="bg-gray-800 p-5 rounded-xl shadow hover:shadow-xl transition-all duration-200"
-                  >
-                    {/* HEADER */}
-                    <div
-                      className="flex justify-between cursor-pointer"
-                      onClick={() =>
-                        setExpandedId(expandedId === book.id ? null : book.id)
-                      }
-                    >
-                      <div>
-                        <div className="font-semibold text-lg flex items-center gap-2">
-                          {book.read && (
-                            <CheckCircle className="text-green-400" size={16} />
-                          )}
-                          {book.title}
-                        </div>
-                        <div className="text-sm text-gray-400">
-                          {book.author}
-                        </div>
-                      </div>
-
+                    <div className="flex gap-2">
+                      <input
+                        placeholder="ISBN"
+                        className="p-2 bg-gray-700 w-full"
+                        value={newBook.isbn || ""}
+                        onChange={(e)=>setNewBook({...newBook,isbn:e.target.value})}
+                      />
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDelete(book.id)
-                        }}
-                        className="text-red-400 hover:text-red-300"
+                        onClick={()=>newBook.isbn && handleISBNLookup(newBook.isbn)}
+                        className="bg-blue-600 px-3 rounded"
                       >
-                        <Trash2 size={18} />
+                        Search
                       </button>
                     </div>
 
-                    {/* EXPANDED */}
-                    {expandedId === book.id && (
-                      <div className="mt-4 space-y-2 text-sm border-t border-gray-700 pt-3">
-                        {editingBook?.id === book.id ? (
-                          <>
-                            <input
-                              className="w-full p-2 bg-gray-700 rounded"
-                              value={editingBook.title}
-                              onChange={(e) =>
-                                setEditingBook({ ...editingBook, title: e.target.value })
-                              }
-                            />
-                            <input
-                              className="w-full p-2 bg-gray-700 rounded"
-                              value={editingBook.author}
-                              onChange={(e) =>
-                                setEditingBook({ ...editingBook, author: e.target.value })
-                              }
-                            />
-                            <input
-                              className="w-full p-2 bg-gray-700 rounded"
-                              placeholder="Year"
-                              value={editingBook.year || ""}
-                              onChange={(e) =>
-                                setEditingBook({ ...editingBook, year: Number(e.target.value) })
-                              }
-                            />
+                    <input placeholder="Title" className="p-2 bg-gray-700 w-full"
+                      value={newBook.title || ""}
+                      onChange={(e)=>setNewBook({...newBook,title:e.target.value})}
+                    />
 
-                            <div className="flex gap-2 pt-2">
-                              <button
-                                onClick={handleSaveEdit}
-                                className="bg-green-600 px-3 py-1 rounded"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => setEditingBook(null)}
-                                className="bg-gray-600 px-3 py-1 rounded"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div>📅 {book.year || "Unknown year"}</div>
-                            <div>📦 {book.isbn || "No ISBN"}</div>
-                            <div>📍 {book.location || "No location"}</div>
-                            <div className="text-gray-300">
-                              {book.description || "No description"}
-                            </div>
+                    <input placeholder="Author" className="p-2 bg-gray-700 w-full"
+                      value={newBook.author || ""}
+                      onChange={(e)=>setNewBook({...newBook,author:e.target.value})}
+                    />
 
-                            <button
-                              onClick={() => setEditingBook(book)}
-                              className="mt-2 flex items-center gap-2 bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded"
-                            >
-                              <Pencil size={14} />
-                              Edit
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex gap-2">
+                      <button onClick={handleAddBook} className="bg-green-600 flex-1 py-2 rounded">Add</button>
+                      <button onClick={()=>setShowAddForm(false)} className="bg-gray-600 flex-1 py-2 rounded">Cancel</button>
+                    </div>
+
+                  </div>
+                )}
+              </div>
+
+              {/* GRID */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {books.map(book => (
+                  <div
+                    key={book.id}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedBook(book)
+                      setEditing(false)
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <div className="aspect-[2/3] bg-gray-800 rounded overflow-hidden">
+                      <img
+                        src={book.cover_url || "https://via.placeholder.com/300x400"}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <div className="text-sm font-semibold">{book.title}</div>
+                      <div className="text-xs text-gray-400">{book.author}</div>
+                    </div>
                   </div>
                 ))}
               </div>
-            )}
-          </>
+            </>
+          )}
+        </div>
+
+        {/* PANEL */}
+        {selectedBook && (
+          <div
+            className="hidden md:flex w-96 bg-gray-900 p-4 flex-col border-l border-gray-800 rounded-xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button onClick={()=>setSelectedBook(null)} className="mb-2">
+              <X />
+            </button>
+
+            <img src={selectedBook.cover_url || "https://via.placeholder.com/300x400"} className="w-32 mx-auto rounded"/>
+
+            <h2 className="text-xl font-bold text-center mt-2">{selectedBook.title}</h2>
+            <p className="text-gray-400 text-center">{selectedBook.author}</p>
+
+            <div className="mt-4 space-y-1 text-sm">
+              <div><b>Year:</b> {selectedBook.year}</div>
+              <div><b>ISBN:</b> {selectedBook.isbn}</div>
+              <div><b>Location:</b> {selectedBook.location}</div>
+              <div><b>Status:</b> {selectedBook.read ? "Read" : "Unread"}</div>
+            </div>
+
+            <div className="mt-4">
+              <b>Description</b>
+              <p>{selectedBook.description}</p>
+            </div>
+
+            <div className="mt-auto">
+              <button onClick={()=>handleDelete(selectedBook.id)} className="bg-red-600 w-full py-2">
+                Delete
+              </button>
+            </div>
+          </div>
         )}
+
+        {/* MOBILE PANEL */}
+        {selectedBook && (
+          <div
+            className="md:hidden fixed inset-0 bg-gray-900 z-50 p-4"
+            onClick={(e)=>e.stopPropagation()}
+          >
+            <button onClick={()=>setSelectedBook(null)} className="mb-2">
+              <X />
+            </button>
+            <img src={selectedBook.cover_url || "https://via.placeholder.com/300x400"} className="w-32 mx-auto rounded"/>
+            <h2 className="text-xl text-center">{selectedBook.title}</h2>
+          </div>
+        )}
+
       </div>
     </div>
   )

@@ -31,6 +31,7 @@ class BookBase(BaseModel):
     description: Optional[str] = None
     read: Optional[bool] = False
     location: Optional[str] = None
+    cover_url: Optional[str] = None  # 👈 ADD THIS
 
 
 class BookCreate(BookBase):
