@@ -7,6 +7,9 @@ type Book = {
   isbn?: string;
   description?: string;
   cover_url?: string;
+  location?: string;
+  category?: string;
+  read?: boolean;
 };
 
 type Props = {
@@ -26,7 +29,7 @@ export function AddBookForm({
 }: Props) {
   return (
     <div className="bg-gray-800 p-4 rounded-xl shadow">
-      {/* ISBN SEARCH */}
+      {/* ISBN */}
       <div className="flex gap-2 mb-3">
         <input
           placeholder="ISBN"
@@ -42,7 +45,7 @@ export function AddBookForm({
         </button>
       </div>
 
-      {/* COVER PREVIEW */}
+      {/* COVER */}
       {newBook.cover_url && (
         <div className="flex justify-center mb-3">
           <img src={newBook.cover_url} className="w-24 rounded shadow" />
@@ -82,14 +85,46 @@ export function AddBookForm({
       {/* DESCRIPTION */}
       <textarea
         placeholder="Description"
-        className="p-2 bg-gray-700 w-full mb-3 rounded min-h-[80px]"
+        className="p-2 bg-gray-700 w-full mb-2 rounded min-h-[80px]"
         value={newBook.description || ""}
         onChange={(e) =>
           setNewBook({ ...newBook, description: e.target.value })
         }
       />
 
-      {/* ADD BUTTON */}
+      {/* LOCATION */}
+      <input
+        placeholder="Location"
+        className="p-2 bg-gray-700 w-full mb-2 rounded"
+        value={newBook.location || ""}
+        onChange={(e) =>
+          setNewBook({ ...newBook, location: e.target.value })
+        }
+      />
+
+      {/* CATEGORY */}
+      <input
+        placeholder="Category"
+        className="p-2 bg-gray-700 w-full mb-2 rounded"
+        value={newBook.category || ""}
+        onChange={(e) =>
+          setNewBook({ ...newBook, category: e.target.value })
+        }
+      />
+
+      {/* READ */}
+      <label className="flex items-center gap-2 mb-3">
+        <input
+          type="checkbox"
+          checked={newBook.read || false}
+          onChange={(e) =>
+            setNewBook({ ...newBook, read: e.target.checked })
+          }
+        />
+        Read
+      </label>
+
+      {/* ADD */}
       <button
         onClick={onAdd}
         className="bg-green-600 w-full py-2 rounded hover:bg-green-500"

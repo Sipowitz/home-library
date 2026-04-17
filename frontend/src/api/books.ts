@@ -2,7 +2,7 @@ import { API, getAuthHeaders } from "./client";
 
 // 📚 GET BOOKS
 export async function getBooks() {
-  const res = await fetch(`${API}/books`, {
+  const res = await fetch(`${API}/books/`, {
     headers: getAuthHeaders(),
   });
 
@@ -12,7 +12,7 @@ export async function getBooks() {
 
 // ➕ CREATE BOOK
 export async function createBook(book: any) {
-  const res = await fetch(`${API}/books`, {
+  const res = await fetch(`${API}/books/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

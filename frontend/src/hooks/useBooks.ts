@@ -11,6 +11,7 @@ type Book = {
   read?: boolean;
   location?: string;
   cover_url?: string;
+  category?: string;
 };
 
 export function useBooks() {
@@ -21,11 +22,13 @@ export function useBooks() {
     setBooks(data);
   }
 
+  // ✅ FIXED: send full object
   async function addBook(newBook: Partial<Book>) {
-    await createBook({
-      title: newBook.title!,
-      author: newBook.author!,
-    });
+    if (!newBook.title || !newBook.author) {
+      throw new Error("Missing required fields");
+    }
+
+    await createBook(newBook);
     await loadBooks();
   }
 

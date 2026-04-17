@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from .database import Base
 
 
@@ -36,13 +37,11 @@ class Book(Base):
     read = Column(Boolean, default=False)
 
     location = Column(String, nullable=True)
-
-    # ✅ already added
     cover_url = Column(String, nullable=True)
-
-    # 🆕 ADD THESE
     category = Column(String, nullable=True)
-    date_added = Column(String, nullable=True)
+
+    # ✅ AUTO DATE
+    date_added = Column(DateTime(timezone=True), server_default=func.now())
 
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="books")

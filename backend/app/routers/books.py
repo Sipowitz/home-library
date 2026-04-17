@@ -34,27 +34,11 @@ def get_book(book_id: int, db: Session = Depends(get_db)):
     return book
 
 
-# ➕ Create book
+# ➕ Create book (✅ duplicates allowed now)
 @router.post("/", response_model=schemas.BookResponse)
 def create_book(book: schemas.BookCreate, db: Session = Depends(get_db)):
-    if book.isbn:
-        existing = db.query(Book).filter(Book.isbn == book.isbn).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Book already exists")
+    new_book = models.Book(**book.model_dump())
 
-    new_book = models.Book(
-    title=book.title,
-    author=book.author,
-    year=book.year,
-    isbn=book.isbn,
-    description=book.description,
-    read=book.read,
-    location=book.location,
-    cover_url=book.cover_url,
-    category=book.category,
-    date_added=book.date_added,
-    owner_id=1,  # temp
-)
     db.add(new_book)
     db.commit()
     db.refresh(new_book)
@@ -62,7 +46,7 @@ def create_book(book: schemas.BookCreate, db: Session = Depends(get_db)):
     return new_book
 
 
-# ✏️ Update book
+# ✏️ Update book (safe update)
 @router.put("/{book_id}", response_model=schemas.BookResponse)
 def update_book(book_id: int, updated: schemas.BookUpdate, db: Session = Depends(get_db)):
     book = db.query(Book).filter(Book.id == book_id).first()
@@ -70,7 +54,7 @@ def update_book(book_id: int, updated: schemas.BookUpdate, db: Session = Depends
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    for key, value in updated.model_dump().items():
+    for key, value in updated.model_dump(exclude_unset=True).items():
         setattr(book, key, value)
 
     db.commit()

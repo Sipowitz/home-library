@@ -70,11 +70,9 @@ export default function App() {
   // 🔐 LOGOUT
   function handleLogout() {
     localStorage.removeItem("token");
-
     setLoggedIn(false);
     setSelectedBook(null);
     setNewBook({});
-
     window.location.reload();
   }
 
@@ -83,7 +81,7 @@ export default function App() {
     setShowSettings(false);
   }
 
-  // 🔍 SEARCH
+  // 🔍 SEARCH (fixed merge logic)
   async function handleSearch() {
     if (!newBook.isbn) return;
 
@@ -92,15 +90,12 @@ export default function App() {
 
       const data = await fetchBookByISBN(newBook.isbn);
 
-      console.log("API DATA:", data);
-
       setNewBook((prev) => ({
-        ...data,
         ...prev,
+        ...data,
         read: prev.read ?? false,
         category: prev.category ?? "",
         location: prev.location ?? "",
-        date_added: prev.date_added ?? new Date().toISOString().split("T")[0],
       }));
     } catch (err) {
       console.error(err);
@@ -110,32 +105,27 @@ export default function App() {
     }
   }
 
-  // ➕ ADD BOOK (FIXED PROPERLY)
+  // ➕ ADD BOOK (fixed state handling)
   async function handleAddBook() {
     if (!newBook.title || !newBook.author) return;
 
-    const payload = {
-      title: newBook.title,
-      author: newBook.author,
-      year: newBook.year || null,
-      isbn: newBook.isbn || "",
-      description: newBook.description || "",
-      read: newBook.read ?? false,
-      location: newBook.location || "",
-      cover_url: newBook.cover_url || "", // 🔥 critical fix
-      category: newBook.category || "",
-      date_added: newBook.date_added ?? new Date().toISOString().split("T")[0],
-    };
-
-    console.log("SENDING:", payload);
+    console.log("SENDING:", newBook);
 
     try {
-      await addBook(payload);
+      await addBook(newBook);
+
+      // ✅ reset form after success
       setNewBook({});
       loadBooks();
     } catch (err) {
       console.error(err);
-      alert("Book already exists or failed to add");
+      alert("Failed to add book");
+
+      // ✅ prevent stuck state
+      setNewBook((prev) => ({
+        ...prev,
+        isbn: "",
+      }));
     }
   }
 

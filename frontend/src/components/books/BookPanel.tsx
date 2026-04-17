@@ -36,6 +36,18 @@ function buildLocationTree(locations: any[], parentId?: number, level = 0) {
     ]);
 }
 
+// ✅ Date formatter
+function formatDate(dateString?: string) {
+  if (!dateString) return "";
+
+  const d = new Date(dateString);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
 export function BookPanel({
   book,
   editing,
@@ -118,7 +130,7 @@ export function BookPanel({
               )}
               {book.date_added && (
                 <div>
-                  <strong>Added:</strong> {book.date_added}
+                  <strong>Added:</strong> {formatDate(book.date_added)}
                 </div>
               )}
             </div>
@@ -215,7 +227,6 @@ export function BookPanel({
                 }
               />
 
-              {/* LOCATION */}
               <select
                 className="w-full p-2 bg-gray-700 rounded"
                 value={editData?.location || ""}
@@ -231,26 +242,12 @@ export function BookPanel({
                 ))}
               </select>
 
-              {/* CATEGORY */}
               <input
                 placeholder="Category"
                 className="w-full p-2 bg-gray-700 rounded"
                 value={editData?.category || ""}
                 onChange={(e) =>
                   setEditData({ ...editData!, category: e.target.value })
-                }
-              />
-
-              {/* DATE ADDED */}
-              <input
-                type="date"
-                className="w-full p-2 bg-gray-700 rounded"
-                value={editData?.date_added || ""}
-                onChange={(e) =>
-                  setEditData({
-                    ...editData!,
-                    date_added: e.target.value,
-                  })
                 }
               />
             </div>

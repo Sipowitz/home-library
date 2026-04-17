@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 
 
 # -------------------
@@ -35,10 +36,7 @@ class BookBase(BaseModel):
     location: Optional[str] = None
 
     cover_url: Optional[str] = None
-
-    # 🆕 NEW FIELDS
     category: Optional[str] = None
-    date_added: Optional[str] = None
 
 
 class BookCreate(BookBase):
@@ -51,6 +49,7 @@ class BookUpdate(BookBase):
 
 class BookResponse(BookBase):
     id: int
+    date_added: datetime
 
     class Config:
         from_attributes = True

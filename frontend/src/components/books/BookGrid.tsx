@@ -24,13 +24,20 @@ export function BookGrid({ books, onSelect }: Props) {
           className="cursor-pointer group"
         >
           <div className="relative aspect-[2/3] bg-gray-800 rounded-lg overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 transform group-hover:-translate-y-1">
-            {/* COVER */}
+            {/* ✅ FIXED COVER */}
             <img
-              src="https://dummyimage.com/300x400/00ff00/000000&text=TEST"
+              src={
+                book.cover_url ||
+                "https://via.placeholder.com/128x192?text=No+Cover"
+              }
+              onError={(e) => {
+                (e.target as HTMLImageElement).src =
+                  "https://via.placeholder.com/128x192?text=No+Cover";
+              }}
               className="w-full h-full object-cover"
             />
 
-            {/* HOVER OVERLAY */}
+            {/* HOVER */}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition" />
 
             {/* READ BADGE */}
