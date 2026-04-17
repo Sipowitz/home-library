@@ -16,7 +16,7 @@ export function SettingsModal({
   onSave,
   onClose,
 }: Props) {
-  const { locations, addLocation } = useLocations();
+  const { locations, addLocation, deleteLocation } = useLocations();
 
   const [newLocation, setNewLocation] = useState("");
   const [parentId, setParentId] = useState<number | "">("");
@@ -93,9 +93,30 @@ export function SettingsModal({
         <div className="max-h-40 overflow-y-auto text-sm space-y-1">
           {locations.map((loc) => {
             const parent = locations.find((l) => l.id === loc.parentId);
+
             return (
-              <div key={loc.id} className="text-gray-300">
-                {parent ? `${parent.name} > ${loc.name}` : loc.name}
+              <div
+                key={loc.id}
+                className="flex justify-between items-center bg-gray-800 px-2 py-1 rounded"
+              >
+                <span className="text-gray-300">
+                  {parent ? `${parent.name} > ${loc.name}` : loc.name}
+                </span>
+
+                <button
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `Delete location "${loc.name}" and its sub-locations?`,
+                      )
+                    ) {
+                      deleteLocation(loc.id);
+                    }
+                  }}
+                  className="text-red-400 hover:text-red-300 text-xs"
+                >
+                  Delete
+                </button>
               </div>
             );
           })}

@@ -36,7 +36,9 @@ class Book(Base):
 
     read = Column(Boolean, default=False)
 
-    location = Column(String, nullable=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+
+    location = relationship("Location")
     cover_url = Column(String, nullable=True)
     category = Column(String, nullable=True)
 
@@ -45,3 +47,12 @@ class Book(Base):
 
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="books")
+
+class Location(Base):
+    __tablename__ = "locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    parent_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+
+    parent = relationship("Location", remote_side=[id])

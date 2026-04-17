@@ -20,7 +20,7 @@ type Book = {
   isbn?: string;
   description?: string;
   read?: boolean;
-  location?: string;
+  location_id?: number;
   cover_url?: string;
   category?: string;
   date_added?: string;
@@ -81,21 +81,21 @@ export default function App() {
     setShowSettings(false);
   }
 
-  // 🔍 SEARCH (fixed merge logic)
+  // 🔍 SEARCH ISBN
   async function handleSearch() {
     if (!newBook.isbn) return;
 
     try {
       setIsFetching(true);
-
       const data = await fetchBookByISBN(newBook.isbn);
 
       setNewBook((prev) => ({
-        ...prev,
         ...data,
+        ...prev,
         read: prev.read ?? false,
         category: prev.category ?? "",
-        location: prev.location ?? "",
+        location_id: prev.location_id ?? undefined,
+        date_added: prev.date_added ?? new Date().toISOString().split("T")[0],
       }));
     } catch (err) {
       console.error(err);
@@ -105,27 +105,30 @@ export default function App() {
     }
   }
 
-  // ➕ ADD BOOK (fixed state handling)
+  // ➕ ADD BOOK
   async function handleAddBook() {
     if (!newBook.title || !newBook.author) return;
 
-    console.log("SENDING:", newBook);
+    const payload = {
+      title: newBook.title,
+      author: newBook.author,
+      year: newBook.year || null,
+      isbn: newBook.isbn || "",
+      description: newBook.description || "",
+      read: newBook.read ?? false,
+      location_id: newBook.location_id || null, // ✅ FIXED
+      cover_url: newBook.cover_url || "",
+      category: newBook.category || "",
+      date_added: newBook.date_added ?? new Date().toISOString().split("T")[0],
+    };
 
     try {
-      await addBook(newBook);
-
-      // ✅ reset form after success
+      await addBook(payload);
       setNewBook({});
       loadBooks();
     } catch (err) {
       console.error(err);
       alert("Failed to add book");
-
-      // ✅ prevent stuck state
-      setNewBook((prev) => ({
-        ...prev,
-        isbn: "",
-      }));
     }
   }
 

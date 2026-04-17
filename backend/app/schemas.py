@@ -33,10 +33,12 @@ class BookBase(BaseModel):
     description: Optional[str] = None
 
     read: Optional[bool] = False
-    location: Optional[str] = None
+    location_id: Optional[int] = None
 
     cover_url: Optional[str] = None
+
     category: Optional[str] = None
+    date_added: Optional[datetime] = None
 
 
 class BookCreate(BookBase):
@@ -49,7 +51,28 @@ class BookUpdate(BookBase):
 
 class BookResponse(BookBase):
     id: int
-    date_added: datetime
+    location_id: Optional[int] = None
+    date_added: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# -------------------
+# 📍 LOCATION SCHEMAS (NEW)
+# -------------------
+
+class LocationBase(BaseModel):
+    name: str
+    parent_id: Optional[int] = None
+
+
+class LocationCreate(LocationBase):
+    pass
+
+
+class LocationResponse(LocationBase):
+    id: int
 
     class Config:
         from_attributes = True

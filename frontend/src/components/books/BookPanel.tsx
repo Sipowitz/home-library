@@ -9,7 +9,7 @@ type Book = {
   isbn?: string;
   description?: string;
   read?: boolean;
-  location?: string;
+  location_id?: number;
   cover_url?: string;
   category?: string;
   date_added?: string;
@@ -28,23 +28,23 @@ type Props = {
 
 // 🔧 Build hierarchical list
 function buildLocationTree(locations: any[], parentId?: number, level = 0) {
+  const pid = parentId ?? null;
+
   return locations
-    .filter((l) => l.parentId === parentId)
+    .filter((l) => l.parent_id === pid)
     .flatMap((loc) => [
       { ...loc, level },
       ...buildLocationTree(locations, loc.id, level + 1),
     ]);
 }
 
-// ✅ Date formatter
+// 📅 Format date DD/MM/YYYY
 function formatDate(dateString?: string) {
   if (!dateString) return "";
-
   const d = new Date(dateString);
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();
-
   return `${day}/${month}/${year}`;
 }
 
@@ -62,6 +62,9 @@ export function BookPanel({
   const tree = buildLocationTree(locations);
 
   if (!book) return null;
+
+  // 🔑 Map ID → name
+  const locationName = locations.find((l) => l.id === book.location_id)?.name;
 
   return (
     <>
@@ -108,26 +111,28 @@ export function BookPanel({
 
             {/* METADATA */}
             <div className="mb-4 text-sm space-y-1 border-t border-gray-800 pt-3">
-              {book.isbn && (
-                <div>
-                  <strong>ISBN:</strong> {book.isbn}
-                </div>
-              )}
-              {book.year && (
-                <div>
-                  <strong>Year:</strong> {book.year}
-                </div>
-              )}
-              {book.location && (
-                <div>
-                  <strong>Location:</strong> {book.location}
-                </div>
-              )}
+              <div>
+                <strong>Location:</strong> {locationName || "—"}
+              </div>
+
               {book.category && (
                 <div>
                   <strong>Category:</strong> {book.category}
                 </div>
               )}
+
+              {book.isbn && (
+                <div>
+                  <strong>ISBN:</strong> {book.isbn}
+                </div>
+              )}
+
+              {book.year && (
+                <div>
+                  <strong>Year:</strong> {book.year}
+                </div>
+              )}
+
               {book.date_added && (
                 <div>
                   <strong>Added:</strong> {formatDate(book.date_added)}
@@ -206,6 +211,36 @@ export function BookPanel({
 
             {/* METADATA */}
             <div className="mb-4 space-y-2 border-t border-gray-800 pt-3 text-sm">
+              {/* LOCATION SELECT */}
+              <select
+                className="w-full p-2 bg-gray-700 rounded"
+                value={editData?.location_id || ""}
+                onChange={(e) =>
+                  setEditData({
+                    ...editData!,
+                    location_id: e.target.value
+                      ? Number(e.target.value)
+                      : undefined,
+                  })
+                }
+              >
+                <option value="">Select location</option>
+                {tree.map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {"— ".repeat(loc.level) + loc.name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                placeholder="Category"
+                className="w-full p-2 bg-gray-700 rounded"
+                value={editData?.category || ""}
+                onChange={(e) =>
+                  setEditData({ ...editData!, category: e.target.value })
+                }
+              />
+
               <input
                 placeholder="ISBN"
                 className="w-full p-2 bg-gray-700 rounded"
@@ -227,33 +262,12 @@ export function BookPanel({
                 }
               />
 
-              <select
-                className="w-full p-2 bg-gray-700 rounded"
-                value={editData?.location || ""}
-                onChange={(e) =>
-                  setEditData({ ...editData!, location: e.target.value })
-                }
-              >
-                <option value="">Select location</option>
-                {tree.map((loc) => (
-                  <option key={loc.id} value={loc.name}>
-                    {"— ".repeat(loc.level) + loc.name}
-                  </option>
-                ))}
-              </select>
+              {editData?.date_added && (
+                <div className="text-xs text-gray-400">
+                  Added: {formatDate(editData.date_added)}
+                </div>
+              )}
 
-              <input
-                placeholder="Category"
-                className="w-full p-2 bg-gray-700 rounded"
-                value={editData?.category || ""}
-                onChange={(e) =>
-                  setEditData({ ...editData!, category: e.target.value })
-                }
-              />
-            </div>
-
-            {/* DESCRIPTION */}
-            <div className="mb-4 border-t border-gray-800 pt-3">
               <textarea
                 placeholder="Description"
                 className="w-full p-2 bg-gray-700 rounded min-h-[100px]"

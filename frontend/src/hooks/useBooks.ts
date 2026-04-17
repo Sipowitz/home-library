@@ -9,34 +9,34 @@ type Book = {
   isbn?: string;
   description?: string;
   read?: boolean;
-  location?: string;
+  location_id?: number;
   cover_url?: string;
   category?: string;
+  date_added?: string;
 };
 
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>([]);
 
+  // 📚 LOAD
   async function loadBooks() {
     const data = await getBooks();
     setBooks(data);
   }
 
-  // ✅ FIXED: send full object
+  // ➕ ADD (NOW SENDS FULL OBJECT)
   async function addBook(newBook: Partial<Book>) {
-    if (!newBook.title || !newBook.author) {
-      throw new Error("Missing required fields");
-    }
-
     await createBook(newBook);
     await loadBooks();
   }
 
+  // 🗑 DELETE
   async function removeBook(id: number) {
     await deleteBook(id);
     await loadBooks();
   }
 
+  // ✏️ UPDATE
   async function saveBook(book: Book) {
     await updateBook(book.id, book);
     await loadBooks();

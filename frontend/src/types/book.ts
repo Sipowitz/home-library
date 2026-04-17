@@ -6,6 +6,6 @@ export type Book = {
   isbn?: string;
   description?: string;
   read?: boolean;
-  location?: string;
+  location_id?: number;
   cover_url?: string;
 };

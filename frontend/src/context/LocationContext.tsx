@@ -1,14 +1,20 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import {
+  getLocations,
+  createLocation,
+  deleteLocationApi,
+} from "../api/locations";
 
 export type Location = {
   id: number;
   name: string;
-  parentId?: number;
+  parent_id?: number;
 };
 
 type LocationContextType = {
   locations: Location[];
-  addLocation: (name: string, parentId?: number) => void;
+  addLocation: (name: string, parentId?: number) => Promise<void>;
+  deleteLocation: (id: number) => Promise<void>;
 };
 
 const LocationContext = createContext<LocationContextType | null>(null);
@@ -16,27 +22,29 @@ const LocationContext = createContext<LocationContextType | null>(null);
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [locations, setLocations] = useState<Location[]>([]);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("locations");
-    if (stored) setLocations(JSON.parse(stored));
-  }, []);
-
-  function save(newLocations: Location[]) {
-    setLocations(newLocations);
-    localStorage.setItem("locations", JSON.stringify(newLocations));
+  async function load() {
+    const data = await getLocations();
+    setLocations(data);
   }
 
-  function addLocation(name: string, parentId?: number) {
-    const newLoc = {
-      id: Date.now(),
-      name,
-      parentId,
-    };
-    save([...locations, newLoc]);
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function addLocation(name: string, parentId?: number) {
+    await createLocation({ name, parent_id: parentId });
+    await load();
+  }
+
+  async function deleteLocation(id: number) {
+    await deleteLocationApi(id);
+    await load();
   }
 
   return (
-    <LocationContext.Provider value={{ locations, addLocation }}>
+    <LocationContext.Provider
+      value={{ locations, addLocation, deleteLocation }}
+    >
       {children}
     </LocationContext.Provider>
   );
@@ -44,8 +52,6 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
 export function useLocations() {
   const ctx = useContext(LocationContext);
-  if (!ctx) {
-    throw new Error("useLocations must be used inside LocationProvider");
-  }
+  if (!ctx) throw new Error("Must be inside provider");
   return ctx;
 }
