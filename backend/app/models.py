@@ -25,16 +25,24 @@ class Book(Base):
     __tablename__ = "books"
 
     id = Column(Integer, primary_key=True, index=True)
+
     title = Column(String, nullable=False)
     author = Column(String, nullable=False)
 
     year = Column(Integer, nullable=True)
     isbn = Column(String, nullable=True)
     description = Column(String, nullable=True)
+
     read = Column(Boolean, default=False)
+
     location = Column(String, nullable=True)
 
-    cover_url = Column(String, nullable=True)  # 👈 ADD THIS
+    # ✅ already added
+    cover_url = Column(String, nullable=True)
+
+    # 🆕 ADD THESE
+    category = Column(String, nullable=True)
+    date_added = Column(String, nullable=True)
 
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="books")

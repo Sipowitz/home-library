@@ -42,8 +42,19 @@ def create_book(book: schemas.BookCreate, db: Session = Depends(get_db)):
         if existing:
             raise HTTPException(status_code=400, detail="Book already exists")
 
-    new_book = models.Book(**book.model_dump())
-
+    new_book = models.Book(
+    title=book.title,
+    author=book.author,
+    year=book.year,
+    isbn=book.isbn,
+    description=book.description,
+    read=book.read,
+    location=book.location,
+    cover_url=book.cover_url,
+    category=book.category,
+    date_added=book.date_added,
+    owner_id=1,  # temp
+)
     db.add(new_book)
     db.commit()
     db.refresh(new_book)

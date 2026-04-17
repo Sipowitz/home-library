@@ -26,12 +26,19 @@ class UserResponse(BaseModel):
 class BookBase(BaseModel):
     title: str
     author: str
+
     year: Optional[int] = None
     isbn: Optional[str] = None
     description: Optional[str] = None
+
     read: Optional[bool] = False
     location: Optional[str] = None
-    cover_url: Optional[str] = None  # 👈 ADD THIS
+
+    cover_url: Optional[str] = None
+
+    # 🆕 NEW FIELDS
+    category: Optional[str] = None
+    date_added: Optional[str] = None
 
 
 class BookCreate(BookBase):
