@@ -51,7 +51,11 @@ export async function updateBook(id: number, book: any) {
     body: JSON.stringify(book),
   });
 
-  if (!res.ok) throw new Error("Update failed");
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("UPDATE ERROR:", text);
+    throw new Error(text);
+  }
 
   return res.json();
 }

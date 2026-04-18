@@ -30,7 +30,7 @@ type Props = {
   onDelete: (id: number) => void;
 };
 
-// ✅ FIXED location tree (consistent parent_id)
+// 📍 Location tree
 function buildLocationTree(locations: any[], parentId?: number, level = 0) {
   const pid = parentId ?? null;
 
@@ -73,7 +73,7 @@ export function BookPanel({
     fetchCategories().then(setCategories);
   }, []);
 
-  // ✅ Sync categories
+  // Sync selected categories
   useEffect(() => {
     if (!editData) return;
 
@@ -86,7 +86,7 @@ export function BookPanel({
     }
   }, [editData]);
 
-  // ✅ Reliable textarea resize
+  // Auto resize textarea
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (textareaRef.current) {
@@ -99,7 +99,7 @@ export function BookPanel({
     return () => clearTimeout(timeout);
   }, [editing, editData]);
 
-  // 📂 Flatten categories
+  // Flatten categories
   const flatten = (cats: Category[], prefix = ""): Category[] => {
     let result: Category[] = [];
 
@@ -142,6 +142,13 @@ export function BookPanel({
   }
 
   const locationName = getLocationPath(locations, book.location_id);
+
+  // ✅ CATEGORY DISPLAY FIX
+  const categoryNames = book.categories?.length
+    ? book.categories.map((c) => c.name)
+    : book.category_ids
+        ?.map((id) => flatCategories.find((c) => c.id === id)?.name)
+        .filter(Boolean);
 
   return (
     <>
@@ -196,10 +203,9 @@ export function BookPanel({
                   <strong>Location:</strong> {locationName || "—"}
                 </div>
 
-                {book.categories?.length ? (
+                {categoryNames?.length ? (
                   <div>
-                    <strong>Categories:</strong>{" "}
-                    {book.categories.map((c) => c.name).join(", ")}
+                    <strong>Categories:</strong> {categoryNames.join(", ")}
                   </div>
                 ) : null}
 
@@ -325,7 +331,6 @@ export function BookPanel({
                 }
               />
 
-              {/* DESCRIPTION */}
               <textarea
                 key={editData?.id}
                 ref={textareaRef}
