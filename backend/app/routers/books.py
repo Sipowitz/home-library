@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from ..database import SessionLocal
 from .. import models, schemas
@@ -20,13 +20,28 @@ def get_db():
 # 📚 Get all books
 @router.get("/", response_model=list[schemas.BookResponse])
 def get_books(db: Session = Depends(get_db)):
-    return db.query(Book).all()
+    return (
+        db.query(Book)
+        .options(
+            joinedload(Book.categories),
+            joinedload(Book.location),
+        )
+        .all()
+    )
 
 
 # 📖 Get single book
 @router.get("/{book_id}", response_model=schemas.BookResponse)
 def get_book(book_id: int, db: Session = Depends(get_db)):
-    book = db.query(Book).filter(Book.id == book_id).first()
+    book = (
+        db.query(Book)
+        .options(
+            joinedload(Book.categories),
+            joinedload(Book.location),
+        )
+        .filter(Book.id == book_id)
+        .first()
+    )
 
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
@@ -34,33 +49,74 @@ def get_book(book_id: int, db: Session = Depends(get_db)):
     return book
 
 
-# ➕ Create book (✅ duplicates allowed now)
+# ➕ Create book
 @router.post("/", response_model=schemas.BookResponse)
 def create_book(book: schemas.BookCreate, db: Session = Depends(get_db)):
-    new_book = models.Book(**book.model_dump())
+    data = book.model_dump()
+
+    category_ids = data.pop("category_ids", [])
+
+    categories = []
+    if category_ids:
+        categories = (
+            db.query(models.Category)
+            .filter(models.Category.id.in_(category_ids))
+            .all()
+        )
+
+    new_book = models.Book(**data)
+    new_book.categories = categories
 
     db.add(new_book)
     db.commit()
-    db.refresh(new_book)
 
-    return new_book
+    # 🔥 CRITICAL: reload with relationships
+    return (
+        db.query(Book)
+        .options(joinedload(Book.categories), joinedload(Book.location))
+        .filter(Book.id == new_book.id)
+        .first()
+    )
 
 
-# ✏️ Update book (safe update)
+# ✏️ Update book
 @router.put("/{book_id}", response_model=schemas.BookResponse)
-def update_book(book_id: int, updated: schemas.BookUpdate, db: Session = Depends(get_db)):
+def update_book(
+    book_id: int,
+    updated: schemas.BookUpdate,
+    db: Session = Depends(get_db),
+):
     book = db.query(Book).filter(Book.id == book_id).first()
 
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    for key, value in updated.model_dump(exclude_unset=True).items():
+    data = updated.model_dump(exclude_unset=True)
+
+    category_ids = data.pop("category_ids", None)
+
+    # update fields
+    for key, value in data.items():
         setattr(book, key, value)
 
-    db.commit()
-    db.refresh(book)
+    # update categories
+    if category_ids is not None:
+        categories = (
+            db.query(models.Category)
+            .filter(models.Category.id.in_(category_ids))
+            .all()
+        )
+        book.categories = categories
 
-    return book
+    db.commit()
+
+    # 🔥 CRITICAL FIX: re-query with joinedload
+    return (
+        db.query(Book)
+        .options(joinedload(Book.categories), joinedload(Book.location))
+        .filter(Book.id == book_id)
+        .first()
+    )
 
 
 # 🗑️ Delete book

@@ -12,6 +12,11 @@ import { SettingsModal } from "./components/settings/SettingsModal";
 import { BookPanel } from "./components/books/BookPanel";
 import { StatsPanel } from "./components/stats/StatsPanel";
 
+type Category = {
+  id: number;
+  name: string;
+};
+
 type Book = {
   id: number;
   title: string;
@@ -22,7 +27,8 @@ type Book = {
   read?: boolean;
   location_id?: number;
   cover_url?: string;
-  category?: string;
+  categories?: Category[];
+  category_ids?: number[];
   date_added?: string;
 };
 
@@ -93,9 +99,8 @@ export default function App() {
         ...data,
         ...prev,
         read: prev.read ?? false,
-        category: prev.category ?? "",
         location_id: prev.location_id ?? undefined,
-        date_added: prev.date_added ?? new Date().toISOString().split("T")[0],
+        date_added: prev.date_added ?? new Date().toISOString(),
       }));
     } catch (err) {
       console.error(err);
@@ -106,25 +111,37 @@ export default function App() {
   }
 
   // ➕ ADD BOOK
-  async function handleAddBook() {
+  async function handleAddBook(category_ids: number[]) {
     if (!newBook.title || !newBook.author) return;
 
     const payload = {
       title: newBook.title,
       author: newBook.author,
-      year: newBook.year || null,
-      isbn: newBook.isbn || "",
-      description: newBook.description || "",
+      year: newBook.year ?? null,
+      isbn: newBook.isbn ?? "",
+      description: newBook.description ?? "",
       read: newBook.read ?? false,
-      location_id: newBook.location_id || null, // ✅ FIXED
-      cover_url: newBook.cover_url || "",
-      category: newBook.category || "",
-      date_added: newBook.date_added ?? new Date().toISOString().split("T")[0],
+      location_id: newBook.location_id ?? null,
+      cover_url: newBook.cover_url ?? "",
+      category_ids, // 🔥 THIS WAS THE MISSING LINK
+      date_added: new Date().toISOString(),
     };
 
     try {
       await addBook(payload);
-      setNewBook({});
+
+      // ✅ clear form properly
+      setNewBook({
+        title: "",
+        author: "",
+        year: undefined,
+        isbn: "",
+        description: "",
+        cover_url: "",
+        location_id: undefined,
+        read: false,
+      });
+
       loadBooks();
     } catch (err) {
       console.error(err);
@@ -132,18 +149,26 @@ export default function App() {
     }
   }
 
+  // 🗑 DELETE
   async function handleDelete(id: number) {
     await removeBook(id);
     setSelectedBook(null);
     loadBooks();
   }
 
-  async function handleSave() {
+  // ✅ SAVE (FINAL FIX)
+  async function handleSave(category_ids: number[]) {
     if (!editData) return;
-    await saveBook(editData);
-    setSelectedBook(editData);
+
+    const updated = await saveBook({
+      ...editData,
+      category_ids,
+    });
+
+    // ✅ use fresh backend response
+    setSelectedBook(updated);
+    setEditData(updated);
     setEditing(false);
-    loadBooks();
   }
 
   // 🔐 LOGIN SCREEN

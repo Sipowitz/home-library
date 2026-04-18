@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import engine, Base
-from .routers import books, auth, locations  # ✅ added locations
+from .routers import books, auth, locations, categories
 
 app = FastAPI()
 
@@ -21,7 +21,8 @@ app.add_middleware(
 # ✅ Include routers
 app.include_router(books.router)
 app.include_router(auth.router)
-app.include_router(locations.router)  # ✅ NEW
+app.include_router(locations.router)
+app.include_router(categories.router)
 
 
 @app.get("/")

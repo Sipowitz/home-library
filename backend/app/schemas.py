@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -21,6 +21,32 @@ class UserResponse(BaseModel):
 
 
 # -------------------
+# 🏷️ CATEGORY SCHEMAS
+# -------------------
+
+class CategoryBase(BaseModel):
+    name: str
+    parent_id: Optional[int] = None
+
+
+class CategoryCreate(CategoryBase):
+    pass
+
+
+class CategoryResponse(BaseModel):
+    id: int
+    name: str
+    parent_id: Optional[int]
+    children: List["CategoryResponse"] = []
+
+    class Config:
+        from_attributes = True
+
+
+CategoryResponse.model_rebuild()
+
+
+# -------------------
 # 📚 BOOK SCHEMAS
 # -------------------
 
@@ -36,17 +62,25 @@ class BookBase(BaseModel):
     location_id: Optional[int] = None
 
     cover_url: Optional[str] = None
-
-    category: Optional[str] = None
     date_added: Optional[datetime] = None
 
 
 class BookCreate(BookBase):
-    pass
+    category_ids: List[int] = []
 
 
-class BookUpdate(BookBase):
-    pass
+# 🔥 CRITICAL FIX (this was breaking everything)
+class BookUpdate(BaseModel):
+    title: Optional[str] = None
+    author: Optional[str] = None
+    year: Optional[int] = None
+    isbn: Optional[str] = None
+    description: Optional[str] = None
+    read: Optional[bool] = None
+    location_id: Optional[int] = None
+    cover_url: Optional[str] = None
+
+    category_ids: Optional[List[int]] = None
 
 
 class BookResponse(BookBase):
@@ -54,12 +88,14 @@ class BookResponse(BookBase):
     location_id: Optional[int] = None
     date_added: Optional[datetime] = None
 
+    categories: List[CategoryResponse] = []
+
     class Config:
         from_attributes = True
 
 
 # -------------------
-# 📍 LOCATION SCHEMAS (NEW)
+# 📍 LOCATION SCHEMAS
 # -------------------
 
 class LocationBase(BaseModel):

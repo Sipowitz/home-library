@@ -1,7 +1,19 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from .database import Base
+
+
+# -------------------
+# 🔗 ASSOCIATION TABLE (Book ↔ Category)
+# -------------------
+
+book_categories = Table(
+    "book_categories",
+    Base.metadata,
+    Column("book_id", Integer, ForeignKey("books.id", ondelete="CASCADE"), primary_key=True),
+    Column("category_id", Integer, ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 # -------------------
@@ -15,7 +27,33 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
 
-    books = relationship("Book", back_populates="owner")
+    books = relationship("Book", back_populates="owner", cascade="all, delete")
+
+
+# -------------------
+# 🏷️ CATEGORY MODEL (HIERARCHICAL)
+# -------------------
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+
+    parent_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=True)
+
+    children = relationship(
+        "Category",
+        backref=backref("parent", remote_side=[id]),
+        cascade="all, delete"
+    )
+
+    # 🔗 reverse relationship (cleaner than backref on Book)
+    books = relationship(
+        "Book",
+        secondary=book_categories,
+        back_populates="categories"
+    )
 
 
 # -------------------
@@ -37,22 +75,33 @@ class Book(Base):
     read = Column(Boolean, default=False)
 
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
-
     location = relationship("Location")
-    cover_url = Column(String, nullable=True)
-    category = Column(String, nullable=True)
 
-    # ✅ AUTO DATE
+    cover_url = Column(String, nullable=True)
+
+    # ✅ MANY-TO-MANY CATEGORIES
+    categories = relationship(
+        "Category",
+        secondary=book_categories,
+        back_populates="books"
+    )
+
     date_added = Column(DateTime(timezone=True), server_default=func.now())
 
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="books")
+
+
+# -------------------
+# 📍 LOCATION MODEL
+# -------------------
 
 class Location(Base):
     __tablename__ = "locations"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    parent_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+
+    parent_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=True)
 
     parent = relationship("Location", remote_side=[id])
