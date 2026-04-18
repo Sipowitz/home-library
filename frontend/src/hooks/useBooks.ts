@@ -21,16 +21,18 @@ type Book = {
   date_added?: string;
 };
 
+// 🔥 API BASE (CHANGE IF NEEDED)
+const API = "http://192.168.1.200:8000";
+
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>([]);
 
-  // 📚 LOAD (🔥 FIX HERE)
+  // 📚 LOAD
   async function loadBooks() {
     const data = await getBooks();
 
-    console.log("BOOKS FROM API:", data); // 🔍 DEBUG
+    console.log("BOOKS FROM API:", data);
 
-    // ✅ ensure categories always exist
     const normalized = data.map((b: Book) => ({
       ...b,
       categories: b.categories || [],
@@ -40,10 +42,22 @@ export function useBooks() {
     setBooks(normalized);
   }
 
-  // ➕ ADD
-  async function addBook(newBook: Partial<Book>) {
-    await createBook(newBook);
-    await loadBooks();
+  // ➕ ADD (🔥 FIXED URL)
+  async function addBook(book: any) {
+    const res = await fetch(`${API}/books/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(book),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to add book");
+    }
+
+    const data = await res.json();
+    console.log("CREATED BOOK:", data);
+
+    return data;
   }
 
   // 🗑 DELETE
@@ -61,10 +75,9 @@ export function useBooks() {
 
     const updated = await updateBook(book.id, payload);
 
-    // update local state properly
     setBooks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
 
-    return updated; // 🔥 KEY
+    return updated;
   }
 
   return {

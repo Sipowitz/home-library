@@ -99,7 +99,6 @@ export default function App() {
         ...data,
         ...prev,
         read: prev.read ?? false,
-        location_id: prev.location_id ?? undefined,
         date_added: prev.date_added ?? new Date().toISOString(),
       }));
     } catch (err) {
@@ -110,8 +109,8 @@ export default function App() {
     }
   }
 
-  // ➕ ADD BOOK
-  async function handleAddBook(category_ids: number[]) {
+  // ➕ ADD BOOK (🔥 FIXED)
+  async function handleAddBook() {
     if (!newBook.title || !newBook.author) return;
 
     const payload = {
@@ -123,28 +122,23 @@ export default function App() {
       read: newBook.read ?? false,
       location_id: newBook.location_id ?? null,
       cover_url: newBook.cover_url ?? "",
-      category_ids, // 🔥 THIS WAS THE MISSING LINK
+      category_ids: [],
       date_added: new Date().toISOString(),
     };
 
     try {
-      await addBook(payload);
+      const created = await addBook(payload);
 
-      // ✅ clear form properly
-      setNewBook({
-        title: "",
-        author: "",
-        year: undefined,
-        isbn: "",
-        description: "",
-        cover_url: "",
-        location_id: undefined,
-        read: false,
-      });
+      // 🔥 OPEN EDIT PANEL WITH DATA
+      setSelectedBook(created);
+      setEditData(created);
+      setEditing(true);
 
-      loadBooks();
+      await loadBooks();
+
+      setNewBook({});
     } catch (err) {
-      console.error(err);
+      console.error("ADD ERROR:", err);
       alert("Failed to add book");
     }
   }
@@ -156,18 +150,20 @@ export default function App() {
     loadBooks();
   }
 
-  // ✅ SAVE (FINAL FIX)
+  // 💾 SAVE EDIT
   async function handleSave(category_ids: number[]) {
     if (!editData) return;
 
-    const updated = await saveBook({
+    const payload = {
       ...editData,
       category_ids,
-    });
+    };
 
-    // ✅ use fresh backend response
-    setSelectedBook(updated);
-    setEditData(updated);
+    await saveBook(payload);
+    await loadBooks();
+
+    setSelectedBook(payload);
+    setEditData(payload);
     setEditing(false);
   }
 
