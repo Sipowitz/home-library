@@ -125,7 +125,23 @@ export function BookPanel({
 
   if (!book) return null;
 
-  const locationName = locations.find((l) => l.id === book.location_id)?.name;
+  function getLocationPath(locations: any[], id?: number): string {
+    if (!id) return "";
+
+    const map = new Map(locations.map((l) => [l.id, l]));
+    let current = map.get(id);
+
+    const path: string[] = [];
+
+    while (current) {
+      path.unshift(current.name);
+      current = map.get(current.parentId ?? current.parent_id);
+    }
+
+    return path.join(" > ");
+  }
+
+  const locationName = getLocationPath(locations, book.location_id);
 
   return (
     <>

@@ -17,7 +17,9 @@ type Props = {
   onClose: () => void;
 };
 
+//
 // ================= CATEGORY TREE =================
+//
 function CategoryNode({
   node,
   onDelete,
@@ -31,7 +33,7 @@ function CategoryNode({
     <div className="ml-2">
       <div className="flex items-center justify-between bg-gray-800 px-2 py-1 rounded">
         <div className="flex items-center gap-2">
-          {node.children && node.children.length > 0 && (
+          {node.children?.length > 0 && (
             <button
               onClick={() => setOpen(!open)}
               className="text-xs text-gray-400"
@@ -50,7 +52,7 @@ function CategoryNode({
         </button>
       </div>
 
-      {open && node.children && node.children.length > 0 && (
+      {open && node.children?.length > 0 && (
         <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
           {node.children.map((child) => (
             <CategoryNode key={child.id} node={child} onDelete={onDelete} />
@@ -61,30 +63,64 @@ function CategoryNode({
   );
 }
 
-// ================= LOCATION TREE =================
+//
+// ================= LOCATION TREE (NEW - SAME PATTERN) =================
+//
+function LocationNode({
+  node,
+  onDelete,
+}: {
+  node: any;
+  onDelete: (id: number) => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="ml-2">
+      <div className="flex items-center justify-between bg-gray-800 px-2 py-1 rounded">
+        <div className="flex items-center gap-2">
+          {node.children?.length > 0 && (
+            <button
+              onClick={() => setOpen(!open)}
+              className="text-xs text-gray-400"
+            >
+              {open ? "▼" : "▶"}
+            </button>
+          )}
+          <span className="text-gray-300">{node.name}</span>
+        </div>
+
+        <button
+          onClick={() => onDelete(node.id)}
+          className="text-red-400 text-xs"
+        >
+          Delete
+        </button>
+      </div>
+
+      {open && node.children?.length > 0 && (
+        <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
+          {node.children.map((child: any) => (
+            <LocationNode key={child.id} node={child} onDelete={onDelete} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+//
+// ================= BUILD TREE =================
+//
 function buildLocationTree(locations: any[], parentId?: number) {
   const pid = parentId ?? null;
 
   return locations
-    .filter((l) => (l.parentId ?? null) === pid)
+    .filter((l) => (l.parentId ?? l.parent_id ?? null) === pid)
     .map((loc) => ({
       ...loc,
       children: buildLocationTree(locations, loc.id),
     }));
-}
-
-function flattenLocations(locations: any[], level = 0): any[] {
-  let result: any[] = [];
-
-  for (const loc of locations) {
-    result.push({ ...loc, level });
-
-    if (loc.children?.length) {
-      result = result.concat(flattenLocations(loc.children, level + 1));
-    }
-  }
-
-  return result;
 }
 
 export function SettingsModal({
@@ -112,8 +148,8 @@ export function SettingsModal({
     setCategories(data);
   };
 
-  const tree = buildLocationTree(locations);
-  const flatLocations = flattenLocations(tree);
+  // 🔥 TREE (same as categories now)
+  const locationTree = buildLocationTree(locations);
 
   if (!isOpen) return null;
 
@@ -161,9 +197,8 @@ export function SettingsModal({
           }
         >
           <option value="">No parent</option>
-          {flatLocations.map((loc) => (
+          {locations.map((loc) => (
             <option key={loc.id} value={loc.id}>
-              {"— ".repeat(loc.level)}
               {loc.name}
             </option>
           ))}
@@ -181,24 +216,14 @@ export function SettingsModal({
           Add Location
         </button>
 
+        {/* 🔥 TREE VIEW (FIXED) */}
         <div className="max-h-40 overflow-y-auto text-sm space-y-1">
-          {flatLocations.map((loc) => (
-            <div
+          {locationTree.map((loc) => (
+            <LocationNode
               key={loc.id}
-              className="flex justify-between items-center bg-gray-800 px-2 py-1 rounded"
-            >
-              <span className="text-gray-300">
-                {"— ".repeat(loc.level)}
-                {loc.name}
-              </span>
-
-              <button
-                onClick={() => deleteLocation(loc.id)}
-                className="text-red-400 text-xs"
-              >
-                Delete
-              </button>
-            </div>
+              node={loc}
+              onDelete={(id) => deleteLocation(id)}
+            />
           ))}
         </div>
 
