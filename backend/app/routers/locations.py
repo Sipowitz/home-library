@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import SessionLocal
-from ..models import Location
+from ..models import Location, Book   # ✅ IMPORT Book
 from .. import schemas
 
 router = APIRouter(prefix="/locations", tags=["Locations"])
@@ -37,6 +37,14 @@ def delete_location(loc_id: int, db: Session = Depends(get_db)):
     if not loc:
         raise HTTPException(status_code=404, detail="Not found")
 
+    # 🔥 STEP 1: Remove location from books
+    db.query(Book).filter(Book.location_id == loc_id).update(
+        {Book.location_id: None},
+        synchronize_session=False,
+    )
+
+    # 🔥 STEP 2: Delete location
     db.delete(loc)
+
     db.commit()
     return {"message": "Deleted"}
