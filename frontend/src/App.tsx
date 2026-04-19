@@ -33,7 +33,15 @@ type Book = {
 };
 
 export default function App() {
-  const { books, loadBooks, addBook, removeBook, saveBook } = useBooks();
+  const {
+    books,
+    loadBooks,
+    loadMoreBooks,
+    hasMore,
+    addBook,
+    removeBook,
+    saveBook,
+  } = useBooks();
 
   const [loggedIn, setLoggedIn] = useState(false);
 
@@ -52,7 +60,6 @@ export default function App() {
     localStorage.getItem("google_api_key") || "",
   );
 
-  // 🔐 CHECK LOGIN
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
@@ -61,7 +68,22 @@ export default function App() {
     }
   }, []);
 
-  // 🔐 LOGIN
+  useEffect(() => {
+    function handleScroll() {
+      if (!hasMore) return;
+
+      const bottom =
+        window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
+
+      if (bottom) {
+        loadMoreBooks();
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [hasMore, books]);
+
   async function handleLogin() {
     try {
       await login(username, password);
@@ -73,7 +95,6 @@ export default function App() {
     }
   }
 
-  // 🔐 LOGOUT
   function handleLogout() {
     localStorage.removeItem("token");
     setLoggedIn(false);
@@ -87,7 +108,6 @@ export default function App() {
     setShowSettings(false);
   }
 
-  // 🔍 SEARCH ISBN
   async function handleSearch() {
     if (!newBook.isbn) return;
 
@@ -109,7 +129,6 @@ export default function App() {
     }
   }
 
-  // ➕ ADD BOOK (🔥 FIXED)
   async function handleAddBook() {
     if (!newBook.title || !newBook.author) return;
 
@@ -129,12 +148,9 @@ export default function App() {
     try {
       const created = await addBook(payload);
 
-      // 🔥 OPEN EDIT PANEL WITH DATA
       setSelectedBook(created);
       setEditData(created);
       setEditing(true);
-
-      await loadBooks();
 
       setNewBook({});
     } catch (err) {
@@ -143,14 +159,12 @@ export default function App() {
     }
   }
 
-  // 🗑 DELETE
   async function handleDelete(id: number) {
     await removeBook(id);
     setSelectedBook(null);
-    loadBooks();
   }
 
-  // 💾 SAVE EDIT
+  // ✅ FIXED HERE
   async function handleSave(category_ids: number[]) {
     if (!editData) return;
 
@@ -159,15 +173,13 @@ export default function App() {
       category_ids,
     };
 
-    await saveBook(payload);
-    await loadBooks();
+    const updated = await saveBook(payload); // ✅ use returned data
 
-    setSelectedBook(payload);
-    setEditData(payload);
+    setSelectedBook(updated); // ✅ correct data (includes categories)
+    setEditData(updated);
     setEditing(false);
   }
 
-  // 🔐 LOGIN SCREEN
   if (!loggedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
@@ -208,7 +220,6 @@ export default function App() {
         setEditing(false);
       }}
     >
-      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl flex items-center gap-2">
           <BookIcon /> My Library
@@ -224,7 +235,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* SETTINGS */}
       <SettingsModal
         isOpen={showSettings}
         apiKey={apiKey}
@@ -233,7 +243,6 @@ export default function App() {
         onClose={() => setShowSettings(false)}
       />
 
-      {/* ADD + STATS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-start">
         <div className="lg:col-span-1">
           <AddBookForm
@@ -250,7 +259,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* GRID */}
       <BookGrid
         books={books}
         onSelect={(book) => {
@@ -259,7 +267,6 @@ export default function App() {
         }}
       />
 
-      {/* PANEL */}
       <BookPanel
         book={selectedBook}
         editing={editing}

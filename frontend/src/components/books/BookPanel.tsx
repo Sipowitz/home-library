@@ -150,6 +150,14 @@ export function BookPanel({
         ?.map((id) => flatCategories.find((c) => c.id === id)?.name)
         .filter(Boolean);
 
+  // ✅ ADDED
+  const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    if (!img.src.includes("fallback-cover.png")) {
+      img.src = "/fallback-cover.png";
+    }
+  };
+
   return (
     <>
       {/* BACKDROP */}
@@ -181,6 +189,7 @@ export function BookPanel({
                     book.cover_url ||
                     "https://dummyimage.com/300x400/1f2937/ffffff&text=No+Cover"
                   }
+                  onError={handleImgError}
                   className="w-32 rounded shadow"
                 />
 
@@ -239,7 +248,14 @@ export function BookPanel({
             <>
               {/* EDIT MODE */}
               <div className="flex gap-4 mb-4">
-                <img src={editData?.cover_url || ""} className="w-32 rounded" />
+                <img
+                  src={
+                    editData?.cover_url ||
+                    "https://dummyimage.com/300x400/1f2937/ffffff&text=No+Cover"
+                  }
+                  onError={handleImgError}
+                  className="w-32 rounded"
+                />
 
                 <div className="flex-1 space-y-2">
                   <input

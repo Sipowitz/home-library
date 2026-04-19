@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from .. import models, schemas
 
+# ✅ NEW
+from ..auth.dependencies import get_current_user
+
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
 
@@ -20,7 +23,6 @@ def get_db():
 def build_tree(categories):
     by_id = {c.id: c for c in categories}
 
-    # create clean structure
     tree_nodes = {
         c.id: {
             "id": c.id,
@@ -46,8 +48,15 @@ def build_tree(categories):
 
 # ➕ Create category
 @router.post("/", response_model=schemas.CategoryResponse)
-def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_db)):
+def create_category(
+    category: schemas.CategoryCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),  # ✅ NEW
+):
     db_cat = models.Category(**category.model_dump())
+
+    # ✅ NEW — attach user
+    db_cat.owner_id = current_user.id
 
     db.add(db_cat)
     db.commit()
@@ -56,17 +65,34 @@ def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_
     return db_cat
 
 
-# 📚 Get categories (FIXED)
+# 📚 Get categories (USER SCOPED)
 @router.get("/", response_model=list[schemas.CategoryResponse])
-def get_categories(db: Session = Depends(get_db)):
-    categories = db.query(models.Category).all()
+def get_categories(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),  # ✅ NEW
+):
+    categories = (
+        db.query(models.Category)
+        .filter(models.Category.owner_id == current_user.id)  # ✅ NEW
+        .all()
+    )
+
     return build_tree(categories)
 
 
 # 🗑️ Delete category
 @router.delete("/{category_id}")
-def delete_category(category_id: int, db: Session = Depends(get_db)):
-    cat = db.query(models.Category).filter(models.Category.id == category_id).first()
+def delete_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),  # ✅ NEW
+):
+    cat = (
+        db.query(models.Category)
+        .filter(models.Category.id == category_id)
+        .filter(models.Category.owner_id == current_user.id)  # ✅ NEW
+        .first()
+    )
 
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")

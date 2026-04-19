@@ -23,22 +23,32 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [locations, setLocations] = useState<Location[]>([]);
 
   async function load() {
-    const data = await getLocations();
-    setLocations(data);
+    try {
+      const data = await getLocations();
+      setLocations(data);
+    } catch (err) {
+      console.error("Failed to load locations", err);
+      setLocations([]); // prevent stale state
+    }
   }
 
   useEffect(() => {
-    load();
+    const token = localStorage.getItem("token");
+
+    // ✅ only load when logged in
+    if (token) {
+      load();
+    }
   }, []);
 
   async function addLocation(name: string, parentId?: number) {
     await createLocation({ name, parent_id: parentId });
-    await load();
+    await load(); // ✅ keeps context in sync
   }
 
   async function deleteLocation(id: number) {
     await deleteLocationApi(id);
-    await load();
+    await load(); // ✅ keeps context in sync
   }
 
   return (

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from typing import Optional, List
 from datetime import datetime
 
@@ -69,7 +69,6 @@ class BookCreate(BookBase):
     category_ids: List[int] = []
 
 
-# 🔥 CRITICAL FIX (this was breaking everything)
 class BookUpdate(BaseModel):
     title: Optional[str] = None
     author: Optional[str] = None
@@ -89,6 +88,21 @@ class BookResponse(BookBase):
     date_added: Optional[datetime] = None
 
     categories: List[CategoryResponse] = []
+
+    # ✅ already correct (from earlier fix)
+    @computed_field
+    @property
+    def category_ids(self) -> List[int]:
+        return [c.id for c in self.categories] if self.categories else []
+
+    class Config:
+        from_attributes = True
+
+
+# ✅ NEW — PAGINATION RESPONSE (MUST be AFTER BookResponse)
+class BookListResponse(BaseModel):
+    items: List[BookResponse]
+    total: int
 
     class Config:
         from_attributes = True

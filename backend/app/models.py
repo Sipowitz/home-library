@@ -55,6 +55,10 @@ class Category(Base):
         back_populates="categories"
     )
 
+    # ✅ NEW — user ownership (FIX)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner = relationship("User", backref="categories")
+
 
 # -------------------
 # 📚 BOOK MODEL
@@ -105,3 +109,7 @@ class Location(Base):
     parent_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=True)
 
     parent = relationship("Location", remote_side=[id])
+
+    # ✅ user ownership
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner = relationship("User", backref="locations")

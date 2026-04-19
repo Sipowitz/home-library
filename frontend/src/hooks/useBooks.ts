@@ -21,41 +21,38 @@ type Book = {
   date_added?: string;
 };
 
-// 🔥 API BASE (CHANGE IF NEEDED)
-const API = "http://192.168.1.200:8000";
+const LIMIT = 20;
 
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>([]);
+  const [skip, setSkip] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
-  // 📚 LOAD
+  // 📚 INITIAL LOAD
   async function loadBooks() {
-    const data = await getBooks();
+    const data = await getBooks(0, LIMIT);
 
-    console.log("BOOKS FROM API:", data);
-
-    const normalized = data.map((b: Book) => ({
-      ...b,
-      categories: b.categories || [],
-      category_ids: b.categories?.map((c) => c.id) || [],
-    }));
-
-    setBooks(normalized);
+    setBooks(data.items);
+    setSkip(LIMIT);
+    setHasMore(data.items.length < data.total);
   }
 
-  // ➕ ADD (🔥 FIXED URL)
+  // 📚 LOAD MORE (for infinite scroll)
+  async function loadMoreBooks() {
+    if (!hasMore) return;
+
+    const data = await getBooks(skip, LIMIT);
+
+    setBooks((prev) => [...prev, ...data.items]);
+    setSkip((prev) => prev + LIMIT);
+    setHasMore(skip + LIMIT < data.total);
+  }
+
+  // ➕ ADD
   async function addBook(book: any) {
-    const res = await fetch(`${API}/books/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(book),
-    });
+    const data = await createBook(book);
 
-    if (!res.ok) {
-      throw new Error("Failed to add book");
-    }
-
-    const data = await res.json();
-    console.log("CREATED BOOK:", data);
+    setBooks((prev) => [data, ...prev]);
 
     return data;
   }
@@ -63,17 +60,12 @@ export function useBooks() {
   // 🗑 DELETE
   async function removeBook(id: number) {
     await deleteBook(id);
-    await loadBooks();
+    setBooks((prev) => prev.filter((b) => b.id !== id));
   }
 
   // ✏️ UPDATE
   async function saveBook(book: Book) {
-    const payload = {
-      ...book,
-      category_ids: book.category_ids || [],
-    };
-
-    const updated = await updateBook(book.id, payload);
+    const updated = await updateBook(book.id, book);
 
     setBooks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
 
@@ -83,6 +75,8 @@ export function useBooks() {
   return {
     books,
     loadBooks,
+    loadMoreBooks,
+    hasMore,
     addBook,
     removeBook,
     saveBook,

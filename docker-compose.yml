@@ -36,6 +36,8 @@ services:
 
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/library
+      # ✅ NEW — persistent JWT secret
+      SECRET_KEY: super-secure-production-key-123
 
     volumes:
       - ./backend:/app

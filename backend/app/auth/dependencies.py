@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import User
-from .jwt import SECRET_KEY, ALGORITHM
+
+# ✅ FIX — use the correct JWT file
+from .jwt_handler import SECRET_KEY, ALGORITHM
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 

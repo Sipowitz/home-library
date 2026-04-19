@@ -1,61 +1,24 @@
-import { API, getAuthHeaders } from "./client";
+import client from "./client";
 
-// 📚 GET BOOKS
-export async function getBooks() {
-  const res = await fetch(`${API}/books/`, {
-    headers: getAuthHeaders(),
-  });
-
-  if (!res.ok) throw new Error("Unauthorized");
-  return res.json();
+// 📚 GET BOOKS (PAGINATED)
+export async function getBooks(skip = 0, limit = 20) {
+  const res = await client.get(`/books/?skip=${skip}&limit=${limit}`);
+  return res.data;
 }
 
 // ➕ CREATE BOOK
 export async function createBook(book: any) {
-  const res = await fetch(`${API}/books/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-    },
-    body: JSON.stringify(book),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("CREATE ERROR:", text);
-    throw new Error(text);
-  }
-
-  return res.json();
+  const res = await client.post("/books/", book);
+  return res.data;
 }
 
 // 🗑 DELETE BOOK
 export async function deleteBook(id: number) {
-  const res = await fetch(`${API}/books/${id}`, {
-    method: "DELETE",
-    headers: getAuthHeaders(),
-  });
-
-  if (!res.ok) throw new Error("Delete failed");
+  await client.delete(`/books/${id}`);
 }
 
 // ✏️ UPDATE BOOK
 export async function updateBook(id: number, book: any) {
-  const res = await fetch(`${API}/books/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-    },
-    body: JSON.stringify(book),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("UPDATE ERROR:", text);
-    throw new Error(text);
-  }
-
-  return res.json();
+  const res = await client.put(`/books/${id}`, book);
+  return res.data;
 }
