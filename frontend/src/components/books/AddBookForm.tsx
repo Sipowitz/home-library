@@ -11,7 +11,7 @@ type Props = {
   newBook: Partial<Book>;
   setNewBook: (book: Partial<Book>) => void;
   onSearch: () => void;
-  onAdd: () => void; // ✅ simplified
+  onAdd: () => void;
   isFetching: boolean;
 };
 
@@ -22,6 +22,23 @@ export function AddBookForm({
   onAdd,
   isFetching,
 }: Props) {
+  // ✅ NEW — local warning state (for duplicate ISBN etc.)
+  const [warning, setWarning] = useState<string | null>(null);
+
+  async function handleAdd() {
+    setWarning(null);
+
+    try {
+      await onAdd();
+
+      // NOTE:
+      // Warning handling will be passed up later if needed
+      // (keeping this minimal + non-breaking)
+    } catch (err: any) {
+      setWarning(err?.message || "Failed to add book");
+    }
+  }
+
   return (
     <div className="bg-gray-800 p-4 rounded-xl shadow">
       {/* ISBN SEARCH */}
@@ -39,6 +56,13 @@ export function AddBookForm({
           {isFetching ? "..." : "Search"}
         </button>
       </div>
+
+      {/* ⚠️ WARNING */}
+      {warning && (
+        <div className="bg-yellow-600 text-black p-2 rounded mb-3 text-sm">
+          {warning}
+        </div>
+      )}
 
       {/* COVER */}
       {newBook.cover_url && (
@@ -65,7 +89,7 @@ export function AddBookForm({
 
       {/* ADD BUTTON */}
       <button
-        onClick={() => onAdd()} // ✅ FIX HERE
+        onClick={handleAdd} // ✅ UPDATED
         className="bg-green-600 w-full py-2 rounded hover:bg-green-500"
       >
         Add

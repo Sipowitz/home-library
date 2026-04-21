@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Book as BookIcon, LogOut, Settings } from "lucide-react";
 
 import { login } from "./api/auth";
-import { fetchBookByISBN } from "./api/googleBooks";
+import { previewBookByISBN } from "./api/books";
 
 import { useBooks } from "./hooks/useBooks";
 
@@ -30,6 +30,7 @@ type Book = {
   categories?: Category[];
   category_ids?: number[];
   date_added?: string;
+  warning?: string; // ✅ FIXED
 };
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
     loadMoreBooks,
     hasMore,
     addBook,
+    addBookFromISBN,
     removeBook,
     saveBook,
   } = useBooks();
@@ -113,7 +115,8 @@ export default function App() {
 
     try {
       setIsFetching(true);
-      const data = await fetchBookByISBN(newBook.isbn);
+
+      const data = await previewBookByISBN(newBook.isbn);
 
       setNewBook((prev) => ({
         ...data,
@@ -146,7 +149,14 @@ export default function App() {
     };
 
     try {
-      const created = await addBook(payload);
+      const created = payload.isbn
+        ? await addBookFromISBN(payload)
+        : await addBook(payload);
+
+      if (created.warning) {
+        // ✅ FIXED
+        alert(created.warning);
+      }
 
       setSelectedBook(created);
       setEditData(created);
@@ -164,7 +174,6 @@ export default function App() {
     setSelectedBook(null);
   }
 
-  // ✅ FIXED HERE
   async function handleSave(category_ids: number[]) {
     if (!editData) return;
 
@@ -173,9 +182,9 @@ export default function App() {
       category_ids,
     };
 
-    const updated = await saveBook(payload); // ✅ use returned data
+    const updated = await saveBook(payload);
 
-    setSelectedBook(updated); // ✅ correct data (includes categories)
+    setSelectedBook(updated);
     setEditData(updated);
     setEditing(false);
   }

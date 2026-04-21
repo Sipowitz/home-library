@@ -89,7 +89,9 @@ class BookResponse(BookBase):
 
     categories: List[CategoryResponse] = []
 
-    # ✅ already correct (from earlier fix)
+    warning: Optional[str] = None  # ✅ ADDED
+
+    # ✅ already correct
     @computed_field
     @property
     def category_ids(self) -> List[int]:

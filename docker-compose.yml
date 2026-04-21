@@ -38,6 +38,8 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/library
       # ✅ NEW — persistent JWT secret
       SECRET_KEY: super-secure-production-key-123
+      # ✅ ADDED — Google Books API key
+      GOOGLE_API_KEY: AIzaSyCh-qjTfZQktxKVQAsbgtVN4hNCxaHHjSE
 
     volumes:
       - ./backend:/app

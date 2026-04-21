@@ -1,24 +1,31 @@
 import client from "./client";
 
-// 📚 GET BOOKS (PAGINATED)
-export async function getBooks(skip = 0, limit = 20) {
-  const res = await client.get(`/books/?skip=${skip}&limit=${limit}`);
+export async function getBooks(skip: number, limit: number) {
+  const res = await client.get(`/books?skip=${skip}&limit=${limit}`);
   return res.data;
 }
 
-// ➕ CREATE BOOK
 export async function createBook(book: any) {
-  const res = await client.post("/books/", book);
+  const res = await client.post("/books", book);
   return res.data;
 }
 
-// 🗑 DELETE BOOK
-export async function deleteBook(id: number) {
-  await client.delete(`/books/${id}`);
+export async function createBookFromISBN(book: any) {
+  const res = await client.post("/books/from-isbn", book);
+  return res.data;
 }
 
-// ✏️ UPDATE BOOK
+// ✅ NEW — preview only
+export async function previewBookByISBN(isbn: string) {
+  const res = await client.get(`/books/preview-isbn/${isbn}`);
+  return res.data;
+}
+
 export async function updateBook(id: number, book: any) {
   const res = await client.put(`/books/${id}`, book);
   return res.data;
+}
+
+export async function deleteBook(id: number) {
+  await client.delete(`/books/${id}`);
 }
