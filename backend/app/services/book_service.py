@@ -1,21 +1,73 @@
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_, asc, desc, func  # ✅ ADDED func
+from datetime import datetime
 
 from app import models
 from app.models import Book
 
 
-def get_books(db: Session, user_id: int, skip: int, limit: int):
-    base_query = db.query(Book).filter(Book.owner_id == user_id)
+def get_books(
+    db: Session,
+    user_id: int,
+    skip: int,
+    limit: int,
+    search: str | None = None,
+    category_id: int | None = None,
+    location_id: int | None = None,
+    read: bool | None = None,
+    sort: str = "date_added",
+    order: str = "desc",
+):
+    query = db.query(Book).filter(Book.owner_id == user_id)
 
-    total = base_query.count()
+    # 🔍 SEARCH
+    if search:
+        query = query.filter(
+            or_(
+                Book.title.ilike(f"%{search}%"),
+                Book.author.ilike(f"%{search}%"),
+            )
+        )
+
+    # 🏷️ CATEGORY
+    if category_id:
+        query = query.join(Book.categories).filter(
+            models.Category.id == category_id
+        )
+
+    # 📍 LOCATION
+    if location_id:
+        query = query.filter(Book.location_id == location_id)
+
+    # 📖 READ FILTER
+    if read is not None:
+        query = query.filter(Book.read == read)
+
+    total = query.count()
+
+    # -------------------
+    # 🔀 SORTING (UPDATED)
+    # -------------------
+    if sort == "author":
+        # ✅ sort by surname (last word)
+        sort_column = func.split_part(Book.author, " ", -1)
+    elif sort == "title":
+        sort_column = Book.title
+    else:
+        # fallback (keeps existing behavior)
+        sort_column = getattr(Book, sort, Book.date_added)
+
+    if order == "asc":
+        query = query.order_by(asc(sort_column))
+    else:
+        query = query.order_by(desc(sort_column))
 
     items = (
-        base_query
+        query
         .options(
             joinedload(Book.categories),
             joinedload(Book.location),
         )
-        .order_by(Book.date_added.desc())
         .offset(skip)
         .limit(limit)
         .all()
@@ -47,31 +99,35 @@ def create_book(db: Session, user_id: int, data: dict):
     data.setdefault("isbn", None)
     data.setdefault("cover_url", None)
 
-    # ✅ FIX — enforce category ownership
+    # ✅ NEW — set read_at
+    if data.get("read"):
+        data["read_at"] = datetime.utcnow()
+    else:
+        data["read_at"] = None
+
     categories = []
     if category_ids:
         categories = (
             db.query(models.Category)
             .filter(
                 models.Category.id.in_(category_ids),
-                models.Category.owner_id == user_id,  # 🔥 ADDED
+                models.Category.owner_id == user_id,
             )
             .all()
         )
 
-    # ✅ FIX — enforce location ownership
     location_id = data.get("location_id")
     if location_id:
         location = (
             db.query(models.Location)
             .filter(
                 models.Location.id == location_id,
-                models.Location.owner_id == user_id,  # 🔥 ADDED
+                models.Location.owner_id == user_id,
             )
             .first()
         )
         if not location:
-            data["location_id"] = None  # safe fallback
+            data["location_id"] = None
 
     new_book = models.Book(**data)
     new_book.owner_id = user_id
@@ -101,28 +157,33 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
 
     category_ids = data.pop("category_ids", None)
 
+    # ✅ NEW — handle read → read_at
+    if "read" in data:
+        if data["read"]:
+            book.read_at = datetime.utcnow()
+        else:
+            book.read_at = None
+
     for key, value in data.items():
         setattr(book, key, value)
 
-    # ✅ FIX — enforce category ownership
     if category_ids is not None:
         categories = (
             db.query(models.Category)
             .filter(
                 models.Category.id.in_(category_ids),
-                models.Category.owner_id == user_id,  # 🔥 ADDED
+                models.Category.owner_id == user_id,
             )
             .all()
         )
         book.categories = categories
 
-    # ✅ FIX — enforce location ownership
     if "location_id" in data and data["location_id"]:
         location = (
             db.query(models.Location)
             .filter(
                 models.Location.id == data["location_id"],
-                models.Location.owner_id == user_id,  # 🔥 ADDED
+                models.Location.owner_id == user_id,
             )
             .first()
         )

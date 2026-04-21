@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+import re
+
 from ..database import SessionLocal
 from .. import models, schemas
 
@@ -20,6 +22,21 @@ class ISBNRequest(BaseModel):
     isbn: str
 
 
+def clean_input(data: dict) -> dict:
+    cleaned = {}
+
+    for key, value in data.items():
+        if isinstance(value, str):
+            value = value.strip()
+
+        cleaned[key] = value
+
+    if "isbn" in cleaned and cleaned["isbn"]:
+        cleaned["isbn"] = re.sub(r"[^0-9X]", "", cleaned["isbn"], flags=re.IGNORECASE)
+
+    return cleaned
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -32,10 +49,32 @@ def get_db():
 def get_books(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, le=100),
+
+    # filters
+    search: str | None = Query(None),
+    category_id: int | None = Query(None),
+    location_id: int | None = Query(None),
+    read: bool | None = Query(None),
+
+    # ✅ UPDATED DEFAULT SORT
+    sort: str = Query("author"),
+    order: str = Query("asc"),
+
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return book_service.get_books(db, current_user.id, skip, limit)
+    return book_service.get_books(
+        db=db,
+        user_id=current_user.id,
+        skip=skip,
+        limit=limit,
+        search=search,
+        category_id=category_id,
+        location_id=location_id,
+        read=read,
+        sort=sort,
+        order=order,
+    )
 
 
 @router.get("/{book_id}", response_model=schemas.BookResponse)
@@ -52,7 +91,6 @@ def get_book(
     return book
 
 
-# ✅ FIXED — no auth required
 @router.get("/preview-isbn/{isbn}")
 async def preview_book_by_isbn(
     isbn: str,
@@ -69,7 +107,15 @@ def create_book(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return book_service.create_book(db, current_user.id, book.model_dump())
+    data = clean_input(book.model_dump())
+
+    if not data.get("title"):
+        raise HTTPException(status_code=400, detail="Title is required")
+
+    if not data.get("author"):
+        raise HTTPException(status_code=400, detail="Author is required")
+
+    return book_service.create_book(db, current_user.id, data)
 
 
 @router.post("/from-isbn", response_model=schemas.BookResponse)
@@ -79,10 +125,15 @@ async def create_book_from_isbn_endpoint(
     current_user: models.User = Depends(get_current_user),
 ):
     try:
+        isbn = payload.isbn.strip()
+
+        if not isbn:
+            raise HTTPException(status_code=400, detail="ISBN is required")
+
         return await create_book_from_isbn(
             db,
             current_user.id,
-            payload.isbn,
+            isbn,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -95,11 +146,13 @@ def update_book(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    data = clean_input(updated.model_dump(exclude_unset=True))
+
     book = book_service.update_book(
         db,
         current_user.id,
         book_id,
-        updated.model_dump(exclude_unset=True),
+        data,
     )
 
     if not book:

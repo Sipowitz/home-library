@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   getBooks,
   createBook,
@@ -25,7 +25,7 @@ type Book = {
   categories?: Category[];
   category_ids?: number[];
   date_added?: string;
-  _warning?: string; // ✅ NEW
+  _warning?: string;
 };
 
 type BookCreateInput = {
@@ -40,6 +40,11 @@ type BookCreateInput = {
   category_ids?: number[];
 };
 
+type Filters = {
+  search?: string;
+  locationId?: number | null;
+};
+
 const LIMIT = 20;
 
 export function useBooks() {
@@ -47,30 +52,68 @@ export function useBooks() {
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
+  const [filters, setFilters] = useState<Filters>({
+    search: "",
+    locationId: null,
+  });
+
   function notifyStatsUpdate() {
     window.dispatchEvent(new Event("stats-updated"));
   }
 
-  async function loadBooks() {
-    const data = await getBooks(0, LIMIT);
+  // -------------------
+  // 📥 LOAD BOOKS
+  // -------------------
+  async function loadBooks(reset = true) {
+    const currentSkip = reset ? 0 : skip;
 
-    setBooks(data.items);
-    setSkip(LIMIT);
-    setHasMore(data.items.length < data.total);
+    const data = await getBooks(
+      currentSkip,
+      LIMIT,
+      filters.search,
+      filters.locationId,
+    );
+
+    if (reset) {
+      setBooks(data.items);
+      setSkip(LIMIT);
+    } else {
+      setBooks((prev) => [...prev, ...data.items]);
+      setSkip((prev) => prev + LIMIT);
+    }
+
+    setHasMore(currentSkip + LIMIT < data.total);
   }
 
   async function loadMoreBooks() {
     if (!hasMore) return;
-
-    const data = await getBooks(skip, LIMIT);
-
-    const nextSkip = skip + LIMIT;
-
-    setBooks((prev) => [...prev, ...data.items]);
-    setSkip(nextSkip);
-    setHasMore(nextSkip < data.total);
+    await loadBooks(false);
   }
 
+  // -------------------
+  // 🔍 SET FILTERS
+  // -------------------
+  function updateFilters(newFilters: Partial<Filters>) {
+    const updated = { ...filters, ...newFilters };
+
+    setFilters(updated);
+
+    // ✅ reset state ONLY (no fetch here)
+    setBooks([]);
+    setSkip(0);
+    setHasMore(true);
+  }
+
+  // -------------------
+  // 🔥 CRITICAL FIX
+  // -------------------
+  useEffect(() => {
+    loadBooks(true);
+  }, [filters]);
+
+  // -------------------
+  // ➕ ADD BOOK
+  // -------------------
   async function addBook(book: BookCreateInput) {
     const data = await createBook(book);
 
@@ -80,7 +123,9 @@ export function useBooks() {
     return data;
   }
 
-  // ✅ NEW — add via ISBN (backend-driven)
+  // -------------------
+  // ➕ ADD FROM ISBN
+  // -------------------
   async function addBookFromISBN(book: BookCreateInput) {
     const data = await createBookFromISBN(book);
 
@@ -94,18 +139,24 @@ export function useBooks() {
     return data;
   }
 
+  // -------------------
+  // ❌ DELETE
+  // -------------------
   async function removeBook(id: number) {
     await deleteBook(id);
     setBooks((prev) => prev.filter((b) => b.id !== id));
     notifyStatsUpdate();
   }
 
+  // -------------------
+  // 💾 SAVE
+  // -------------------
   async function saveBook(book: Book) {
     const updated = await updateBook(book.id, book);
 
     setBooks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
-    notifyStatsUpdate();
 
+    notifyStatsUpdate();
     return updated;
   }
 
@@ -115,8 +166,10 @@ export function useBooks() {
     loadMoreBooks,
     hasMore,
     addBook,
-    addBookFromISBN, // ✅ NEW
+    addBookFromISBN,
     removeBook,
     saveBook,
+    updateFilters,
+    filters,
   };
 }

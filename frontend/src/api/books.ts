@@ -1,7 +1,26 @@
 import client from "./client";
 
-export async function getBooks(skip: number, limit: number) {
-  const res = await client.get(`/books?skip=${skip}&limit=${limit}`);
+export async function getBooks(
+  skip: number,
+  limit: number,
+  search?: string,
+  locationId?: number | null,
+) {
+  const params = new URLSearchParams();
+
+  params.append("skip", String(skip));
+  params.append("limit", String(limit));
+
+  // ✅ NEW — filters
+  if (search) {
+    params.append("search", search);
+  }
+
+  if (locationId) {
+    params.append("location_id", String(locationId));
+  }
+
+  const res = await client.get(`/books?${params.toString()}`);
   return res.data;
 }
 
@@ -15,7 +34,7 @@ export async function createBookFromISBN(book: any) {
   return res.data;
 }
 
-// ✅ NEW — preview only
+// ✅ preview only
 export async function previewBookByISBN(isbn: string) {
   const res = await client.get(`/books/preview-isbn/${isbn}`);
   return res.data;

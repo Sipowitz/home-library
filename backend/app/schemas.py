@@ -59,6 +59,10 @@ class BookBase(BaseModel):
     description: Optional[str] = None
 
     read: Optional[bool] = False
+
+    # ✅ ADD THIS (you already added in model)
+    read_at: Optional[datetime] = None
+
     location_id: Optional[int] = None
 
     cover_url: Optional[str] = None
@@ -76,6 +80,7 @@ class BookUpdate(BaseModel):
     isbn: Optional[str] = None
     description: Optional[str] = None
     read: Optional[bool] = None
+    read_at: Optional[datetime] = None  # ✅ ADD
     location_id: Optional[int] = None
     cover_url: Optional[str] = None
 
@@ -89,9 +94,8 @@ class BookResponse(BookBase):
 
     categories: List[CategoryResponse] = []
 
-    warning: Optional[str] = None  # ✅ ADDED
+    warning: Optional[str] = None
 
-    # ✅ already correct
     @computed_field
     @property
     def category_ids(self) -> List[int]:
@@ -101,7 +105,10 @@ class BookResponse(BookBase):
         from_attributes = True
 
 
-# ✅ NEW — PAGINATION RESPONSE (MUST be AFTER BookResponse)
+# -------------------
+# 📦 PAGINATION
+# -------------------
+
 class BookListResponse(BaseModel):
     items: List[BookResponse]
     total: int
@@ -125,6 +132,42 @@ class LocationCreate(LocationBase):
 
 class LocationResponse(LocationBase):
     id: int
+
+    class Config:
+        from_attributes = True
+
+
+# -------------------
+# 📊 STATS SCHEMAS
+# -------------------
+
+class StatItem(BaseModel):
+    name: str
+    count: int
+
+
+class MonthlyStat(BaseModel):
+    month: str
+    count: int
+
+
+class StatsResponse(BaseModel):
+    total_books: int
+    read_books: int
+    unread_books: int
+
+    by_category: List[StatItem]
+    by_location: List[StatItem]
+
+    # ✅ THESE WERE MISSING
+    recent_reads_7_days: int
+    recent_reads_30_days: int
+
+    recent_added_7_days: int
+    recent_added_30_days: int
+
+    # ✅ ALSO MISSING
+    monthly_reads: List[MonthlyStat]
 
     class Config:
         from_attributes = True

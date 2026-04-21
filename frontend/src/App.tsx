@@ -5,12 +5,15 @@ import { login } from "./api/auth";
 import { previewBookByISBN } from "./api/books";
 
 import { useBooks } from "./hooks/useBooks";
+import { useLocations } from "./context/LocationContext";
 
 import { BookGrid } from "./components/books/BookGrid";
 import { AddBookForm } from "./components/books/AddBookForm";
 import { SettingsModal } from "./components/settings/SettingsModal";
 import { BookPanel } from "./components/books/BookPanel";
 import { StatsPanel } from "./components/stats/StatsPanel";
+
+import toast from "react-hot-toast";
 
 type Category = {
   id: number;
@@ -30,7 +33,7 @@ type Book = {
   categories?: Category[];
   category_ids?: number[];
   date_added?: string;
-  warning?: string; // ✅ FIXED
+  warning?: string;
 };
 
 export default function App() {
@@ -43,7 +46,17 @@ export default function App() {
     addBookFromISBN,
     removeBook,
     saveBook,
+    updateFilters,
   } = useBooks();
+
+  const { locations } = useLocations();
+
+  // -------------------
+  // 🔍 FILTER STATE
+  // -------------------
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(""); // ✅ NEW
+  const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
 
   const [loggedIn, setLoggedIn] = useState(false);
 
@@ -58,10 +71,10 @@ export default function App() {
   const [editData, setEditData] = useState<Book | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
-  const [apiKey, setApiKey] = useState(
-    localStorage.getItem("google_api_key") || "",
-  );
 
+  // -------------------
+  // 🔐 AUTH INIT
+  // -------------------
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
@@ -70,6 +83,32 @@ export default function App() {
     }
   }, []);
 
+  // -------------------
+  // ⏱️ DEBOUNCE SEARCH
+  // -------------------
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
+
+  // -------------------
+  // 🔍 APPLY FILTERS
+  // -------------------
+  useEffect(() => {
+    if (!loggedIn) return;
+
+    updateFilters({
+      search: debouncedSearch,
+      locationId: selectedLocation,
+    });
+  }, [debouncedSearch, selectedLocation, loggedIn]);
+
+  // -------------------
+  // 📜 INFINITE SCROLL
+  // -------------------
   useEffect(() => {
     function handleScroll() {
       if (!hasMore) return;
@@ -91,9 +130,10 @@ export default function App() {
       await login(username, password);
       setLoggedIn(true);
       loadBooks();
+      toast.success("Logged in");
     } catch (err) {
       console.error(err);
-      alert("Login failed");
+      toast.error("Login failed");
     }
   }
 
@@ -103,11 +143,6 @@ export default function App() {
     setSelectedBook(null);
     setNewBook({});
     window.location.reload();
-  }
-
-  function saveSettings() {
-    localStorage.setItem("google_api_key", apiKey);
-    setShowSettings(false);
   }
 
   async function handleSearch() {
@@ -124,9 +159,11 @@ export default function App() {
         read: prev.read ?? false,
         date_added: prev.date_added ?? new Date().toISOString(),
       }));
+
+      toast.success("Book found");
     } catch (err) {
       console.error(err);
-      alert("Book not found");
+      toast.error("Book not found");
     } finally {
       setIsFetching(false);
     }
@@ -154,8 +191,9 @@ export default function App() {
         : await addBook(payload);
 
       if (created.warning) {
-        // ✅ FIXED
-        alert(created.warning);
+        toast(created.warning);
+      } else {
+        toast.success("Book added");
       }
 
       setSelectedBook(created);
@@ -165,13 +203,14 @@ export default function App() {
       setNewBook({});
     } catch (err) {
       console.error("ADD ERROR:", err);
-      alert("Failed to add book");
+      toast.error("Failed to add book");
     }
   }
 
   async function handleDelete(id: number) {
     await removeBook(id);
     setSelectedBook(null);
+    toast.success("Book deleted");
   }
 
   async function handleSave(category_ids: number[]) {
@@ -187,6 +226,8 @@ export default function App() {
     setSelectedBook(updated);
     setEditData(updated);
     setEditing(false);
+
+    toast.success("Book updated");
   }
 
   if (!loggedIn) {
@@ -246,11 +287,34 @@ export default function App() {
 
       <SettingsModal
         isOpen={showSettings}
-        apiKey={apiKey}
-        onChange={setApiKey}
-        onSave={saveSettings}
         onClose={() => setShowSettings(false)}
       />
+
+      {/* 🔍 FILTER BAR */}
+      <div className="flex gap-2 mb-4">
+        <input
+          placeholder="Search title or author..."
+          className="p-2 bg-gray-800 rounded w-full"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+        />
+
+        <select
+          className="p-2 bg-gray-800 rounded"
+          value={selectedLocation ?? ""}
+          onChange={(e) =>
+            setSelectedLocation(e.target.value ? Number(e.target.value) : null)
+          }
+        >
+          <option value="">All Locations</option>
+
+          {locations.map((loc) => (
+            <option key={loc.id} value={loc.id}>
+              {loc.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-start">
         <div className="lg:col-span-1">

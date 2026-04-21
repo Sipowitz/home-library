@@ -48,14 +48,12 @@ class Category(Base):
         cascade="all, delete"
     )
 
-    # 🔗 reverse relationship (cleaner than backref on Book)
     books = relationship(
         "Book",
         secondary=book_categories,
         back_populates="categories"
     )
 
-    # ✅ NEW — user ownership (FIX)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner = relationship("User", backref="categories")
 
@@ -78,12 +76,14 @@ class Book(Base):
 
     read = Column(Boolean, default=False)
 
+    # ✅ IMPROVED — indexed for stats queries
+    read_at = Column(DateTime(timezone=True), nullable=True, index=True)
+
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
     location = relationship("Location")
 
     cover_url = Column(String, nullable=True)
 
-    # ✅ MANY-TO-MANY CATEGORIES
     categories = relationship(
         "Category",
         secondary=book_categories,
@@ -92,7 +92,8 @@ class Book(Base):
 
     date_added = Column(DateTime(timezone=True), server_default=func.now())
 
-    owner_id = Column(Integer, ForeignKey("users.id"))
+    # ✅ IMPROVED — critical index
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True)
     owner = relationship("User", back_populates="books")
 
 
@@ -110,6 +111,5 @@ class Location(Base):
 
     parent = relationship("Location", remote_side=[id])
 
-    # ✅ user ownership
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner = relationship("User", backref="locations")

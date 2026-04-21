@@ -11,9 +11,6 @@ import type { Category } from "../../api/categories";
 
 type Props = {
   isOpen: boolean;
-  apiKey: string;
-  onChange: (value: string) => void;
-  onSave: () => void;
   onClose: () => void;
 };
 
@@ -117,13 +114,7 @@ function buildLocationTree(locations: any[], parentId?: number) {
     }));
 }
 
-export function SettingsModal({
-  isOpen,
-  apiKey,
-  onChange,
-  onSave,
-  onClose,
-}: Props) {
+export function SettingsModal({ isOpen, onClose }: Props) {
   const { locations, addLocation, deleteLocation } = useLocations();
 
   const [newLocation, setNewLocation] = useState("");
@@ -162,21 +153,6 @@ export function SettingsModal({
         >
           <h2 className="text-xl mb-4">Settings</h2>
 
-          {/* API KEY */}
-          <input
-            className="w-full p-2 bg-gray-800 rounded mb-4"
-            value={apiKey}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Google API key"
-          />
-
-          <button
-            onClick={onSave}
-            className="bg-green-600 w-full py-2 rounded mb-6"
-          >
-            Save API Key
-          </button>
-
           {/* LOCATIONS */}
           <h3 className="text-lg mb-2">Locations</h3>
 
@@ -214,7 +190,6 @@ export function SettingsModal({
             Add Location
           </button>
 
-          {/* LOCATION TREE */}
           <div className="max-h-40 overflow-y-auto text-sm space-y-1">
             {locationTree.map((loc) => (
               <LocationNode
@@ -287,7 +262,6 @@ export function SettingsModal({
         </div>
       </div>
 
-      {/* DELETE LOCATION MODAL */}
       {confirmDeleteLocation !== null && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 p-6 rounded-xl w-80 text-center">

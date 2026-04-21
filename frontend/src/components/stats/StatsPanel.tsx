@@ -1,16 +1,25 @@
 import { useEffect, useState } from "react";
 
+type StatItem = {
+  name: string;
+  count: number;
+};
+
 type Stats = {
   total_books: number;
   read_books: number;
   unread_books: number;
+  by_category: StatItem[];
+  by_location: StatItem[];
+  recent_added_7_days: number;
+  recent_added_30_days: number;
 };
 
 const API_BASE = "http://192.168.1.200:8000";
 
 export function StatsPanel() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0); // ✅ ADDED
+  const [refreshKey, setRefreshKey] = useState(0);
 
   async function fetchStats() {
     try {
@@ -28,11 +37,8 @@ export function StatsPanel() {
 
       const data = await res.json();
 
-      setStats({
-        total_books: data.total_books,
-        read_books: data.read_books,
-        unread_books: data.unread_books,
-      });
+      // ✅ UPDATED — use full backend response
+      setStats(data);
     } catch (err) {
       console.error("Stats fetch failed", err);
     }
@@ -40,11 +46,11 @@ export function StatsPanel() {
 
   useEffect(() => {
     fetchStats();
-  }, [refreshKey]); // ✅ CHANGED (was [])
+  }, [refreshKey]);
 
   useEffect(() => {
     const handler = () => {
-      setRefreshKey((k) => k + 1); // ✅ FORCE REFRESH
+      setRefreshKey((k) => k + 1);
     };
 
     window.addEventListener("stats-updated", handler);
@@ -93,6 +99,18 @@ export function StatsPanel() {
           </div>
           <div>
             <span className="text-gray-400">Unread:</span> {unread}
+          </div>
+
+          {/* ✅ NEW — recent stats */}
+          <div className="pt-2 border-t border-gray-700">
+            <div>
+              <span className="text-gray-400">Added (7d):</span>{" "}
+              {stats.recent_added_7_days}
+            </div>
+            <div>
+              <span className="text-gray-400">Added (30d):</span>{" "}
+              {stats.recent_added_30_days}
+            </div>
           </div>
         </div>
       </div>
