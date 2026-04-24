@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Loader2, Search } from "lucide-react";
 
 type Book = {
   title?: string;
@@ -22,7 +23,6 @@ export function AddBookForm({
   onAdd,
   isFetching,
 }: Props) {
-  // ✅ NEW — local warning state (for duplicate ISBN etc.)
   const [warning, setWarning] = useState<string | null>(null);
 
   async function handleAdd() {
@@ -30,69 +30,86 @@ export function AddBookForm({
 
     try {
       await onAdd();
-
-      // NOTE:
-      // Warning handling will be passed up later if needed
-      // (keeping this minimal + non-breaking)
     } catch (err: any) {
       setWarning(err?.message || "Failed to add book");
     }
   }
 
   return (
-    <div className="bg-gray-800 p-4 rounded-xl shadow">
-      {/* ISBN SEARCH */}
-      <div className="flex gap-2 mb-3">
-        <input
-          placeholder="ISBN"
-          className="p-2 bg-gray-700 flex-1 rounded"
-          value={newBook.isbn || ""}
-          onChange={(e) => setNewBook({ ...newBook, isbn: e.target.value })}
-        />
-        <button
-          onClick={onSearch}
-          className="bg-blue-600 px-3 rounded hover:bg-blue-500"
-        >
-          {isFetching ? "..." : "Search"}
-        </button>
+    <div className="bg-gray-900/80 backdrop-blur border border-gray-800 p-5 rounded-2xl shadow-xl">
+      {/* HEADER */}
+      <h2 className="text-lg font-semibold mb-4 tracking-wide">Add Book</h2>
+
+      {/* -------------------
+          ISBN SEARCH
+      ------------------- */}
+      <div className="mb-4">
+        <label className="text-xs text-gray-400">ISBN</label>
+
+        <div className="flex gap-2 mt-1">
+          <input
+            placeholder="Scan or enter ISBN..."
+            className="flex-1 p-2 bg-gray-800 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={newBook.isbn || ""}
+            onChange={(e) => setNewBook({ ...newBook, isbn: e.target.value })}
+          />
+
+          <button
+            onClick={onSearch}
+            className="px-3 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center transition"
+          >
+            {isFetching ? (
+              <Loader2 className="animate-spin" size={16} />
+            ) : (
+              <Search size={16} />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* ⚠️ WARNING */}
       {warning && (
-        <div className="bg-yellow-600 text-black p-2 rounded mb-3 text-sm">
+        <div className="bg-yellow-500/90 text-black p-2 rounded-lg mb-4 text-sm">
           {warning}
         </div>
       )}
 
-      {/* COVER */}
+      {/* -------------------
+          COVER PREVIEW
+      ------------------- */}
       {newBook.cover_url && (
-        <div className="flex justify-center mb-3">
-          <img src={newBook.cover_url} className="w-24 rounded shadow" />
+        <div className="flex justify-center mb-4">
+          <img src={newBook.cover_url} className="w-24 rounded-lg shadow-lg" />
         </div>
       )}
 
-      {/* TITLE */}
-      <input
-        placeholder="Title"
-        className="p-2 bg-gray-700 w-full mb-2 rounded"
-        value={newBook.title || ""}
-        onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
-      />
+      {/* -------------------
+          CORE FIELDS
+      ------------------- */}
+      <div className="space-y-3">
+        <input
+          placeholder="Title"
+          className="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={newBook.title || ""}
+          onChange={(e) => setNewBook({ ...newBook, title: e.target.value })}
+        />
 
-      {/* AUTHOR */}
-      <input
-        placeholder="Author"
-        className="p-2 bg-gray-700 w-full mb-4 rounded"
-        value={newBook.author || ""}
-        onChange={(e) => setNewBook({ ...newBook, author: e.target.value })}
-      />
+        <input
+          placeholder="Author"
+          className="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={newBook.author || ""}
+          onChange={(e) => setNewBook({ ...newBook, author: e.target.value })}
+        />
+      </div>
 
-      {/* ADD BUTTON */}
+      {/* -------------------
+          ACTION
+      ------------------- */}
       <button
-        onClick={handleAdd} // ✅ UPDATED
-        className="bg-green-600 w-full py-2 rounded hover:bg-green-500"
+        onClick={handleAdd}
+        className="w-full mt-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 transition font-medium"
       >
-        Add
+        Add to Library
       </button>
     </div>
   );

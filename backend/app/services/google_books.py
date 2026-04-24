@@ -5,6 +5,7 @@ import asyncio
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 
 from app.services.book_service import create_book
 from app.models import Book
@@ -14,7 +15,6 @@ cache: Dict[str, Any] = {}
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# ✅ NEW
 TIMEOUT = 5.0
 MAX_RETRIES = 3
 
@@ -45,7 +45,6 @@ def score_item(item: dict, isbn: str) -> int:
     return score
 
 
-# ✅ NEW — safe request with retry
 async def safe_request(url: str) -> dict | None:
     for attempt in range(MAX_RETRIES):
         try:
@@ -55,12 +54,10 @@ async def safe_request(url: str) -> dict | None:
                 if res.status_code == 200:
                     return res.json()
 
-                # retry on server errors (like 503)
                 if res.status_code >= 500:
                     await asyncio.sleep(0.5 * (attempt + 1))
                     continue
 
-                # don't retry client errors
                 return None
 
         except httpx.RequestError:
@@ -74,20 +71,12 @@ async def fetch_from_google(isbn: str) -> dict | None:
     if GOOGLE_API_KEY:
         url += f"&key={GOOGLE_API_KEY}"
 
-    data = await safe_request(url)
-
-    # fallback search
-    if not data or not data.get("items"):
-        fallback_url = f"{GOOGLE_BOOKS_URL}?q={isbn}"
-        if GOOGLE_API_KEY:
-            fallback_url += f"&key={GOOGLE_API_KEY}"
-
-        return await safe_request(fallback_url)
-
-    return data
+    return await safe_request(url)
 
 
 async def fetch_book_by_isbn(raw_isbn: str) -> dict:
+    print("DEBUG ISBN FETCH:", raw_isbn)
+
     isbn = clean_isbn(raw_isbn)
 
     if not isbn:
@@ -98,26 +87,40 @@ async def fetch_book_by_isbn(raw_isbn: str) -> dict:
 
     data = await fetch_from_google(isbn)
 
-    # ✅ FIX — never crash backend
     if not data or not data.get("items"):
-        return {
-            "title": "",
-            "author": "",
-            "year": None,
-            "description": "",
-            "isbn": isbn,
-            "cover_url": "https://dummyimage.com/300x400/1f2937/ffffff&text=No+Cover",
-            "read": False,
-            "warning": "Could not fetch book data",
-        }
+        raise ValueError("No book found for this ISBN")
+
+    # 🔥 STRICT MATCH — only accept exact ISBN matches
+    valid_items = []
+
+    for item in data["items"]:
+        info = item.get("volumeInfo", {}) or {}
+        identifiers = info.get("industryIdentifiers", []) or []
+
+        for i in identifiers:
+            if clean_isbn(i.get("identifier", "")) == isbn:
+                valid_items.append(item)
+                break
+
+    if not valid_items:
+        raise ValueError("No exact match found for this ISBN")
 
     best_match = sorted(
-        data["items"],
+        valid_items,
         key=lambda item: score_item(item, isbn),
         reverse=True,
     )[0]
 
     book = best_match.get("volumeInfo", {}) or {}
+
+    title = book.get("title")
+    authors = book.get("authors", [])
+
+    if not title:
+        raise ValueError("Invalid ISBN (no title found)")
+
+    if not authors:
+        raise ValueError("Invalid ISBN (no author found)")
 
     identifiers = book.get("industryIdentifiers", []) or []
     extracted_isbn = next(
@@ -135,10 +138,10 @@ async def fetch_book_by_isbn(raw_isbn: str) -> dict:
     image_links = book.get("imageLinks", {}) or {}
 
     result = {
-        "title": book.get("title", ""),
-        "author": ", ".join(book.get("authors", [])),
+        "title": title,
+        "author": ", ".join(authors),
         "year": year,
-        "description": book.get("description", ""),
+        "description": book.get("description"),
         "isbn": extracted_isbn,
         "cover_url": (
             image_links.get("thumbnail", "").replace("http://", "https://")
@@ -158,11 +161,14 @@ async def create_book_from_isbn(
     raw_isbn: str,
     extra_data: dict | None = None,
 ):
-    google_data = await fetch_book_by_isbn(raw_isbn)
+    try:
+        google_data = await fetch_book_by_isbn(raw_isbn)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     payload = {
-        "title": google_data.get("title", ""),
-        "author": google_data.get("author", ""),
+        "title": google_data.get("title"),
+        "author": google_data.get("author"),
         "year": google_data.get("year"),
         "description": google_data.get("description"),
         "isbn": google_data.get("isbn"),

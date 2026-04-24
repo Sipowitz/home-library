@@ -102,18 +102,6 @@ function LocationNode({
   );
 }
 
-// ================= BUILD LOCATION TREE =================
-function buildLocationTree(locations: any[], parentId?: number) {
-  const pid = parentId ?? null;
-
-  return locations
-    .filter((l) => (l.parentId ?? l.parent_id ?? null) === pid)
-    .map((loc) => ({
-      ...loc,
-      children: buildLocationTree(locations, loc.id),
-    }));
-}
-
 export function SettingsModal({ isOpen, onClose }: Props) {
   const { locations, addLocation, deleteLocation } = useLocations();
 
@@ -137,7 +125,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     setCategories(data);
   };
 
-  const locationTree = buildLocationTree(locations);
+  // ✅ FIX — use backend tree directly
+  const locationTree = locations;
 
   if (!isOpen) return null;
 
@@ -171,6 +160,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             }
           >
             <option value="">No parent</option>
+
+            {/* flatten for dropdown */}
             {locations.map((loc) => (
               <option key={loc.id} value={loc.id}>
                 {loc.name}
@@ -190,6 +181,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             Add Location
           </button>
 
+          {/* ✅ NOW CHILDREN SHOW CORRECTLY */}
           <div className="max-h-40 overflow-y-auto text-sm space-y-1">
             {locationTree.map((loc) => (
               <LocationNode
@@ -262,6 +254,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         </div>
       </div>
 
+      {/* DELETE MODAL */}
       {confirmDeleteLocation !== null && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 p-6 rounded-xl w-80 text-center">

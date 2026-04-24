@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException  # ✅ ADD
 
 from .database import engine, Base
 from .routers import books, auth, locations, categories, search, stats, backup
@@ -29,7 +30,7 @@ app.add_middleware(
 # ---------------------------
 # ✅ REGISTER ERROR HANDLERS
 # ---------------------------
-app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # ✅ FIX
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
@@ -42,7 +43,7 @@ app.include_router(locations.router)
 app.include_router(categories.router)
 app.include_router(search.router)
 app.include_router(stats.router)
-app.include_router(backup.router)  # ✅ NEW
+app.include_router(backup.router)
 
 @app.get("/")
 def root():

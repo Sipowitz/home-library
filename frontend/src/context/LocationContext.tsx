@@ -28,27 +28,47 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       setLocations(data);
     } catch (err) {
       console.error("Failed to load locations", err);
-      setLocations([]); // prevent stale state
+      setLocations([]);
     }
   }
 
+  // -------------------
+  // ✅ INITIAL LOAD
+  // -------------------
   useEffect(() => {
     const token = localStorage.getItem("token");
+    if (token) load();
+  }, []);
 
-    // ✅ only load when logged in
-    if (token) {
-      load();
+  // -------------------
+  // 🔥 FIX — RELOAD ON LOGIN / LOGOUT
+  // -------------------
+  useEffect(() => {
+    function handleAuthChange() {
+      const token = localStorage.getItem("token");
+
+      if (token) {
+        load(); // login → fetch locations
+      } else {
+        setLocations([]); // logout → clear
+      }
     }
+
+    window.addEventListener("auth-changed", handleAuthChange);
+
+    return () => {
+      window.removeEventListener("auth-changed", handleAuthChange);
+    };
   }, []);
 
   async function addLocation(name: string, parentId?: number) {
     await createLocation({ name, parent_id: parentId });
-    await load(); // ✅ keeps context in sync
+    await load();
   }
 
   async function deleteLocation(id: number) {
     await deleteLocationApi(id);
-    await load(); // ✅ keeps context in sync
+    await load();
   }
 
   return (

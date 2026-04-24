@@ -1,6 +1,7 @@
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import logging
 
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------
 # 🔥 HTTP EXCEPTIONS (expected)
 # ---------------------------
-async def http_exception_handler(request: Request, exc: HTTPException):
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -47,3 +48,12 @@ async def general_exception_handler(request: Request, exc: Exception):
             "message": "Internal server error",
         },
     )
+
+
+# ---------------------------
+# 🚀 REGISTER HANDLERS
+# ---------------------------
+def register_error_handlers(app):
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(Exception, general_exception_handler)

@@ -21,18 +21,17 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// ✅ FIXED — no infinite reload loop
+// ✅ FIXED — do NOT nuke token on first 401
 client.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      console.warn("Unauthorized");
+      console.warn("Unauthorized request");
 
-      // remove bad token
-      localStorage.removeItem("token");
+      // ❌ DO NOT remove token automatically
+      // This causes cascading failures everywhere
 
-      // ❌ REMOVE reload loop
-      // window.location.reload();
+      // OPTIONAL: you could trigger logout UI later
     }
 
     return Promise.reject(err);

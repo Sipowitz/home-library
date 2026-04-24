@@ -65,10 +65,10 @@ export function useBooks() {
   // 📥 LOAD BOOKS
   // -------------------
   async function loadBooks(reset = true) {
-    const currentSkip = reset ? 0 : skip;
+    const newSkip = reset ? 0 : skip;
 
     const data = await getBooks(
-      currentSkip,
+      newSkip,
       LIMIT,
       filters.search,
       filters.locationId,
@@ -78,11 +78,16 @@ export function useBooks() {
       setBooks(data.items);
       setSkip(LIMIT);
     } else {
-      setBooks((prev) => [...prev, ...data.items]);
-      setSkip((prev) => prev + LIMIT);
+      setBooks((prev) => {
+        const existingIds = new Set(prev.map((b) => b.id));
+        const newItems = data.items.filter((b) => !existingIds.has(b.id));
+        return [...prev, ...newItems];
+      });
+
+      setSkip(newSkip + LIMIT);
     }
 
-    setHasMore(currentSkip + LIMIT < data.total);
+    setHasMore(newSkip + LIMIT < data.total);
   }
 
   async function loadMoreBooks() {
@@ -98,38 +103,38 @@ export function useBooks() {
 
     setFilters(updated);
 
-    // ✅ reset state ONLY (no fetch here)
     setBooks([]);
     setSkip(0);
     setHasMore(true);
   }
 
-  // -------------------
-  // 🔥 CRITICAL FIX
-  // -------------------
   useEffect(() => {
     loadBooks(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   // -------------------
-  // ➕ ADD BOOK
+  // ➕ ADD BOOK (FIXED)
   // -------------------
   async function addBook(book: BookCreateInput) {
     const data = await createBook(book);
 
-    setBooks((prev) => [data, ...prev]);
-    notifyStatsUpdate();
+    // ✅ reload instead of inserting
+    await loadBooks(true);
 
+    notifyStatsUpdate();
     return data;
   }
 
   // -------------------
-  // ➕ ADD FROM ISBN
+  // ➕ ADD FROM ISBN (FIXED)
   // -------------------
   async function addBookFromISBN(book: BookCreateInput) {
     const data = await createBookFromISBN(book);
 
-    setBooks((prev) => [data, ...prev]);
+    // ✅ reload instead of inserting
+    await loadBooks(true);
+
     notifyStatsUpdate();
 
     if (data._warning) {
@@ -140,21 +145,25 @@ export function useBooks() {
   }
 
   // -------------------
-  // ❌ DELETE
+  // ❌ DELETE (IMPROVED)
   // -------------------
   async function removeBook(id: number) {
     await deleteBook(id);
+
+    // keep UI responsive + consistent
     setBooks((prev) => prev.filter((b) => b.id !== id));
+
     notifyStatsUpdate();
   }
 
   // -------------------
-  // 💾 SAVE
+  // 💾 SAVE (IMPROVED)
   // -------------------
   async function saveBook(book: Book) {
     const updated = await updateBook(book.id, book);
 
-    setBooks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+    // ⚠️ if sorting field changed → reload
+    await loadBooks(true);
 
     notifyStatsUpdate();
     return updated;

@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, asc, desc, func
 from datetime import datetime
 
+from fastapi import HTTPException
+
 from app import models
 from app.models import Book
 
@@ -15,12 +17,11 @@ def get_books(
     category_id: int | None = None,
     location_id: int | None = None,
     read: bool | None = None,
-    sort: str = "author",   # ✅ aligned with router
-    order: str = "asc",     # ✅ aligned with router
+    sort: str = "date_added",
+    order: str = "desc",
 ):
     query = db.query(Book).filter(Book.owner_id == user_id)
 
-    # 🔍 SEARCH
     if search:
         query = query.filter(
             or_(
@@ -29,37 +30,27 @@ def get_books(
             )
         )
 
-    # 🏷️ CATEGORY
-    if category_id is not None:
+    if category_id:
         query = query.join(Book.categories).filter(
             models.Category.id == category_id
         )
 
-    # 📍 LOCATION (✅ FIXED including -1 support)
-    if location_id is not None:
-        if location_id == -1:
-            query = query.filter(Book.location_id.is_(None))
-        else:
-            query = query.filter(Book.location_id == location_id)
+    if location_id == -1:
+        query = query.filter(Book.location_id == None)
+    elif location_id:
+        query = query.filter(Book.location_id == location_id)
 
-    # 📖 READ FILTER
     if read is not None:
         query = query.filter(Book.read == read)
 
-    # ✅ FIX count duplication (due to joins)
-    total = query.distinct(Book.id).count()
+    total = query.count()
 
-    # -------------------
-    # 🔀 SORTING
-    # -------------------
     if sort == "author":
         sort_column = func.split_part(Book.author, " ", -1)
     elif sort == "title":
         sort_column = Book.title
-    elif sort == "date_added":
-        sort_column = Book.date_added
     else:
-        sort_column = Book.date_added  # safe fallback
+        sort_column = getattr(Book, sort, Book.date_added)
 
     if order == "asc":
         query = query.order_by(asc(sort_column))
@@ -103,35 +94,37 @@ def create_book(db: Session, user_id: int, data: dict):
     data.setdefault("isbn", None)
     data.setdefault("cover_url", None)
 
-    # ✅ NEW — set read_at
-    if data.get("read"):
-        data["read_at"] = datetime.utcnow()
-    else:
-        data["read_at"] = None
-
+    # ✅ STRICT CATEGORY VALIDATION
     categories = []
     if category_ids:
         categories = (
             db.query(models.Category)
-            .filter(
-                models.Category.id.in_(category_ids),
-                models.Category.owner_id == user_id,
-            )
+            .filter(models.Category.id.in_(category_ids))
+            .filter(models.Category.owner_id == user_id)
             .all()
         )
 
+        if len(categories) != len(category_ids):
+            raise HTTPException(status_code=400, detail="Invalid category_ids")
+
+    # ✅ STRICT LOCATION VALIDATION
     location_id = data.get("location_id")
-    if location_id:
+    if location_id is not None:
         location = (
             db.query(models.Location)
-            .filter(
-                models.Location.id == location_id,
-                models.Location.owner_id == user_id,
-            )
+            .filter(models.Location.id == location_id)
+            .filter(models.Location.owner_id == user_id)
             .first()
         )
+
         if not location:
-            data["location_id"] = None
+            raise HTTPException(status_code=400, detail="Invalid location_id")
+
+    # ✅ READ TRACKING
+    if data.get("read"):
+        data["read_at"] = datetime.utcnow()
+    else:
+        data["read_at"] = None
 
     new_book = models.Book(**data)
     new_book.owner_id = user_id
@@ -161,7 +154,38 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
 
     category_ids = data.pop("category_ids", None)
 
-    # ✅ NEW — handle read → read_at
+    # ✅ STRICT CATEGORY VALIDATION
+    if category_ids is not None:
+        categories = (
+            db.query(models.Category)
+            .filter(models.Category.id.in_(category_ids))
+            .filter(models.Category.owner_id == user_id)
+            .all()
+        )
+
+        if len(categories) != len(category_ids):
+            raise HTTPException(status_code=400, detail="Invalid category_ids")
+
+        book.categories = categories
+
+    # ✅ STRICT LOCATION VALIDATION
+    if "location_id" in data:
+        location_id = data.get("location_id")
+
+        if location_id is not None:
+            location = (
+                db.query(models.Location)
+                .filter(models.Location.id == location_id)
+                .filter(models.Location.owner_id == user_id)
+                .first()
+            )
+
+            if not location:
+                raise HTTPException(status_code=400, detail="Invalid location_id")
+
+        book.location_id = location_id
+
+    # ✅ READ TRACKING
     if "read" in data:
         if data["read"]:
             book.read_at = datetime.utcnow()
@@ -170,29 +194,6 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
 
     for key, value in data.items():
         setattr(book, key, value)
-
-    if category_ids is not None:
-        categories = (
-            db.query(models.Category)
-            .filter(
-                models.Category.id.in_(category_ids),
-                models.Category.owner_id == user_id,
-            )
-            .all()
-        )
-        book.categories = categories
-
-    if "location_id" in data and data["location_id"]:
-        location = (
-            db.query(models.Location)
-            .filter(
-                models.Location.id == data["location_id"],
-                models.Location.owner_id == user_id,
-            )
-            .first()
-        )
-        if not location:
-            book.location_id = None
 
     db.commit()
 

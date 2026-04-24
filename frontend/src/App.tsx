@@ -51,14 +51,12 @@ export default function App() {
 
   const { locations } = useLocations();
 
-  // -------------------
-  // 🔍 FILTER STATE
-  // -------------------
   const [searchInput, setSearchInput] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState(""); // ✅ NEW
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
 
   const [loggedIn, setLoggedIn] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -77,10 +75,12 @@ export default function App() {
   // -------------------
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     if (token) {
       setLoggedIn(true);
-      loadBooks();
     }
+
+    setAuthReady(true);
   }, []);
 
   // -------------------
@@ -125,11 +125,20 @@ export default function App() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [hasMore, books]);
 
+  // -------------------
+  // 🔐 LOGIN
+  // -------------------
   async function handleLogin() {
     try {
       await login(username, password);
+
       setLoggedIn(true);
+
+      // ✅ FIX: notify context
+      window.dispatchEvent(new Event("auth-changed"));
+
       loadBooks();
+
       toast.success("Logged in");
     } catch (err) {
       console.error(err);
@@ -137,12 +146,22 @@ export default function App() {
     }
   }
 
+  // -------------------
+  // 🚪 LOGOUT
+  // -------------------
   function handleLogout() {
     localStorage.removeItem("token");
+
     setLoggedIn(false);
+
+    // ✅ FIX: notify context
+    window.dispatchEvent(new Event("auth-changed"));
+
     setSelectedBook(null);
     setNewBook({});
-    window.location.reload();
+
+    // ❌ REMOVED: was breaking state flow
+    // window.location.reload();
   }
 
   async function handleSearch() {
@@ -230,15 +249,20 @@ export default function App() {
     toast.success("Book updated");
   }
 
+  // -------------------
+  // 🧱 RENDER GUARDS
+  // -------------------
+  if (!authReady) return null;
+
   if (!loggedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
-        <div className="bg-gray-800 p-6 rounded-xl w-80">
+        <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl w-80">
           <h2 className="text-xl mb-4">Login</h2>
 
           <input
             placeholder="Username"
-            className="p-2 bg-gray-700 w-full mb-2 rounded"
+            className="p-2 bg-gray-800 w-full mb-2 rounded"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
@@ -246,7 +270,7 @@ export default function App() {
           <input
             placeholder="Password"
             type="password"
-            className="p-2 bg-gray-700 w-full mb-4 rounded"
+            className="p-2 bg-gray-800 w-full mb-4 rounded"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -264,14 +288,15 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen bg-gray-950 text-white p-4"
+      className="min-h-screen bg-gray-950 text-white p-6"
       onClick={() => {
         setSelectedBook(null);
         setEditing(false);
       }}
     >
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl flex items-center gap-2">
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-2xl flex items-center gap-2 font-semibold">
           <BookIcon /> My Library
         </h1>
 
@@ -290,17 +315,34 @@ export default function App() {
         onClose={() => setShowSettings(false)}
       />
 
-      {/* 🔍 FILTER BAR */}
-      <div className="flex gap-2 mb-4">
+      {/* TOP PANELS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
+        <div className="lg:col-span-1 h-full">
+          <AddBookForm
+            newBook={newBook}
+            setNewBook={setNewBook}
+            onSearch={handleSearch}
+            onAdd={handleAddBook}
+            isFetching={isFetching}
+          />
+        </div>
+
+        <div className="lg:col-span-2 h-full">
+          <StatsPanel />
+        </div>
+      </div>
+
+      {/* SEARCH */}
+      <div className="bg-gray-900/60 border border-gray-800 backdrop-blur p-4 rounded-2xl mb-6 flex gap-3 items-center">
         <input
           placeholder="Search title or author..."
-          className="p-2 bg-gray-800 rounded w-full"
+          className="p-3 bg-gray-800 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
 
         <select
-          className="p-2 bg-gray-800 rounded"
+          className="p-3 bg-gray-800 rounded-lg"
           value={selectedLocation ?? ""}
           onChange={(e) =>
             setSelectedLocation(e.target.value ? Number(e.target.value) : null)
@@ -316,22 +358,7 @@ export default function App() {
         </select>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-start">
-        <div className="lg:col-span-1">
-          <AddBookForm
-            newBook={newBook}
-            setNewBook={setNewBook}
-            onSearch={handleSearch}
-            onAdd={handleAddBook}
-            isFetching={isFetching}
-          />
-        </div>
-
-        <div className="lg:col-span-2">
-          <StatsPanel books={books} />
-        </div>
-      </div>
-
+      {/* GRID */}
       <BookGrid
         books={books}
         onSelect={(book) => {

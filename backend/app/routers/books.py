@@ -83,16 +83,11 @@ def get_books(
 
 
 # -------------------
-# 🔎 ISBN PREVIEW (MUST COME BEFORE /{book_id})
+# 🔎 ISBN PREVIEW
 # -------------------
 @router.get("/preview-isbn/{isbn}")
-async def preview_book_by_isbn(
-    isbn: str,
-):
-    try:
-        return await fetch_book_by_isbn(isbn)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+async def preview_book_by_isbn(isbn: str):
+    return await fetch_book_by_isbn(isbn)
 
 
 # -------------------
@@ -133,7 +128,7 @@ def create_book(
 
 
 # -------------------
-# ➕ CREATE FROM ISBN
+# ➕ CREATE FROM ISBN (FIXED)
 # -------------------
 @router.post("/from-isbn", response_model=schemas.BookResponse)
 async def create_book_from_isbn_endpoint(
@@ -141,19 +136,17 @@ async def create_book_from_isbn_endpoint(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    try:
-        isbn = payload.isbn.strip()
+    isbn = payload.isbn.strip()
 
-        if not isbn:
-            raise HTTPException(status_code=400, detail="ISBN is required")
+    if not isbn:
+        raise HTTPException(status_code=400, detail="ISBN is required")
 
-        return await create_book_from_isbn(
-            db,
-            current_user.id,
-            isbn,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    # ✅ NO try/except — let service handle errors
+    return await create_book_from_isbn(
+        db,
+        current_user.id,
+        isbn,
+    )
 
 
 # -------------------

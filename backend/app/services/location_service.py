@@ -1,4 +1,6 @@
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
+
 from app import models
 from app.models import Location, Book
 
@@ -43,8 +45,33 @@ def create_location(db: Session, user_id: int, data: dict):
     if data.get("parent_id") == 0:
         data["parent_id"] = None
 
+    name = (data.get("name") or "").strip()
+    parent_id = data.get("parent_id")
+
+    # ✅ VALIDATION
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+
+    # 🔥 CRITICAL FIX — prevent duplicates under same parent
+    existing = (
+        db.query(Location)
+        .filter(
+            Location.owner_id == user_id,
+            Location.parent_id == parent_id,
+            Location.name.ilike(name),
+        )
+        .first()
+    )
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Location already exists in this parent",
+        )
+
     location = Location(**data)
     location.owner_id = user_id
+    location.name = name  # ensure trimmed
 
     db.add(location)
     db.commit()
