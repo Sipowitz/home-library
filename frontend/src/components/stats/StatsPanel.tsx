@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -9,6 +9,7 @@ import {
 } from "recharts";
 
 import client from "../../api/client";
+import { useAuth } from "../../context/AuthContext";
 
 type StatItem = {
   name: string;
@@ -31,10 +32,15 @@ export function StatsPanel() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // ✅ NEW: track container size
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [ready, setReady] = useState(false);
+
+  const { token } = useAuth();
+
   async function fetchStats() {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return; // ✅ prevent 401 spam
+      if (!token) return;
 
       const res = await client.get("/stats/");
       setStats(res.data);
@@ -45,12 +51,28 @@ export function StatsPanel() {
 
   useEffect(() => {
     fetchStats();
-  }, [refreshKey]);
+  }, [refreshKey, token]);
 
   useEffect(() => {
     const handler = () => setRefreshKey((k) => k + 1);
     window.addEventListener("stats-updated", handler);
     return () => window.removeEventListener("stats-updated", handler);
+  }, []);
+
+  // ✅ NEW: wait for real size
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver(() => {
+      if (el.offsetWidth > 0 && el.offsetHeight > 0) {
+        setReady(true);
+      }
+    });
+
+    observer.observe(el);
+
+    return () => observer.disconnect();
   }, []);
 
   if (!stats) {
@@ -64,7 +86,7 @@ export function StatsPanel() {
   const readPercent = total ? (read / total) * 100 : 0;
 
   return (
-    <div className="bg-gray-900/80 backdrop-blur border border-gray-800 p-5 rounded-2xl shadow-xl">
+    <div className="bg-gray-900/80 backdrop-blur border border-gray-800 p-5 rounded-2xl shadow-xl h-full flex flex-col">
       <h2 className="text-lg font-semibold mb-4 tracking-wide">
         Library Stats
       </h2>
@@ -87,7 +109,7 @@ export function StatsPanel() {
         </div>
       </div>
 
-      {/* PROGRESS + RECENT */}
+      {/* PROGRESS */}
       <div className="flex gap-6 items-center mb-6">
         <div className="w-28 h-28 relative">
           <div
@@ -123,18 +145,24 @@ export function StatsPanel() {
       </div>
 
       {/* CHART */}
-      <div>
+      <div className="flex-1 flex flex-col">
         <h3 className="text-sm text-gray-400 mb-2">By Location</h3>
 
-        <div className="w-full h-64 min-h-[250px] bg-gray-800 rounded-xl p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.by_location}>
-              <XAxis dataKey="name" stroke="#9ca3af" />
-              <YAxis stroke="#9ca3af" />
-              <Tooltip />
-              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        {/* ✅ CRITICAL FIX */}
+        <div
+          ref={containerRef}
+          className="flex-1 min-h-[260px] bg-gray-800 rounded-xl p-2"
+        >
+          {ready && (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.by_location}>
+                <XAxis dataKey="name" stroke="#9ca3af" />
+                <YAxis stroke="#9ca3af" />
+                <Tooltip />
+                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>
