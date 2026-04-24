@@ -4,13 +4,12 @@ from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from .. import models, schemas
 
-# ✅ NEW
 from ..auth.dependencies import get_current_user
+from ..services import category_service  # ✅ NEW
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
 
-# 📦 DB dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -19,65 +18,27 @@ def get_db():
         db.close()
 
 
-# 🌳 Convert ORM → dict tree
-def build_tree(categories):
-    by_id = {c.id: c for c in categories}
-
-    tree_nodes = {
-        c.id: {
-            "id": c.id,
-            "name": c.name,
-            "parent_id": c.parent_id,
-            "children": [],
-        }
-        for c in categories
-    }
-
-    root = []
-
-    for c in categories:
-        node = tree_nodes[c.id]
-
-        if c.parent_id and c.parent_id in tree_nodes:
-            tree_nodes[c.parent_id]["children"].append(node)
-        else:
-            root.append(node)
-
-    return root
-
-
 # ➕ Create category
 @router.post("/", response_model=schemas.CategoryResponse)
 def create_category(
     category: schemas.CategoryCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),  # ✅ NEW
+    current_user: models.User = Depends(get_current_user),
 ):
-    db_cat = models.Category(**category.model_dump())
-
-    # ✅ NEW — attach user
-    db_cat.owner_id = current_user.id
-
-    db.add(db_cat)
-    db.commit()
-    db.refresh(db_cat)
-
-    return db_cat
+    return category_service.create_category(
+        db,
+        current_user.id,
+        category.model_dump(),
+    )
 
 
-# 📚 Get categories (USER SCOPED)
+# 📚 Get categories (TREE)
 @router.get("/", response_model=list[schemas.CategoryResponse])
 def get_categories(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),  # ✅ NEW
+    current_user: models.User = Depends(get_current_user),
 ):
-    categories = (
-        db.query(models.Category)
-        .filter(models.Category.owner_id == current_user.id)  # ✅ NEW
-        .all()
-    )
-
-    return build_tree(categories)
+    return category_service.get_categories(db, current_user.id)
 
 
 # 🗑️ Delete category
@@ -85,19 +46,15 @@ def get_categories(
 def delete_category(
     category_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),  # ✅ NEW
+    current_user: models.User = Depends(get_current_user),
 ):
-    cat = (
-        db.query(models.Category)
-        .filter(models.Category.id == category_id)
-        .filter(models.Category.owner_id == current_user.id)  # ✅ NEW
-        .first()
+    success = category_service.delete_category(
+        db,
+        current_user.id,
+        category_id,
     )
 
-    if not cat:
+    if not success:
         raise HTTPException(status_code=404, detail="Category not found")
-
-    db.delete(cat)
-    db.commit()
 
     return {"message": "Category deleted"}

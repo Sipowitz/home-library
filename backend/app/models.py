@@ -74,12 +74,11 @@ class Book(Base):
     isbn = Column(String, nullable=True)
     description = Column(String, nullable=True)
 
-    read = Column(Boolean, default=False)
+    read = Column(Boolean, default=False, index=True)  # ✅ added index
 
-    # ✅ IMPROVED — indexed for stats queries
     read_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
-    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True, index=True)  # ✅ added index
     location = relationship("Location")
 
     cover_url = Column(String, nullable=True)
@@ -90,9 +89,8 @@ class Book(Base):
         back_populates="books"
     )
 
-    date_added = Column(DateTime(timezone=True), server_default=func.now())
+    date_added = Column(DateTime(timezone=True), server_default=func.now(), index=True)  # ✅ added index
 
-    # ✅ IMPROVED — critical index
     owner_id = Column(Integer, ForeignKey("users.id"), index=True)
     owner = relationship("User", back_populates="books")
 

@@ -22,6 +22,10 @@ class ISBNRequest(BaseModel):
     isbn: str
 
 
+class DeleteResponse(BaseModel):
+    message: str
+
+
 def clean_input(data: dict) -> dict:
     cleaned = {}
 
@@ -45,18 +49,19 @@ def get_db():
         db.close()
 
 
+# -------------------
+# 📚 LIST BOOKS
+# -------------------
 @router.get("/", response_model=schemas.BookListResponse)
 def get_books(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, le=100),
 
-    # filters
     search: str | None = Query(None),
     category_id: int | None = Query(None),
     location_id: int | None = Query(None),
     read: bool | None = Query(None),
 
-    # ✅ UPDATED DEFAULT SORT
     sort: str = Query("author"),
     order: str = Query("asc"),
 
@@ -77,6 +82,22 @@ def get_books(
     )
 
 
+# -------------------
+# 🔎 ISBN PREVIEW (MUST COME BEFORE /{book_id})
+# -------------------
+@router.get("/preview-isbn/{isbn}")
+async def preview_book_by_isbn(
+    isbn: str,
+):
+    try:
+        return await fetch_book_by_isbn(isbn)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# -------------------
+# 📖 GET SINGLE BOOK
+# -------------------
 @router.get("/{book_id}", response_model=schemas.BookResponse)
 def get_book(
     book_id: int,
@@ -91,16 +112,9 @@ def get_book(
     return book
 
 
-@router.get("/preview-isbn/{isbn}")
-async def preview_book_by_isbn(
-    isbn: str,
-):
-    try:
-        return await fetch_book_by_isbn(isbn)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
+# -------------------
+# ➕ CREATE BOOK
+# -------------------
 @router.post("/", response_model=schemas.BookResponse)
 def create_book(
     book: schemas.BookCreate,
@@ -118,6 +132,9 @@ def create_book(
     return book_service.create_book(db, current_user.id, data)
 
 
+# -------------------
+# ➕ CREATE FROM ISBN
+# -------------------
 @router.post("/from-isbn", response_model=schemas.BookResponse)
 async def create_book_from_isbn_endpoint(
     payload: ISBNRequest,
@@ -139,6 +156,9 @@ async def create_book_from_isbn_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# -------------------
+# ✏️ UPDATE BOOK
+# -------------------
 @router.put("/{book_id}", response_model=schemas.BookResponse)
 def update_book(
     book_id: int,
@@ -161,7 +181,10 @@ def update_book(
     return book
 
 
-@router.delete("/{book_id}")
+# -------------------
+# ❌ DELETE BOOK
+# -------------------
+@router.delete("/{book_id}", response_model=DeleteResponse)
 def delete_book(
     book_id: int,
     db: Session = Depends(get_db),

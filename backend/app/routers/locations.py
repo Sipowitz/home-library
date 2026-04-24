@@ -2,12 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import SessionLocal
-from ..models import Location, Book
-from .. import schemas
+from .. import schemas, models
 
-# ✅ NEW — auth
 from ..auth.dependencies import get_current_user
-from .. import models
+from ..services import location_service
 
 router = APIRouter(prefix="/locations", tags=["Locations"])
 
@@ -20,62 +18,43 @@ def get_db():
         db.close()
 
 
+# 📚 Get locations (TREE)
 @router.get("/", response_model=list[schemas.LocationResponse])
 def get_locations(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),  # ✅ NEW
+    current_user: models.User = Depends(get_current_user),
 ):
-    return (
-        db.query(Location)
-        .filter(Location.owner_id == current_user.id)  # ✅ NEW
-        .all()
-    )
+    return location_service.get_locations(db, current_user.id)
 
 
+# ➕ Create location
 @router.post("/", response_model=schemas.LocationResponse)
 def create_location(
     loc: schemas.LocationCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),  # ✅ NEW
+    current_user: models.User = Depends(get_current_user),
 ):
-    new_loc = Location(**loc.model_dump())
-
-    # ✅ NEW — attach user
-    new_loc.owner_id = current_user.id
-
-    db.add(new_loc)
-    db.commit()
-    db.refresh(new_loc)
-    return new_loc
+    return location_service.create_location(
+        db,
+        current_user.id,
+        loc.model_dump(),
+    )
 
 
+# 🗑️ Delete location
 @router.delete("/{loc_id}")
 def delete_location(
     loc_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),  # ✅ NEW
+    current_user: models.User = Depends(get_current_user),
 ):
-    loc = (
-        db.query(Location)
-        .filter(Location.id == loc_id)
-        .filter(Location.owner_id == current_user.id)  # ✅ NEW
-        .first()
+    success = location_service.delete_location(
+        db,
+        current_user.id,
+        loc_id,
     )
 
-    if not loc:
+    if not success:
         raise HTTPException(status_code=404, detail="Not found")
 
-    # 🔥 STEP 1: Remove location from books (USER SCOPED)
-    db.query(Book).filter(
-        Book.location_id == loc_id,
-        Book.owner_id == current_user.id,  # ✅ NEW
-    ).update(
-        {Book.location_id: None},
-        synchronize_session=False,
-    )
-
-    # 🔥 STEP 2: Delete location
-    db.delete(loc)
-
-    db.commit()
     return {"message": "Deleted"}

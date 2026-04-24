@@ -1,4 +1,4 @@
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -37,7 +37,7 @@ class CategoryResponse(BaseModel):
     id: int
     name: str
     parent_id: Optional[int]
-    children: List["CategoryResponse"] = []
+    children: List["CategoryResponse"] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -59,8 +59,6 @@ class BookBase(BaseModel):
     description: Optional[str] = None
 
     read: Optional[bool] = False
-
-    # ✅ ADD THIS (you already added in model)
     read_at: Optional[datetime] = None
 
     location_id: Optional[int] = None
@@ -70,7 +68,7 @@ class BookBase(BaseModel):
 
 
 class BookCreate(BookBase):
-    category_ids: List[int] = []
+    category_ids: List[int] = Field(default_factory=list)
 
 
 class BookUpdate(BaseModel):
@@ -80,7 +78,6 @@ class BookUpdate(BaseModel):
     isbn: Optional[str] = None
     description: Optional[str] = None
     read: Optional[bool] = None
-    read_at: Optional[datetime] = None  # ✅ ADD
     location_id: Optional[int] = None
     cover_url: Optional[str] = None
 
@@ -89,10 +86,8 @@ class BookUpdate(BaseModel):
 
 class BookResponse(BookBase):
     id: int
-    location_id: Optional[int] = None
-    date_added: Optional[datetime] = None
 
-    categories: List[CategoryResponse] = []
+    categories: List[CategoryResponse] = Field(default_factory=list)
 
     warning: Optional[str] = None
 
@@ -118,7 +113,7 @@ class BookListResponse(BaseModel):
 
 
 # -------------------
-# 📍 LOCATION SCHEMAS
+# 📍 LOCATION SCHEMAS (FIXED)
 # -------------------
 
 class LocationBase(BaseModel):
@@ -130,11 +125,17 @@ class LocationCreate(LocationBase):
     pass
 
 
-class LocationResponse(LocationBase):
+class LocationResponse(BaseModel):
     id: int
+    name: str
+    parent_id: Optional[int]
+    children: List["LocationResponse"] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
+
+
+LocationResponse.model_rebuild()
 
 
 # -------------------
@@ -159,14 +160,12 @@ class StatsResponse(BaseModel):
     by_category: List[StatItem]
     by_location: List[StatItem]
 
-    # ✅ THESE WERE MISSING
     recent_reads_7_days: int
     recent_reads_30_days: int
 
     recent_added_7_days: int
     recent_added_30_days: int
 
-    # ✅ ALSO MISSING
     monthly_reads: List[MonthlyStat]
 
     class Config:

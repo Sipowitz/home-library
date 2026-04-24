@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, asc, desc, func  # ✅ ADDED func
+from sqlalchemy import or_, asc, desc, func
 from datetime import datetime
 
 from app import models
@@ -15,8 +15,8 @@ def get_books(
     category_id: int | None = None,
     location_id: int | None = None,
     read: bool | None = None,
-    sort: str = "date_added",
-    order: str = "desc",
+    sort: str = "author",   # ✅ aligned with router
+    order: str = "asc",     # ✅ aligned with router
 ):
     query = db.query(Book).filter(Book.owner_id == user_id)
 
@@ -30,32 +30,36 @@ def get_books(
         )
 
     # 🏷️ CATEGORY
-    if category_id:
+    if category_id is not None:
         query = query.join(Book.categories).filter(
             models.Category.id == category_id
         )
 
-    # 📍 LOCATION
-    if location_id:
-        query = query.filter(Book.location_id == location_id)
+    # 📍 LOCATION (✅ FIXED including -1 support)
+    if location_id is not None:
+        if location_id == -1:
+            query = query.filter(Book.location_id.is_(None))
+        else:
+            query = query.filter(Book.location_id == location_id)
 
     # 📖 READ FILTER
     if read is not None:
         query = query.filter(Book.read == read)
 
-    total = query.count()
+    # ✅ FIX count duplication (due to joins)
+    total = query.distinct(Book.id).count()
 
     # -------------------
-    # 🔀 SORTING (UPDATED)
+    # 🔀 SORTING
     # -------------------
     if sort == "author":
-        # ✅ sort by surname (last word)
         sort_column = func.split_part(Book.author, " ", -1)
     elif sort == "title":
         sort_column = Book.title
+    elif sort == "date_added":
+        sort_column = Book.date_added
     else:
-        # fallback (keeps existing behavior)
-        sort_column = getattr(Book, sort, Book.date_added)
+        sort_column = Book.date_added  # safe fallback
 
     if order == "asc":
         query = query.order_by(asc(sort_column))

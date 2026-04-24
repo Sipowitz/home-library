@@ -14,24 +14,21 @@ def safe_count(query):
 
 def get_stats(db: Session, user_id: int):
     try:
+        base_query = db.query(Book).filter(Book.owner_id == user_id)
+
         # 📊 totals
-        total_books = safe_count(
-            db.query(Book).filter(Book.owner_id == user_id)
-        )
+        total_books = safe_count(base_query)
 
         read_books = safe_count(
-            db.query(Book).filter(
-                Book.owner_id == user_id,
-                Book.read == True,
-            )
+            base_query.filter(Book.read == True)
         )
 
         unread_books = max(total_books - read_books, 0)
 
-        # 📚 by category
+        # 📚 by category (FIX: prevent duplicate counts)
         try:
             category_counts = (
-                db.query(Category.name, func.count(Book.id))
+                db.query(Category.name, func.count(func.distinct(Book.id)))
                 .join(Book.categories)
                 .filter(Book.owner_id == user_id)
                 .group_by(Category.id)
@@ -45,18 +42,21 @@ def get_stats(db: Session, user_id: int):
         except Exception:
             by_category = []
 
-        # 📍 by location
+        # 📍 by location (FIX: include NULL location)
         try:
             location_counts = (
-                db.query(Location.name, func.count(Book.id))
-                .join(Book, Book.location_id == Location.id)
+                db.query(
+                    func.coalesce(Location.name, "Unknown"),
+                    func.count(Book.id),
+                )
+                .outerjoin(Location, Book.location_id == Location.id)
                 .filter(Book.owner_id == user_id)
-                .group_by(Location.id)
+                .group_by(Location.id, Location.name)
                 .all()
             )
 
             by_location = [
-                {"name": name or "Unknown", "count": count or 0}
+                {"name": name, "count": count}
                 for name, count in location_counts
             ]
         except Exception:
@@ -66,51 +66,46 @@ def get_stats(db: Session, user_id: int):
         last_7_days = now - timedelta(days=7)
         last_30_days = now - timedelta(days=30)
 
-        # 📅 recently ADDED (REQUIRED by schema)
+        # 📅 recently ADDED
         recent_added_7_days = safe_count(
-            db.query(Book).filter(
-                Book.owner_id == user_id,
+            base_query.filter(
                 Book.date_added != None,
                 Book.date_added >= last_7_days,
             )
         )
 
         recent_added_30_days = safe_count(
-            db.query(Book).filter(
-                Book.owner_id == user_id,
+            base_query.filter(
                 Book.date_added != None,
                 Book.date_added >= last_30_days,
             )
         )
 
-        # 📖 recent reads (OPTIONAL FEATURE — safe fallback if no read_at)
+        # 📖 recent reads + monthly
         recent_reads_7_days = 0
         recent_reads_30_days = 0
         monthly_reads = []
 
         if hasattr(Book, "read_at"):
             try:
+                read_query = base_query.filter(
+                    Book.read == True,
+                    Book.read_at != None,
+                )
+
                 recent_reads_7_days = safe_count(
-                    db.query(Book).filter(
-                        Book.owner_id == user_id,
-                        Book.read == True,
-                        Book.read_at != None,
-                        Book.read_at >= last_7_days,
-                    )
+                    read_query.filter(Book.read_at >= last_7_days)
                 )
 
                 recent_reads_30_days = safe_count(
-                    db.query(Book).filter(
-                        Book.owner_id == user_id,
-                        Book.read == True,
-                        Book.read_at != None,
-                        Book.read_at >= last_30_days,
-                    )
+                    read_query.filter(Book.read_at >= last_30_days)
                 )
+
+                month_label = func.to_char(Book.read_at, "YYYY-MM")
 
                 monthly_counts = (
                     db.query(
-                        func.to_char(Book.read_at, "YYYY-MM").label("month"),
+                        month_label.label("month"),
                         func.count(Book.id),
                     )
                     .filter(
@@ -119,7 +114,7 @@ def get_stats(db: Session, user_id: int):
                         Book.read_at != None,
                     )
                     .group_by("month")
-                    .order_by(func.to_char(Book.read_at, "YYYY-MM").desc())
+                    .order_by("month")
                     .all()
                 )
 
@@ -129,12 +124,10 @@ def get_stats(db: Session, user_id: int):
                 ]
 
             except Exception:
-                # fallback if DB / query fails
                 recent_reads_7_days = 0
                 recent_reads_30_days = 0
                 monthly_reads = []
 
-        # ✅ ALWAYS MATCH SCHEMA
         return {
             "total_books": total_books,
             "read_books": read_books,
@@ -146,7 +139,6 @@ def get_stats(db: Session, user_id: int):
             "by_category": by_category,
             "by_location": by_location,
 
-            # optional extras (won’t break anything)
             "recent_reads_7_days": recent_reads_7_days,
             "recent_reads_30_days": recent_reads_30_days,
             "monthly_reads": monthly_reads,
@@ -155,7 +147,6 @@ def get_stats(db: Session, user_id: int):
     except Exception as e:
         print("STATS ERROR:", e)
 
-        # 🚨 HARD FALLBACK — NEVER BREAK FRONTEND
         return {
             "total_books": 0,
             "read_books": 0,
@@ -164,7 +155,6 @@ def get_stats(db: Session, user_id: int):
             "recent_added_30_days": 0,
             "by_category": [],
             "by_location": [],
-
             "recent_reads_7_days": 0,
             "recent_reads_30_days": 0,
             "monthly_reads": [],
