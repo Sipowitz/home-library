@@ -5,6 +5,8 @@ import {
   deleteLocationApi,
 } from "../api/locations";
 
+import { useAuth } from "./AuthContext"; // ✅ NEW
+
 export type Location = {
   id: number;
   name: string;
@@ -22,6 +24,8 @@ const LocationContext = createContext<LocationContextType | null>(null);
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [locations, setLocations] = useState<Location[]>([]);
 
+  const { token } = useAuth(); // ✅ SINGLE SOURCE OF TRUTH
+
   async function load() {
     try {
       const data = await getLocations();
@@ -33,33 +37,15 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   }
 
   // -------------------
-  // ✅ INITIAL LOAD
+  // 🔥 AUTH-DRIVEN LOAD
   // -------------------
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) load();
-  }, []);
-
-  // -------------------
-  // 🔥 FIX — RELOAD ON LOGIN / LOGOUT
-  // -------------------
-  useEffect(() => {
-    function handleAuthChange() {
-      const token = localStorage.getItem("token");
-
-      if (token) {
-        load(); // login → fetch locations
-      } else {
-        setLocations([]); // logout → clear
-      }
+    if (token) {
+      load(); // login → fetch
+    } else {
+      setLocations([]); // logout → clear
     }
-
-    window.addEventListener("auth-changed", handleAuthChange);
-
-    return () => {
-      window.removeEventListener("auth-changed", handleAuthChange);
-    };
-  }, []);
+  }, [token]);
 
   async function addLocation(name: string, parentId?: number) {
     await createLocation({ name, parent_id: parentId });

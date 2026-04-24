@@ -18,4 +18,6 @@ export async function login(username: string, password: string) {
   if (!res.ok) throw new Error(data.detail);
 
   setToken(data.access_token);
+
+  return data.access_token; // ✅ THIS LINE FIXES EVERYTHING
 }

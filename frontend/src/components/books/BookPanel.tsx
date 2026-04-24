@@ -30,16 +30,16 @@ type Props = {
   onDelete: (id: number) => void;
 };
 
-// 📍 Location tree
-function buildLocationTree(locations: any[], parentId?: number, level = 0) {
-  const pid = parentId ?? null;
-
-  return locations
-    .filter((l) => l.parent_id === pid)
-    .flatMap((loc) => [
-      { ...loc, level },
-      ...buildLocationTree(locations, loc.id, level + 1),
-    ]);
+// 🔥 flatten locations
+function flattenLocations(nodes: any[], level = 0): any[] {
+  let result: any[] = [];
+  for (const node of nodes) {
+    result.push({ ...node, level });
+    if (node.children?.length) {
+      result = result.concat(flattenLocations(node.children, level + 1));
+    }
+  }
+  return result;
 }
 
 function formatDate(dateString?: string) {
@@ -61,19 +61,23 @@ export function BookPanel({
   onDelete,
 }: Props) {
   const { locations } = useLocations();
-  const tree = buildLocationTree(locations);
+  const flatLocations = flattenLocations(locations);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const [locationOpen, setLocationOpen] = useState(false);
+
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
     fetchCategories().then(setCategories);
   }, []);
 
-  // Sync selected categories
   useEffect(() => {
     if (!editData) return;
 
@@ -86,7 +90,6 @@ export function BookPanel({
     }
   }, [editData]);
 
-  // Auto resize textarea
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (textareaRef.current) {
@@ -99,7 +102,6 @@ export function BookPanel({
     return () => clearTimeout(timeout);
   }, [editing, editData]);
 
-  // Flatten categories
   const flatten = (cats: Category[], prefix = ""): Category[] => {
     let result: Category[] = [];
 
@@ -125,38 +127,55 @@ export function BookPanel({
 
   if (!book) return null;
 
+  // ✅ FIX 1: support nested tree
   function getLocationPath(locations: any[], id?: number): string {
     if (!id) return "";
 
-    const map = new Map(locations.map((l) => [l.id, l]));
-    let current = map.get(id);
+    function flattenTree(nodes: any[]): any[] {
+      let result: any[] = [];
+      for (const node of nodes) {
+        result.push(node);
+        if (node.children?.length) {
+          result = result.concat(flattenTree(node.children));
+        }
+      }
+      return result;
+    }
 
+    const flat = flattenTree(locations);
+    const map = new Map(flat.map((l) => [l.id, l]));
+
+    let current = map.get(id);
     const path: string[] = [];
 
     while (current) {
       path.unshift(current.name);
-      current = map.get(current.parentId ?? current.parent_id);
+      current = map.get(current.parent_id);
     }
 
     return path.join(" > ");
   }
 
-  const locationName = getLocationPath(locations, book.location_id);
+  // ✅ FIX 2: reflect latest edit
+  const locationId = editData?.location_id ?? book.location_id;
+  const locationName = getLocationPath(locations, locationId);
 
-  // ✅ CATEGORY DISPLAY FIX
   const categoryNames = book.categories?.length
     ? book.categories.map((c) => c.name)
     : book.category_ids
         ?.map((id) => flatCategories.find((c) => c.id === id)?.name)
         .filter(Boolean);
 
-  // ✅ ADDED
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     if (!img.src.includes("fallback-cover.png")) {
       img.src = "/fallback-cover.png";
     }
   };
+
+  const selectedLocation = flatLocations.find(
+    (l) => l.id === editData?.location_id,
+  );
 
   return (
     <>
@@ -223,11 +242,13 @@ export function BookPanel({
                     <strong>ISBN:</strong> {book.isbn}
                   </div>
                 )}
+
                 {book.year && (
                   <div>
                     <strong>Year:</strong> {book.year}
                   </div>
                 )}
+
                 {book.date_added && (
                   <div>
                     <strong>Added:</strong> {formatDate(book.date_added)}
@@ -274,42 +295,76 @@ export function BookPanel({
                     }
                   />
 
-                  <label className="flex gap-2">
-                    <input
-                      type="checkbox"
-                      checked={editData?.read || false}
-                      onChange={(e) =>
-                        setEditData({
-                          ...editData!,
-                          read: e.target.checked,
-                        })
-                      }
-                    />
-                    Read
-                  </label>
+                  {/* TOGGLE */}
+                  <div
+                    onClick={() =>
+                      setEditData({
+                        ...editData!,
+                        read: !editData?.read,
+                      })
+                    }
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <div
+                      className={`w-10 h-5 flex items-center rounded-full p-1 transition ${
+                        editData?.read ? "bg-green-600" : "bg-gray-600"
+                      }`}
+                    >
+                      <div
+                        className={`bg-white w-4 h-4 rounded-full shadow transform transition ${
+                          editData?.read ? "translate-x-5" : ""
+                        }`}
+                      />
+                    </div>
+                    <span>{editData?.read ? "Read" : "Unread"}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* LOCATION */}
-              <select
-                className="w-full p-2 bg-gray-700 rounded mb-2"
-                value={editData?.location_id || ""}
-                onChange={(e) =>
-                  setEditData({
-                    ...editData!,
-                    location_id: e.target.value
-                      ? Number(e.target.value)
-                      : undefined,
-                  })
-                }
-              >
-                <option value="">Select location</option>
-                {tree.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {"— ".repeat(loc.level) + loc.name}
-                  </option>
-                ))}
-              </select>
+              {/* LOCATION DROPDOWN */}
+              <div className="relative mb-2">
+                <div
+                  onClick={() => setLocationOpen((o) => !o)}
+                  className="w-full p-2 bg-gray-700 rounded cursor-pointer flex justify-between"
+                >
+                  <span>
+                    {selectedLocation
+                      ? selectedLocation.name
+                      : "Select location"}
+                  </span>
+                  <span>▾</span>
+                </div>
+
+                {locationOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-gray-800 rounded shadow max-h-60 overflow-y-auto border border-gray-700">
+                    {flatLocations.map((loc) => {
+                      const isParent = loc.children?.length > 0;
+
+                      return (
+                        <div
+                          key={loc.id}
+                          onClick={() => {
+                            if (isParent) return;
+                            setEditData({
+                              ...editData!,
+                              location_id: loc.id,
+                            });
+                            setLocationOpen(false);
+                          }}
+                          className={`px-3 py-2 text-sm ${
+                            isParent
+                              ? "text-gray-500 font-semibold cursor-default"
+                              : "hover:bg-gray-700 cursor-pointer"
+                          }`}
+                          style={{ paddingLeft: `${8 + loc.level * 16}px` }}
+                        >
+                          {loc.name}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* CATEGORIES */}
               <div className="mb-3">

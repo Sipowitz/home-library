@@ -10,28 +10,43 @@ const client = axios.create({
   },
 });
 
-// 🔐 Attach token automatically
-client.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+// 🔐 Attach token automatically + BLOCK if missing
+client.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+    // ✅ allow auth endpoints without token
+    const isAuthRequest =
+      config.url?.includes("/login") || config.url?.includes("/register");
 
-  return config;
-});
+    if (!token && !isAuthRequest) {
+      // 🔥 HARD BLOCK → prevents 401 spam entirely
+      return Promise.reject("NO_TOKEN");
+    }
 
-// ✅ FIXED — do NOT nuke token on first 401
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+// 🔐 RESPONSE HANDLING
 client.interceptors.response.use(
   (res) => res,
   (err) => {
+    // ✅ silently ignore blocked requests
+    if (err === "NO_TOKEN") {
+      return Promise.reject(err);
+    }
+
     if (err.response?.status === 401) {
       console.warn("Unauthorized request");
 
-      // ❌ DO NOT remove token automatically
-      // This causes cascading failures everywhere
-
-      // OPTIONAL: you could trigger logout UI later
+      // ❌ DO NOT auto-remove token
+      // (prevents cascade failures)
     }
 
     return Promise.reject(err);

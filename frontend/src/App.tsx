@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Book as BookIcon, LogOut, Settings } from "lucide-react";
 
-import { login } from "./api/auth";
+import { login as loginApi } from "./api/auth";
 import { previewBookByISBN } from "./api/books";
 
 import { useBooks } from "./hooks/useBooks";
 import { useLocations } from "./context/LocationContext";
+import { useAuth } from "./context/AuthContext"; // ✅ NEW
 
 import { BookGrid } from "./components/books/BookGrid";
 import { AddBookForm } from "./components/books/AddBookForm";
@@ -51,12 +52,12 @@ export default function App() {
 
   const { locations } = useLocations();
 
+  // ✅ AUTH CONTEXT
+  const { isAuthenticated, login, logout } = useAuth();
+
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
-
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [authReady, setAuthReady] = useState(false);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -69,19 +70,6 @@ export default function App() {
   const [editData, setEditData] = useState<Book | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
-
-  // -------------------
-  // 🔐 AUTH INIT
-  // -------------------
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    if (token) {
-      setLoggedIn(true);
-    }
-
-    setAuthReady(true);
-  }, []);
 
   // -------------------
   // ⏱️ DEBOUNCE SEARCH
@@ -98,13 +86,13 @@ export default function App() {
   // 🔍 APPLY FILTERS
   // -------------------
   useEffect(() => {
-    if (!loggedIn) return;
+    if (!isAuthenticated) return;
 
     updateFilters({
       search: debouncedSearch,
       locationId: selectedLocation,
     });
-  }, [debouncedSearch, selectedLocation, loggedIn]);
+  }, [debouncedSearch, selectedLocation, isAuthenticated]);
 
   // -------------------
   // 📜 INFINITE SCROLL
@@ -130,12 +118,9 @@ export default function App() {
   // -------------------
   async function handleLogin() {
     try {
-      await login(username, password);
+      const token = await loginApi(username, password);
 
-      setLoggedIn(true);
-
-      // ✅ FIX: notify context
-      window.dispatchEvent(new Event("auth-changed"));
+      login(token); // ✅ central auth
 
       loadBooks();
 
@@ -150,18 +135,10 @@ export default function App() {
   // 🚪 LOGOUT
   // -------------------
   function handleLogout() {
-    localStorage.removeItem("token");
-
-    setLoggedIn(false);
-
-    // ✅ FIX: notify context
-    window.dispatchEvent(new Event("auth-changed"));
+    logout(); // ✅ central auth
 
     setSelectedBook(null);
     setNewBook({});
-
-    // ❌ REMOVED: was breaking state flow
-    // window.location.reload();
   }
 
   async function handleSearch() {
@@ -250,11 +227,9 @@ export default function App() {
   }
 
   // -------------------
-  // 🧱 RENDER GUARDS
+  // 🧱 RENDER
   // -------------------
-  if (!authReady) return null;
-
-  if (!loggedIn) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
         <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl w-80">
