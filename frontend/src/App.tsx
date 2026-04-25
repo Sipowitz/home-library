@@ -1,18 +1,20 @@
 import { useEffect, useState, useMemo } from "react";
-import { Book as BookIcon, LogOut, Settings } from "lucide-react";
 
 import { login as loginApi } from "./api/auth";
-import { previewBookByISBN } from "./api/books";
 
 import { useBooks } from "./hooks/useBooks";
 import { useLocations } from "./context/LocationContext";
 import { useAuth } from "./context/AuthContext";
+import { useSearch } from "./hooks/useSearch";
+import { useBookActions } from "./hooks/useBookActions";
 
 import { BookGrid } from "./components/books/BookGrid";
-import { AddBookForm } from "./components/books/AddBookForm";
 import { SettingsModal } from "./components/settings/SettingsModal";
 import { BookPanel } from "./components/books/BookPanel";
-import { StatsPanel } from "./components/stats/StatsPanel";
+
+import { SearchBar } from "./components/search/SearchBar";
+import { TopPanels } from "./components/layout/TopPanels";
+import { Header } from "./components/layout/Header";
 
 import toast from "react-hot-toast";
 
@@ -54,55 +56,37 @@ export default function App() {
   const { locations } = useLocations();
   const { isAuthenticated, login, logout } = useAuth();
 
-  const [searchInput, setSearchInput] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [prevSearch, setPrevSearch] = useState("");
-
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
+
+  const { searchInput, setSearchInput } = useSearch({
+    isAuthenticated,
+    selectedLocation,
+    updateFilters,
+  });
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const [newBook, setNewBook] = useState<Partial<Book>>({});
-  const [isFetching, setIsFetching] = useState(false);
-
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Book | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
 
-  // -------------------
-  // ⏱️ DEBOUNCE SEARCH
-  // -------------------
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setDebouncedSearch(searchInput);
-    }, 200);
-
-    return () => clearTimeout(timeout);
-  }, [searchInput]);
-
-  // -------------------
-  // 🔍 APPLY FILTERS + RESPONSIVE SCROLL
-  // -------------------
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    updateFilters({
-      search: debouncedSearch,
-      locationId: selectedLocation,
+  const { isFetching, handleSearch, handleAddBook, handleDelete, handleSave } =
+    useBookActions({
+      newBook,
+      setNewBook,
+      addBook,
+      addBookFromISBN,
+      removeBook,
+      saveBook,
+      setSelectedBook,
+      setEditData,
+      setEditing,
+      editData, // ✅ important fix
     });
-
-    if (debouncedSearch !== prevSearch) {
-      // only scroll on desktop
-      if (window.innerWidth >= 768) {
-        window.scrollTo({ top: 0, behavior: "auto" });
-      }
-
-      setPrevSearch(debouncedSearch);
-    }
-  }, [debouncedSearch, selectedLocation, isAuthenticated]);
 
   // -------------------
   // ⚡ CLIENT-SIDE FILTER
@@ -163,91 +147,6 @@ export default function App() {
     setNewBook({});
   }
 
-  async function handleSearch() {
-    if (!newBook.isbn) return;
-
-    try {
-      setIsFetching(true);
-
-      const data = await previewBookByISBN(newBook.isbn);
-
-      setNewBook((prev) => ({
-        ...data,
-        ...prev,
-        read: prev.read ?? false,
-        date_added: prev.date_added ?? new Date().toISOString(),
-      }));
-
-      toast.success("Book found");
-    } catch (err) {
-      console.error(err);
-      toast.error("Book not found");
-    } finally {
-      setIsFetching(false);
-    }
-  }
-
-  async function handleAddBook() {
-    if (!newBook.title || !newBook.author) return;
-
-    const payload = {
-      title: newBook.title,
-      author: newBook.author,
-      year: newBook.year ?? null,
-      isbn: newBook.isbn ?? "",
-      description: newBook.description ?? "",
-      read: newBook.read ?? false,
-      location_id: newBook.location_id ?? null,
-      cover_url: newBook.cover_url ?? "",
-      category_ids: [],
-      date_added: new Date().toISOString(),
-    };
-
-    try {
-      const created = payload.isbn
-        ? await addBookFromISBN(payload)
-        : await addBook(payload);
-
-      if (created.warning) {
-        toast(created.warning);
-      } else {
-        toast.success("Book added");
-      }
-
-      setSelectedBook(created);
-      setEditData(created);
-      setEditing(true);
-
-      setNewBook({});
-    } catch (err) {
-      console.error("ADD ERROR:", err);
-      toast.error("Failed to add book");
-    }
-  }
-
-  async function handleDelete(id: number) {
-    await removeBook(id);
-    setSelectedBook(null);
-    toast.success("Book deleted");
-  }
-
-  async function handleSave(category_ids: number[]) {
-    if (!editData) return;
-
-    const payload = {
-      ...editData,
-      category_ids,
-    };
-
-    const updated = await saveBook(payload);
-
-    setSelectedBook(updated);
-    setEditData(updated);
-    setEditing(false);
-
-    toast.success("Book updated");
-  }
-
   // -------------------
   // 🧱 RENDER
   // -------------------
@@ -292,20 +191,10 @@ export default function App() {
       }}
     >
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl flex items-center gap-2 font-semibold">
-          <BookIcon /> My Library
-        </h1>
-
-        <div className="flex gap-3">
-          <button onClick={() => setShowSettings(true)}>
-            <Settings size={20} />
-          </button>
-          <button onClick={handleLogout}>
-            <LogOut />
-          </button>
-        </div>
-      </div>
+      <Header
+        onOpenSettings={() => setShowSettings(true)}
+        onLogout={handleLogout}
+      />
 
       <SettingsModal
         isOpen={showSettings}
@@ -313,49 +202,24 @@ export default function App() {
       />
 
       {/* PANELS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
-        <div className="lg:col-span-1 h-full">
-          <AddBookForm
-            newBook={newBook}
-            setNewBook={setNewBook}
-            onSearch={handleSearch}
-            onAdd={handleAddBook}
-            isFetching={isFetching}
-          />
-        </div>
-
-        <div className="lg:col-span-2 h-full">
-          <StatsPanel />
-        </div>
-      </div>
+      <TopPanels
+        newBook={newBook}
+        setNewBook={setNewBook}
+        onSearch={handleSearch}
+        onAdd={handleAddBook}
+        isFetching={isFetching}
+      />
 
       {/* SEARCH */}
-      <div className="bg-gray-900/60 border border-gray-800 backdrop-blur p-4 rounded-2xl mb-6 flex gap-3 items-center">
-        <input
-          placeholder="Search title or author..."
-          className="p-3 bg-gray-800 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-        />
+      <SearchBar
+        searchInput={searchInput}
+        onSearchChange={setSearchInput}
+        selectedLocation={selectedLocation}
+        onLocationChange={setSelectedLocation}
+        locations={locations}
+      />
 
-        <select
-          className="p-3 bg-gray-800 rounded-lg"
-          value={selectedLocation ?? ""}
-          onChange={(e) =>
-            setSelectedLocation(e.target.value ? Number(e.target.value) : null)
-          }
-        >
-          <option value="">All Locations</option>
-
-          {locations.map((loc) => (
-            <option key={loc.id} value={loc.id}>
-              {loc.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* FIXED STATUS BAR */}
+      {/* STATUS */}
       <div className="h-6 mb-3 px-1 flex items-center">
         {isLoading && <div className="text-sm text-gray-400">Searching...</div>}
       </div>
