@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Book as BookIcon, LogOut, Settings } from "lucide-react";
 
 import { login as loginApi } from "./api/auth";
@@ -48,7 +48,7 @@ export default function App() {
     removeBook,
     saveBook,
     updateFilters,
-    isLoading, // ✅ NEW
+    isLoading,
   } = useBooks();
 
   const { locations } = useLocations();
@@ -71,12 +71,12 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
 
   // -------------------
-  // ⏱️ DEBOUNCE SEARCH (UPDATED)
+  // ⏱️ DEBOUNCE SEARCH
   // -------------------
   useEffect(() => {
     const timeout = setTimeout(() => {
       setDebouncedSearch(searchInput);
-    }, 200); // ✅ was 300
+    }, 200);
 
     return () => clearTimeout(timeout);
   }, [searchInput]);
@@ -92,6 +92,20 @@ export default function App() {
       locationId: selectedLocation,
     });
   }, [debouncedSearch, selectedLocation, isAuthenticated]);
+
+  // -------------------
+  // ⚡ CLIENT-SIDE FILTER (NEW)
+  // -------------------
+  const filteredBooks = useMemo(() => {
+    if (!searchInput.trim()) return books;
+
+    const q = searchInput.toLowerCase();
+
+    return books.filter(
+      (b) =>
+        b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q),
+    );
+  }, [books, searchInput]);
 
   // -------------------
   // 📜 INFINITE SCROLL
@@ -330,14 +344,13 @@ export default function App() {
         </select>
       </div>
 
-      {/* LOADING INDICATOR */}
       {isLoading && (
         <div className="text-sm text-gray-400 mb-3 px-1">Searching...</div>
       )}
 
-      {/* GRID */}
+      {/* GRID (USES FILTERED BOOKS) */}
       <BookGrid
-        books={books}
+        books={filteredBooks}
         onSelect={(book) => {
           setSelectedBook(book);
           setEditing(false);
