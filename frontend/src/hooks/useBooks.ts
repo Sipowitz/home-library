@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   getBooks,
   createBook,
@@ -51,11 +51,14 @@ export function useBooks() {
   const [books, setBooks] = useState<Book[]>([]);
   const [skip, setSkip] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [filters, setFilters] = useState<Filters>({
     search: "",
     locationId: null,
   });
+
+  const requestIdRef = useRef(0); // ✅ track latest request
 
   function notifyStatsUpdate() {
     window.dispatchEvent(new Event("stats-updated"));
@@ -65,7 +68,10 @@ export function useBooks() {
   // 📥 LOAD BOOKS
   // -------------------
   async function loadBooks(reset = true) {
+    const requestId = ++requestIdRef.current; // ✅ unique request id
     const newSkip = reset ? 0 : skip;
+
+    setIsLoading(true);
 
     const data = await getBooks(
       newSkip,
@@ -73,6 +79,9 @@ export function useBooks() {
       filters.search,
       filters.locationId,
     );
+
+    // ❌ ignore stale responses
+    if (requestId !== requestIdRef.current) return;
 
     if (reset) {
       setBooks(data.items);
@@ -88,10 +97,11 @@ export function useBooks() {
     }
 
     setHasMore(newSkip + LIMIT < data.total);
+    setIsLoading(false);
   }
 
   async function loadMoreBooks() {
-    if (!hasMore) return;
+    if (!hasMore || isLoading) return;
     await loadBooks(false);
   }
 
@@ -101,11 +111,14 @@ export function useBooks() {
   function updateFilters(newFilters: Partial<Filters>) {
     const updated = { ...filters, ...newFilters };
 
-    setFilters(updated);
+    if (
+      updated.search === filters.search &&
+      updated.locationId === filters.locationId
+    ) {
+      return;
+    }
 
-    setBooks([]);
-    setSkip(0);
-    setHasMore(true);
+    setFilters(updated);
   }
 
   useEffect(() => {
@@ -114,27 +127,18 @@ export function useBooks() {
   }, [filters]);
 
   // -------------------
-  // ➕ ADD BOOK (FIXED)
+  // ➕ ADD BOOK
   // -------------------
   async function addBook(book: BookCreateInput) {
     const data = await createBook(book);
-
-    // ✅ reload instead of inserting
     await loadBooks(true);
-
     notifyStatsUpdate();
     return data;
   }
 
-  // -------------------
-  // ➕ ADD FROM ISBN (FIXED)
-  // -------------------
   async function addBookFromISBN(book: BookCreateInput) {
     const data = await createBookFromISBN(book);
-
-    // ✅ reload instead of inserting
     await loadBooks(true);
-
     notifyStatsUpdate();
 
     if (data._warning) {
@@ -145,26 +149,20 @@ export function useBooks() {
   }
 
   // -------------------
-  // ❌ DELETE (IMPROVED)
+  // ❌ DELETE
   // -------------------
   async function removeBook(id: number) {
     await deleteBook(id);
-
-    // keep UI responsive + consistent
     setBooks((prev) => prev.filter((b) => b.id !== id));
-
     notifyStatsUpdate();
   }
 
   // -------------------
-  // 💾 SAVE (IMPROVED)
+  // 💾 SAVE
   // -------------------
   async function saveBook(book: Book) {
     const updated = await updateBook(book.id, book);
-
-    // ⚠️ if sorting field changed → reload
     await loadBooks(true);
-
     notifyStatsUpdate();
     return updated;
   }
@@ -180,5 +178,6 @@ export function useBooks() {
     saveBook,
     updateFilters,
     filters,
+    isLoading, // ✅ NEW
   };
 }

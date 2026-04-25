@@ -1,3 +1,5 @@
+import React from "react";
+
 type Book = {
   id: number;
   title: string;
@@ -11,7 +13,7 @@ type Props = {
   onSelect: (book: Book) => void;
 };
 
-export function BookGrid({ books, onSelect }: Props) {
+function BookGridComponent({ books, onSelect }: Props) {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-5">
       {books.map((book) => {
@@ -26,9 +28,7 @@ export function BookGrid({ books, onSelect }: Props) {
             }}
             className="cursor-pointer group"
           >
-            {/* CARD */}
             <div className="relative aspect-[2/3] bg-gray-900 rounded-xl overflow-hidden shadow-md transition-all duration-300 group-hover:shadow-2xl group-hover:-translate-y-1 group-hover:scale-[1.02]">
-              {/* COVER IMAGE */}
               {hasCover ? (
                 <img
                   src={book.cover_url}
@@ -39,7 +39,6 @@ export function BookGrid({ books, onSelect }: Props) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                /* FALLBACK COVER */
                 <div className="w-full h-full flex flex-col justify-between p-3 bg-gradient-to-br from-gray-800 to-gray-950 text-white">
                   <div className="text-[11px] font-semibold leading-tight line-clamp-4">
                     {book.title}
@@ -51,10 +50,8 @@ export function BookGrid({ books, onSelect }: Props) {
                 </div>
               )}
 
-              {/* HOVER OVERLAY */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
 
-              {/* READ BADGE */}
               {book.read && (
                 <div className="absolute top-2 right-2 bg-green-600 text-[10px] px-2 py-0.5 rounded-md shadow">
                   Read
@@ -62,7 +59,6 @@ export function BookGrid({ books, onSelect }: Props) {
               )}
             </div>
 
-            {/* TEXT */}
             <div className="mt-2 px-1">
               <div className="text-xs font-medium truncate">{book.title}</div>
               <div className="text-[10px] text-gray-400 truncate">
@@ -75,3 +71,6 @@ export function BookGrid({ books, onSelect }: Props) {
     </div>
   );
 }
+
+// ✅ prevent unnecessary re-renders
+export const BookGrid = React.memo(BookGridComponent);

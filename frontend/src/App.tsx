@@ -6,7 +6,7 @@ import { previewBookByISBN } from "./api/books";
 
 import { useBooks } from "./hooks/useBooks";
 import { useLocations } from "./context/LocationContext";
-import { useAuth } from "./context/AuthContext"; // ✅ NEW
+import { useAuth } from "./context/AuthContext";
 
 import { BookGrid } from "./components/books/BookGrid";
 import { AddBookForm } from "./components/books/AddBookForm";
@@ -48,11 +48,10 @@ export default function App() {
     removeBook,
     saveBook,
     updateFilters,
+    isLoading, // ✅ NEW
   } = useBooks();
 
   const { locations } = useLocations();
-
-  // ✅ AUTH CONTEXT
   const { isAuthenticated, login, logout } = useAuth();
 
   const [searchInput, setSearchInput] = useState("");
@@ -72,12 +71,12 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
 
   // -------------------
-  // ⏱️ DEBOUNCE SEARCH
+  // ⏱️ DEBOUNCE SEARCH (UPDATED)
   // -------------------
   useEffect(() => {
     const timeout = setTimeout(() => {
       setDebouncedSearch(searchInput);
-    }, 300);
+    }, 200); // ✅ was 300
 
     return () => clearTimeout(timeout);
   }, [searchInput]);
@@ -120,8 +119,7 @@ export default function App() {
     try {
       const token = await loginApi(username, password);
 
-      login(token); // ✅ central auth
-
+      login(token);
       loadBooks();
 
       toast.success("Logged in");
@@ -135,8 +133,7 @@ export default function App() {
   // 🚪 LOGOUT
   // -------------------
   function handleLogout() {
-    logout(); // ✅ central auth
-
+    logout();
     setSelectedBook(null);
     setNewBook({});
   }
@@ -332,6 +329,11 @@ export default function App() {
           ))}
         </select>
       </div>
+
+      {/* LOADING INDICATOR */}
+      {isLoading && (
+        <div className="text-sm text-gray-400 mb-3 px-1">Searching...</div>
+      )}
 
       {/* GRID */}
       <BookGrid
