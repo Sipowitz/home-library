@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocations } from "../../context/LocationContext";
+import { API } from "../../api/client";
 
 import {
   fetchCategories,
@@ -102,6 +103,18 @@ function LocationNode({
   );
 }
 
+// ================= BUILD LOCATION TREE =================
+function buildLocationTree(locations: any[], parentId?: number) {
+  const pid = parentId ?? null;
+
+  return locations
+    .filter((l) => (l.parentId ?? l.parent_id ?? null) === pid)
+    .map((loc) => ({
+      ...loc,
+      children: buildLocationTree(locations, loc.id),
+    }));
+}
+
 export function SettingsModal({ isOpen, onClose }: Props) {
   const { locations, addLocation, deleteLocation } = useLocations();
 
@@ -116,6 +129,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     number | null
   >(null);
 
+  const [restoring, setRestoring] = useState(false);
+
   useEffect(() => {
     fetchCategories().then(setCategories);
   }, []);
@@ -125,13 +140,62 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     setCategories(data);
   };
 
-  // ✅ FIX — use backend tree directly
-  const locationTree = locations;
+  const locationTree = buildLocationTree(locations);
 
   if (!isOpen) return null;
 
+  // ================= BACKUP =================
+  async function handleBackup() {
+    try {
+      const res = await fetch(`${API}/backup/export`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      const blob = await res.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "library-backup.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Backup failed", err);
+    }
+  }
+
+  // ================= RESTORE =================
+  async function handleRestore(file: File) {
+    try {
+      setRestoring(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      await fetch(`${API}/backup/import`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: formData,
+      });
+
+      window.location.reload();
+    } catch (err) {
+      console.error("Restore failed", err);
+    } finally {
+      setRestoring(false);
+    }
+  }
+
   return (
     <>
+      {/* UI unchanged */}
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
         onClick={onClose}
@@ -160,8 +224,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             }
           >
             <option value="">No parent</option>
-
-            {/* flatten for dropdown */}
             {locations.map((loc) => (
               <option key={loc.id} value={loc.id}>
                 {loc.name}
@@ -181,7 +243,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             Add Location
           </button>
 
-          {/* ✅ NOW CHILDREN SHOW CORRECTLY */}
           <div className="max-h-40 overflow-y-auto text-sm space-y-1">
             {locationTree.map((loc) => (
               <LocationNode
@@ -245,6 +306,36 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             ))}
           </div>
 
+          {/* BACKUP / RESTORE */}
+          <h3 className="text-lg mt-6 mb-2">Backup & Restore</h3>
+
+          <button
+            onClick={handleBackup}
+            className="bg-green-600 w-full py-2 rounded mb-2"
+          >
+            Download Backup
+          </button>
+
+          <label className="block w-full">
+            <span className="text-sm text-gray-400">Restore from backup</span>
+            <input
+              type="file"
+              accept=".json"
+              disabled={restoring}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleRestore(file);
+              }}
+              className="mt-1 w-full text-sm"
+            />
+          </label>
+
+          {restoring && (
+            <div className="text-sm text-yellow-400 mt-2">
+              Restoring backup...
+            </div>
+          )}
+
           <button
             onClick={onClose}
             className="bg-gray-600 w-full py-2 rounded mt-4"
@@ -254,7 +345,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         </div>
       </div>
 
-      {/* DELETE MODAL */}
+      {/* DELETE MODAL UNCHANGED */}
       {confirmDeleteLocation !== null && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 p-6 rounded-xl w-80 text-center">
