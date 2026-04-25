@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocations } from "../../context/LocationContext";
 import { API } from "../../api/client";
+import toast from "react-hot-toast";
 
 import {
   fetchCategories,
@@ -130,6 +131,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
   >(null);
 
   const [restoring, setRestoring] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
 
   useEffect(() => {
     fetchCategories().then(setCategories);
@@ -164,8 +169,11 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       a.remove();
 
       window.URL.revokeObjectURL(url);
+
+      toast.success("Backup downloaded");
     } catch (err) {
       console.error("Backup failed", err);
+      toast.error("Backup failed");
     }
   }
 
@@ -185,9 +193,14 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         body: formData,
       });
 
-      window.location.reload();
+      toast.success("Restore complete");
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (err) {
       console.error("Restore failed", err);
+      toast.error("Restore failed");
     } finally {
       setRestoring(false);
     }
@@ -195,7 +208,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
   return (
     <>
-      {/* UI unchanged */}
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
         onClick={onClose}
@@ -316,25 +328,31 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             Download Backup
           </button>
 
-          <label className="block w-full">
-            <span className="text-sm text-gray-400">Restore from backup</span>
-            <input
-              type="file"
-              accept=".json"
-              disabled={restoring}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleRestore(file);
-              }}
-              className="mt-1 w-full text-sm"
-            />
-          </label>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={restoring}
+            className="bg-blue-600 w-full py-2 rounded mb-2"
+          >
+            {restoring ? "Restoring..." : "Upload Backup"}
+          </button>
 
-          {restoring && (
-            <div className="text-sm text-yellow-400 mt-2">
-              Restoring backup...
-            </div>
-          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+
+              // reset so same file can be selected again
+              e.currentTarget.value = "";
+
+              if (file) {
+                setPendingFile(file);
+                setConfirmRestoreOpen(true);
+              }
+            }}
+          />
 
           <button
             onClick={onClose}
@@ -345,7 +363,57 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         </div>
       </div>
 
-      {/* DELETE MODAL UNCHANGED */}
+      {confirmRestoreOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-900 p-6 rounded-xl w-80 text-center">
+            <h3 className="text-lg mb-4 text-yellow-400 font-semibold">
+              Restore Backup?
+            </h3>
+
+            <p className="text-sm text-gray-400 mb-4">
+              This will overwrite your current library.
+            </p>
+
+            {pendingFile && (
+              <div className="text-xs text-gray-500 mb-2">
+                {pendingFile.name}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                disabled={restoring}
+                onClick={() => {
+                  if (!pendingFile || restoring) return;
+
+                  handleRestore(pendingFile);
+                  setConfirmRestoreOpen(false);
+                  setPendingFile(null);
+                }}
+                className={`flex-1 py-2 rounded ${
+                  restoring
+                    ? "bg-yellow-800 cursor-not-allowed"
+                    : "bg-yellow-600 hover:bg-yellow-700"
+                }`}
+              >
+                {restoring ? "Restoring..." : "Restore"}
+              </button>
+
+              <button
+                onClick={() => {
+                  setConfirmRestoreOpen(false);
+                  setPendingFile(null);
+                }}
+                className="bg-gray-600 flex-1 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE LOCATION MODAL */}
       {confirmDeleteLocation !== null && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 p-6 rounded-xl w-80 text-center">
