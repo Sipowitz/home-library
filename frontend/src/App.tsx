@@ -56,6 +56,8 @@ export default function App() {
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [prevSearch, setPrevSearch] = useState("");
+
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
 
   const [username, setUsername] = useState("");
@@ -82,7 +84,7 @@ export default function App() {
   }, [searchInput]);
 
   // -------------------
-  // 🔍 APPLY FILTERS
+  // 🔍 APPLY FILTERS + RESPONSIVE SCROLL
   // -------------------
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -91,10 +93,19 @@ export default function App() {
       search: debouncedSearch,
       locationId: selectedLocation,
     });
+
+    if (debouncedSearch !== prevSearch) {
+      // only scroll on desktop
+      if (window.innerWidth >= 768) {
+        window.scrollTo({ top: 0, behavior: "auto" });
+      }
+
+      setPrevSearch(debouncedSearch);
+    }
   }, [debouncedSearch, selectedLocation, isAuthenticated]);
 
   // -------------------
-  // ⚡ CLIENT-SIDE FILTER (NEW)
+  // ⚡ CLIENT-SIDE FILTER
   // -------------------
   const filteredBooks = useMemo(() => {
     if (!searchInput.trim()) return books;
@@ -301,7 +312,7 @@ export default function App() {
         onClose={() => setShowSettings(false)}
       />
 
-      {/* TOP PANELS */}
+      {/* PANELS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
         <div className="lg:col-span-1 h-full">
           <AddBookForm
@@ -344,11 +355,12 @@ export default function App() {
         </select>
       </div>
 
-      {isLoading && (
-        <div className="text-sm text-gray-400 mb-3 px-1">Searching...</div>
-      )}
+      {/* FIXED STATUS BAR */}
+      <div className="h-6 mb-3 px-1 flex items-center">
+        {isLoading && <div className="text-sm text-gray-400">Searching...</div>}
+      </div>
 
-      {/* GRID (USES FILTERED BOOKS) */}
+      {/* GRID */}
       <BookGrid
         books={filteredBooks}
         onSelect={(book) => {
