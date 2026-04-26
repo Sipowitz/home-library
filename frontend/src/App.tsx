@@ -123,12 +123,11 @@ export default function App() {
   }
 
   // -------------------
-  // ⚡ CLIENT-SIDE FILTER (UPDATED)
+  // ⚡ CLIENT-SIDE FILTER
   // -------------------
   const filteredBooks = useMemo(() => {
     let result = books;
 
-    // 🔍 SEARCH
     if (searchInput.trim()) {
       const q = searchInput.toLowerCase();
 
@@ -139,9 +138,7 @@ export default function App() {
       );
     }
 
-    // 📍 LOCATION FILTER
     if (selectedLocation === -1) {
-      // No Location
       result = result.filter((b) => !b.location_id);
     } else if (selectedLocation !== null) {
       const ids = getDescendantIds(locations, selectedLocation);
@@ -258,13 +255,16 @@ export default function App() {
         isFetching={isFetching}
       />
 
-      <SearchBar
-        searchInput={searchInput}
-        onSearchChange={setSearchInput}
-        selectedLocation={selectedLocation}
-        onLocationChange={setSelectedLocation}
-        locations={locations}
-      />
+      {/* ✅ STICKY + SPACING FIX */}
+      <div className="mt-6 sticky top-4 z-40 backdrop-blur bg-gray-950/80">
+        <SearchBar
+          searchInput={searchInput}
+          onSearchChange={setSearchInput}
+          selectedLocation={selectedLocation}
+          onLocationChange={setSelectedLocation}
+          locations={locations}
+        />
+      </div>
 
       <div className="h-6 mb-3 px-1 flex items-center">
         {isLoading && <div className="text-sm text-gray-400">Searching...</div>}
