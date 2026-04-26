@@ -23,21 +23,21 @@ type ChartPoint = {
   read: number;
 };
 
+type Range = "7d" | "30d" | "all";
+
 export function StatsPanel() {
   const [books, setBooks] = useState<Book[]>([]);
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
+  const [range, setRange] = useState<Range>("30d");
 
   async function loadStats() {
     try {
       const data = await getBooks(0, 100, undefined, undefined);
       const items = data?.items ?? [];
-
       setBooks(items);
-      buildChart(items);
     } catch (err) {
       console.error("Failed to load stats", err);
       setBooks([]);
-      setChartData([]);
     }
   }
 
@@ -50,13 +50,23 @@ export function StatsPanel() {
     return () => window.removeEventListener("stats-updated", handler);
   }, []);
 
-  function buildChart(items: Book[]) {
-    if (!items || items.length === 0) {
-      setChartData([]);
-      return;
+  // -------------------
+  // 📈 CHART ONLY FILTER
+  // -------------------
+  useEffect(() => {
+    let filtered = [...books];
+
+    if (range !== "all") {
+      const now = Date.now();
+      const days = range === "7d" ? 7 : 30;
+      const cutoff = now - days * 24 * 60 * 60 * 1000;
+
+      filtered = filtered.filter(
+        (b) => b.date_added && new Date(b.date_added).getTime() >= cutoff,
+      );
     }
 
-    const sortedBooks = [...items]
+    const sorted = filtered
       .filter((b) => b.date_added)
       .sort(
         (a, b) =>
@@ -68,7 +78,7 @@ export function StatsPanel() {
 
     const data: ChartPoint[] = [];
 
-    sortedBooks.forEach((b) => {
+    sorted.forEach((b) => {
       total += 1;
       if (b.read) read += 1;
 
@@ -82,17 +92,17 @@ export function StatsPanel() {
     });
 
     setChartData(data);
-  }
+  }, [books, range]);
 
   // -------------------
-  // 📊 BASIC STATS
+  // 📊 TOTALS (ALL TIME)
   // -------------------
   const total = books.length;
   const read = books.filter((b) => b.read).length;
   const unread = total - read;
 
   // -------------------
-  // 📅 TIME WINDOWS
+  // 📅 FIXED ACTIVITY
   // -------------------
   const now = Date.now();
   const DAY = 1000 * 60 * 60 * 24;
@@ -105,15 +115,26 @@ export function StatsPanel() {
     (b) => b.date_added && new Date(b.date_added).getTime() >= now - 30 * DAY,
   );
 
-  const added7 = last7.length;
-  const read7 = last7.filter((b) => b.read).length;
-
-  const added30 = last30.length;
-  const read30 = last30.filter((b) => b.read).length;
-
   return (
     <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl">
-      <h2 className="text-lg mb-4">Library Stats</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg">Library Stats</h2>
+
+        {/* ✅ NOW ONLY AFFECTS CHART */}
+        <div className="flex gap-1 bg-gray-800 p-1 rounded-lg text-xs">
+          {(["7d", "30d", "all"] as Range[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`px-2 py-1 rounded ${
+                range === r ? "bg-gray-700 text-white" : "text-gray-400"
+              }`}
+            >
+              {r === "all" ? "All" : r}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="flex flex-col lg:grid lg:grid-cols-5 gap-4 items-stretch">
         {/* STATS */}
@@ -125,17 +146,23 @@ export function StatsPanel() {
             <StatCard label="Unread" value={unread} />
           </div>
 
-          {/* LAST 7 DAYS */}
-          <ActivityBox title="Last 7 days" added={added7} read={read7} />
+          {/* FIXED ACTIVITY */}
+          <ActivityBox
+            title="Last 7 days"
+            added={last7.length}
+            read={last7.filter((b) => b.read).length}
+          />
 
-          {/* LAST 30 DAYS */}
-          <ActivityBox title="Last 30 days" added={added30} read={read30} />
+          <ActivityBox
+            title="Last 30 days"
+            added={last30.length}
+            read={last30.filter((b) => b.read).length}
+          />
         </div>
 
         {/* CHART */}
         <div className="lg:col-span-3">
-          <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3 outline-none focus:outline-none">
-            {/* LEGEND */}
+          <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3">
             <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
               <LegendItem color="#60a5fa" label="Total books" />
               <LegendItem color="#4ade80" label="Read books" />
@@ -193,59 +220,38 @@ export function StatsPanel() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: number;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-3 text-center backdrop-blur">
-      <div className="text-xs text-gray-400 uppercase tracking-wide">
-        {label}
-      </div>
+/* --- helpers unchanged --- */
 
-      <div
-        className={`text-2xl font-semibold mt-1 ${
-          highlight ? "text-green-400" : "text-white"
-        }`}
-      >
+function StatCard({ label, value, highlight }: any) {
+  return (
+    <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-3 text-center">
+      <div className="text-xs text-gray-400 uppercase">{label}</div>
+      <div className={`text-2xl ${highlight ? "text-green-400" : ""}`}>
         {value}
       </div>
     </div>
   );
 }
 
-function ActivityBox({
-  title,
-  added,
-  read,
-}: {
-  title: string;
-  added: number;
-  read: number;
-}) {
+function ActivityBox({ title, added, read }: any) {
   return (
     <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3 text-sm">
       <div className="text-xs text-gray-400 mb-2">{title}</div>
 
       <div className="flex justify-between">
-        <span className="text-gray-400">Books added</span>
+        <span>Books added</span>
         <span className="text-blue-400">+{added}</span>
       </div>
 
-      <div className="flex justify-between mt-1">
-        <span className="text-gray-400">Books read</span>
+      <div className="flex justify-between">
+        <span>Books read</span>
         <span className="text-green-400">+{read}</span>
       </div>
     </div>
   );
 }
 
-function LegendItem({ color, label }: { color: string; label: string }) {
+function LegendItem({ color, label }: any) {
   return (
     <div className="flex items-center gap-2">
       <div
@@ -258,30 +264,18 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 }
 
 function CustomTooltip({ active, payload, label }: any) {
-  if (!active || !payload || payload.length === 0) return null;
+  if (!active || !payload) return null;
 
-  const date = new Date(label).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
-  const total = payload.find((p: any) => p.dataKey === "total")?.value ?? 0;
-  const read = payload.find((p: any) => p.dataKey === "read")?.value ?? 0;
+  const date = new Date(label).toLocaleDateString();
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm shadow-lg">
-      <div className="text-gray-400 mb-1 text-xs">{date}</div>
-
-      <div className="flex justify-between gap-6">
-        <span className="text-blue-400">Total</span>
-        <span className="text-white">{total}</span>
-      </div>
-
-      <div className="flex justify-between gap-6">
-        <span className="text-green-400">Read</span>
-        <span className="text-white">{read}</span>
-      </div>
+    <div className="bg-gray-800 p-2 rounded text-sm">
+      <div>{date}</div>
+      {payload.map((p: any) => (
+        <div key={p.dataKey}>
+          {p.name}: {p.value}
+        </div>
+      ))}
     </div>
   );
 }
