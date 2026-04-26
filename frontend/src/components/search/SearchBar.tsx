@@ -45,52 +45,48 @@ export function SearchBar({
   onLocationChange,
   locations,
 }: Props) {
-  // -------------------
-  // 📦 FLATTENED LOCATIONS
-  // -------------------
   const flatLocations = useMemo(() => {
     return flattenLocations(locations);
   }, [locations]);
 
   return (
-    <div className="bg-gray-900/60 border border-gray-800 backdrop-blur p-4 rounded-2xl mb-6 flex gap-3 items-center">
-      <input
-        placeholder="Search title or author..."
-        className="p-3 bg-gray-800 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500"
-        value={searchInput}
-        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-          onSearchChange(e.target.value)
-        }
-      />
-
-      <select
-        className="p-3 bg-gray-800 rounded-lg"
-        value={selectedLocation === null ? "" : selectedLocation}
-        onChange={(e) => {
-          const val = e.target.value;
-
-          if (val === "") {
-            onLocationChange(null); // All Locations
-          } else if (val === "none") {
-            onLocationChange(-1); // No Location sentinel
-          } else {
-            onLocationChange(Number(val));
+    <div className="sticky top-0 z-30 pb-2">
+      {/* INNER BAR */}
+      <div className="bg-gray-950/95 backdrop-blur border border-gray-800 p-4 rounded-2xl flex gap-3 items-center shadow-lg">
+        <input
+          placeholder="Search title or author..."
+          className="p-3 bg-gray-800 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500"
+          value={searchInput}
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            onSearchChange(e.target.value)
           }
-        }}
-      >
-        {/* ALL */}
-        <option value="">All Locations</option>
+        />
 
-        {/* NO LOCATION */}
-        <option value="none">No Location</option>
+        <select
+          className="p-3 bg-gray-800 rounded-lg"
+          value={selectedLocation === null ? "" : selectedLocation}
+          onChange={(e) => {
+            const val = e.target.value;
 
-        {/* FLATTENED TREE */}
-        {flatLocations.map((loc) => (
-          <option key={loc.id} value={loc.id}>
-            {loc.name}
-          </option>
-        ))}
-      </select>
+            if (val === "") {
+              onLocationChange(null);
+            } else if (val === "none") {
+              onLocationChange(-1);
+            } else {
+              onLocationChange(Number(val));
+            }
+          }}
+        >
+          <option value="">All Locations</option>
+          <option value="none">No Location</option>
+
+          {flatLocations.map((loc) => (
+            <option key={loc.id} value={loc.id}>
+              {loc.name}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }
