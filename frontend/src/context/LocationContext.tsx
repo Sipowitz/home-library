@@ -5,7 +5,7 @@ import {
   deleteLocationApi,
 } from "../api/locations";
 
-import { useAuth } from "./AuthContext"; // ✅ NEW
+import { useAuth } from "./AuthContext";
 
 export type Location = {
   id: number;
@@ -17,6 +17,7 @@ type LocationContextType = {
   locations: Location[];
   addLocation: (name: string, parentId?: number) => Promise<void>;
   deleteLocation: (id: number) => Promise<void>;
+  reloadLocations: () => Promise<void>; // ✅ NEW
 };
 
 const LocationContext = createContext<LocationContextType | null>(null);
@@ -24,8 +25,11 @@ const LocationContext = createContext<LocationContextType | null>(null);
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [locations, setLocations] = useState<Location[]>([]);
 
-  const { token } = useAuth(); // ✅ SINGLE SOURCE OF TRUTH
+  const { token } = useAuth();
 
+  // -------------------
+  // 📥 LOAD LOCATIONS
+  // -------------------
   async function load() {
     try {
       const data = await getLocations();
@@ -40,26 +44,62 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   // 🔥 AUTH-DRIVEN LOAD
   // -------------------
   useEffect(() => {
-    if (token) {
-      load(); // login → fetch
-    } else {
-      setLocations([]); // logout → clear
+    let cancelled = false;
+
+    async function run() {
+      if (!token) {
+        setLocations([]);
+        return;
+      }
+
+      try {
+        const data = await getLocations();
+        if (!cancelled) {
+          setLocations(data);
+        }
+      } catch (err) {
+        console.error("Failed to load locations", err);
+        if (!cancelled) {
+          setLocations([]);
+        }
+      }
     }
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
+  // -------------------
+  // ➕ ADD LOCATION
+  // -------------------
   async function addLocation(name: string, parentId?: number) {
     await createLocation({ name, parent_id: parentId });
+
+    // keep existing behaviour
     await load();
   }
 
+  // -------------------
+  // ❌ DELETE LOCATION
+  // -------------------
   async function deleteLocation(id: number) {
     await deleteLocationApi(id);
+
+    // keep existing behaviour
     await load();
   }
 
   return (
     <LocationContext.Provider
-      value={{ locations, addLocation, deleteLocation }}
+      value={{
+        locations,
+        addLocation,
+        deleteLocation,
+        reloadLocations: load, // ✅ exposed
+      }}
     >
       {children}
     </LocationContext.Provider>

@@ -1,8 +1,15 @@
 import { useState } from "react";
 
+type Location = {
+  id: number;
+  name: string;
+  parent_id?: number;
+  children?: Location[];
+};
+
 type Props = {
-  locations: any[];
-  locationTree: any[];
+  locations: Location[];
+  locationTree: Location[];
   newLocation: string;
   setNewLocation: (v: string) => void;
   parentId: number | "";
@@ -16,16 +23,18 @@ function LocationNode({
   node,
   onDelete,
 }: {
-  node: any;
+  node: Location;
   onDelete: (id: number) => void;
 }) {
   const [open, setOpen] = useState(true);
+
+  const hasChildren = node.children && node.children.length > 0;
 
   return (
     <div className="ml-2">
       <div className="flex items-center justify-between bg-gray-800 px-2 py-1 rounded">
         <div className="flex items-center gap-2">
-          {node.children?.length > 0 && (
+          {hasChildren && (
             <button
               onClick={() => setOpen(!open)}
               className="text-xs text-gray-400"
@@ -44,9 +53,9 @@ function LocationNode({
         </button>
       </div>
 
-      {open && node.children?.length > 0 && (
+      {open && hasChildren && (
         <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
-          {node.children.map((child: any) => (
+          {node.children!.map((child) => (
             <LocationNode key={child.id} node={child} onDelete={onDelete} />
           ))}
         </div>
@@ -65,9 +74,11 @@ export function LocationSettings({
   onAddLocation,
   onDeleteRequest,
 }: Props) {
+  // 🔍 DEBUG (keep for now)
+  console.log("LOCATIONS IN UI:", locations);
+
   return (
     <>
-      {/* LOCATIONS */}
       <h3 className="text-lg mb-2">Locations</h3>
 
       <input
@@ -85,6 +96,7 @@ export function LocationSettings({
         }
       >
         <option value="">No parent</option>
+
         {locations.map((loc) => (
           <option key={loc.id} value={loc.id}>
             {loc.name}

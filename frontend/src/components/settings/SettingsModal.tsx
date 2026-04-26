@@ -21,18 +21,6 @@ type Props = {
   onClose: () => void;
 };
 
-// ================= BUILD LOCATION TREE =================
-function buildLocationTree(locations: any[], parentId?: number) {
-  const pid = parentId ?? null;
-
-  return locations
-    .filter((l) => (l.parentId ?? l.parent_id ?? null) === pid)
-    .map((loc) => ({
-      ...loc,
-      children: buildLocationTree(locations, loc.id),
-    }));
-}
-
 export function SettingsModal({ isOpen, onClose }: Props) {
   const { locations, addLocation, deleteLocation } = useLocations();
 
@@ -53,6 +41,9 @@ export function SettingsModal({ isOpen, onClose }: Props) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
 
+  // -------------------
+  // 📥 LOAD CATEGORIES
+  // -------------------
   useEffect(() => {
     fetchCategories().then(setCategories);
   }, []);
@@ -62,66 +53,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     setCategories(data);
   };
 
-  const locationTree = buildLocationTree(locations);
+  // ✅ USE BACKEND TREE DIRECTLY
+  const locationTree = locations;
 
   if (!isOpen) return null;
-
-  // ================= BACKUP =================
-  async function handleBackup() {
-    try {
-      const res = await fetch(`${API}/backup/export`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-
-      const blob = await res.blob();
-
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "library-backup.json";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      window.URL.revokeObjectURL(url);
-
-      toast.success("Backup downloaded");
-    } catch (err) {
-      console.error("Backup failed", err);
-      toast.error("Backup failed");
-    }
-  }
-
-  // ================= RESTORE =================
-  async function handleRestore(file: File) {
-    try {
-      setRestoring(true);
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      await fetch(`${API}/backup/import`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: formData,
-      });
-
-      toast.success("Restore complete");
-
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } catch (err) {
-      console.error("Restore failed", err);
-      toast.error("Restore failed");
-    } finally {
-      setRestoring(false);
-    }
-  }
 
   return (
     <>
@@ -143,9 +78,11 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             setNewLocation={setNewLocation}
             parentId={parentId}
             setParentId={setParentId}
-            onAddLocation={() => {
+            onAddLocation={async () => {
               if (!newLocation.trim()) return;
-              addLocation(newLocation, parentId || undefined);
+
+              await addLocation(newLocation, parentId || undefined);
+
               setNewLocation("");
               setParentId("");
             }}
@@ -232,4 +169,61 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       />
     </>
   );
+
+  // ================= BACKUP =================
+  async function handleBackup() {
+    try {
+      const res = await fetch(`${API}/backup/export`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      const blob = await res.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "library-backup.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Backup downloaded");
+    } catch (err) {
+      console.error("Backup failed", err);
+      toast.error("Backup failed");
+    }
+  }
+
+  // ================= RESTORE =================
+  async function handleRestore(file: File) {
+    try {
+      setRestoring(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      await fetch(`${API}/backup/import`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: formData,
+      });
+
+      toast.success("Restore complete");
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      console.error("Restore failed", err);
+      toast.error("Restore failed");
+    } finally {
+      setRestoring(false);
+    }
+  }
 }

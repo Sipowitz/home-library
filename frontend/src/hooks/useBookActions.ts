@@ -35,6 +35,8 @@ type Params = {
   setSelectedBook: (b: Book | null) => void;
   setEditData: (b: Book | null) => void;
   setEditing: (v: boolean) => void;
+
+  editData: Book | null; // ✅ IMPORTANT
 };
 
 export function useBookActions({
@@ -47,6 +49,7 @@ export function useBookActions({
   setSelectedBook,
   setEditData,
   setEditing,
+  editData,
 }: Params) {
   const [isFetching, setIsFetching] = useState(false);
 
@@ -128,13 +131,17 @@ export function useBookActions({
   }
 
   // -------------------
-  // 💾 SAVE
+  // 💾 SAVE (FIXED)
   // -------------------
   async function handleSave(category_ids: number[]) {
-    const updated = await saveBook({
-      ...newBook,
+    if (!editData) return; // ✅ guard
+
+    const payload: Book = {
+      ...editData,
       category_ids,
-    } as Book);
+    };
+
+    const updated = await saveBook(payload);
 
     setSelectedBook(updated);
     setEditData(updated);

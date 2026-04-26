@@ -21,31 +21,36 @@ export function SearchBar({
   locations,
 }: Props) {
   return (
-    <div className="bg-gray-900/60 border border-gray-800 backdrop-blur p-4 rounded-2xl mb-6 flex gap-3 items-center">
-      <input
-        placeholder="Search title or author..."
-        className="p-3 bg-gray-800 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500"
-        value={searchInput}
-        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-          onSearchChange(e.target.value)
-        }
-      />
+    <div className="sticky top-0 z-40 mb-6">
+      {/* background layer (important for mobile + overlap) */}
+      <div className="bg-gray-950 pb-2">
+        <div className="bg-gray-900/60 border border-gray-800 backdrop-blur p-4 rounded-2xl flex gap-3 items-center shadow-md">
+          <input
+            placeholder="Search title or author..."
+            className="p-3 bg-gray-800 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500"
+            value={searchInput}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              onSearchChange(e.target.value)
+            }
+          />
 
-      <select
-        className="p-3 bg-gray-800 rounded-lg"
-        value={selectedLocation ?? ""}
-        onChange={(e) =>
-          onLocationChange(e.target.value ? Number(e.target.value) : null)
-        }
-      >
-        <option value="">All Locations</option>
+          <select
+            className="p-3 bg-gray-800 rounded-lg"
+            value={selectedLocation ?? ""}
+            onChange={(e) =>
+              onLocationChange(e.target.value ? Number(e.target.value) : null)
+            }
+          >
+            <option value="">All Locations</option>
 
-        {locations.map((loc) => (
-          <option key={loc.id} value={loc.id}>
-            {loc.name}
-          </option>
-        ))}
-      </select>
+            {locations.map((loc) => (
+              <option key={loc.id} value={loc.id}>
+                {loc.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
     </div>
   );
 }
