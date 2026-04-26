@@ -49,9 +49,8 @@ export function SearchBar({
   return (
     <div className="sticky top-0 z-30 pb-2">
       <div className="bg-gray-950/95 backdrop-blur border border-gray-800 p-4 rounded-2xl shadow-lg">
-        {/* ✅ STACK ON MOBILE, ROW ON DESKTOP */}
         <div className="flex flex-col sm:flex-row gap-3">
-          {/* SEARCH - FULL WIDTH ALWAYS */}
+          {/* SEARCH */}
           <input
             placeholder="Search title or author..."
             className="p-3 bg-gray-800 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500"
@@ -64,24 +63,22 @@ export function SearchBar({
           {/* LOCATION */}
           <select
             className="p-3 bg-gray-800 rounded-lg w-full sm:w-auto"
-            value={selectedLocation === null ? "" : selectedLocation}
+            value={selectedLocation === null ? "" : String(selectedLocation)}
             onChange={(e) => {
               const val = e.target.value;
 
               if (val === "") {
                 onLocationChange(null);
-              } else if (val === "none") {
-                onLocationChange(-1);
               } else {
                 onLocationChange(Number(val));
               }
             }}
           >
             <option value="">All Locations</option>
-            <option value="none">No Location</option>
+            <option value="-1">No Location</option>
 
             {flatLocations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
+              <option key={loc.id} value={String(loc.id)}>
                 {loc.name}
               </option>
             ))}
