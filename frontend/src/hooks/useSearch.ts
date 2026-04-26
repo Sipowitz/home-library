@@ -30,14 +30,15 @@ export function useSearch({
   }, [searchInput]);
 
   // -------------------
-  // 🔍 APPLY FILTERS
+  // 🔍 APPLY FILTERS (SEARCH ONLY)
   // -------------------
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    // ✅ ONLY search goes to backend
     updateFilters({
       search: debouncedSearch,
-      locationId: selectedLocation,
+      locationId: null, // disable backend location filtering
     });
 
     if (debouncedSearch !== prevSearch) {
@@ -47,7 +48,7 @@ export function useSearch({
 
       setPrevSearch(debouncedSearch);
     }
-  }, [debouncedSearch, selectedLocation, isAuthenticated]);
+  }, [debouncedSearch, isAuthenticated]);
 
   return {
     searchInput,

@@ -39,6 +39,13 @@ type Book = {
   warning?: string;
 };
 
+type Location = {
+  id: number;
+  name: string;
+  parent_id?: number;
+  children?: Location[];
+};
+
 export default function App() {
   const {
     books,
@@ -85,22 +92,65 @@ export default function App() {
       setSelectedBook,
       setEditData,
       setEditing,
-      editData, // ✅ important fix
+      editData,
     });
 
   // -------------------
-  // ⚡ CLIENT-SIDE FILTER
+  // 🔽 GET DESCENDANT IDS
+  // -------------------
+  function getDescendantIds(nodes: Location[], parentId: number): number[] {
+    const result: number[] = [];
+
+    function walk(node: Location) {
+      result.push(node.id);
+      if (node.children) {
+        node.children.forEach(walk);
+      }
+    }
+
+    function find(nodes: Location[]) {
+      for (const node of nodes) {
+        if (node.id === parentId) {
+          walk(node);
+        } else if (node.children) {
+          find(node.children);
+        }
+      }
+    }
+
+    find(nodes);
+    return result;
+  }
+
+  // -------------------
+  // ⚡ CLIENT-SIDE FILTER (UPDATED)
   // -------------------
   const filteredBooks = useMemo(() => {
-    if (!searchInput.trim()) return books;
+    let result = books;
 
-    const q = searchInput.toLowerCase();
+    // 🔍 SEARCH
+    if (searchInput.trim()) {
+      const q = searchInput.toLowerCase();
 
-    return books.filter(
-      (b) =>
-        b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q),
-    );
-  }, [books, searchInput]);
+      result = result.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          b.author.toLowerCase().includes(q),
+      );
+    }
+
+    // 📍 LOCATION FILTER
+    if (selectedLocation === -1) {
+      // No Location
+      result = result.filter((b) => !b.location_id);
+    } else if (selectedLocation !== null) {
+      const ids = getDescendantIds(locations, selectedLocation);
+
+      result = result.filter((b) => ids.includes(b.location_id ?? -999));
+    }
+
+    return result;
+  }, [books, searchInput, selectedLocation, locations]);
 
   // -------------------
   // 📜 INFINITE SCROLL
@@ -190,7 +240,6 @@ export default function App() {
         setEditing(false);
       }}
     >
-      {/* HEADER */}
       <Header
         onOpenSettings={() => setShowSettings(true)}
         onLogout={handleLogout}
@@ -201,7 +250,6 @@ export default function App() {
         onClose={() => setShowSettings(false)}
       />
 
-      {/* PANELS */}
       <TopPanels
         newBook={newBook}
         setNewBook={setNewBook}
@@ -210,7 +258,6 @@ export default function App() {
         isFetching={isFetching}
       />
 
-      {/* SEARCH */}
       <SearchBar
         searchInput={searchInput}
         onSearchChange={setSearchInput}
@@ -219,12 +266,10 @@ export default function App() {
         locations={locations}
       />
 
-      {/* STATUS */}
       <div className="h-6 mb-3 px-1 flex items-center">
         {isLoading && <div className="text-sm text-gray-400">Searching...</div>}
       </div>
 
-      {/* GRID */}
       <BookGrid
         books={filteredBooks}
         onSelect={(book) => {

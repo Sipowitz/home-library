@@ -58,7 +58,7 @@ export function useBooks() {
     locationId: null,
   });
 
-  const requestIdRef = useRef(0); // ✅ track latest request
+  const requestIdRef = useRef(0);
 
   function notifyStatsUpdate() {
     window.dispatchEvent(new Event("stats-updated"));
@@ -68,7 +68,7 @@ export function useBooks() {
   // 📥 LOAD BOOKS
   // -------------------
   async function loadBooks(reset = true) {
-    const requestId = ++requestIdRef.current; // ✅ unique request id
+    const requestId = ++requestIdRef.current;
     const newSkip = reset ? 0 : skip;
 
     setIsLoading(true);
@@ -77,10 +77,9 @@ export function useBooks() {
       newSkip,
       LIMIT,
       filters.search,
-      filters.locationId,
+      null, // ✅ IMPORTANT: disable backend location filtering
     );
 
-    // ❌ ignore stale responses
     if (requestId !== requestIdRef.current) return;
 
     if (reset) {
@@ -178,6 +177,6 @@ export function useBooks() {
     saveBook,
     updateFilters,
     filters,
-    isLoading, // ✅ NEW
+    isLoading,
   };
 }
