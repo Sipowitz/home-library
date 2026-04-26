@@ -35,6 +35,17 @@ export function AddBookForm({
     }
   }
 
+  function handleSearchClick() {
+    setWarning(null);
+
+    if (!newBook.isbn) {
+      setWarning("Please enter an ISBN first");
+      return;
+    }
+
+    onSearch();
+  }
+
   return (
     <div className="bg-gray-900/80 backdrop-blur border border-gray-800 p-5 rounded-2xl shadow-xl">
       {/* HEADER */}
@@ -46,7 +57,7 @@ export function AddBookForm({
       <div className="mb-4">
         <label className="text-xs text-gray-400">ISBN</label>
 
-        <div className="flex gap-2 mt-1">
+        <div className="flex gap-2 mt-1 items-center">
           <input
             placeholder="Scan or enter ISBN..."
             className="flex-1 p-2 bg-gray-800 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -54,14 +65,16 @@ export function AddBookForm({
             onChange={(e) => setNewBook({ ...newBook, isbn: e.target.value })}
           />
 
+          {/* 🔴 FIX: force visible button */}
           <button
-            onClick={onSearch}
-            className="px-3 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center transition"
+            onClick={handleSearchClick}
+            disabled={isFetching}
+            className="h-10 w-10 flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 border border-blue-400 shadow-md transition"
           >
             {isFetching ? (
-              <Loader2 className="animate-spin" size={16} />
+              <Loader2 className="animate-spin text-white" size={18} />
             ) : (
-              <Search size={16} />
+              <Search className="text-white" size={18} />
             )}
           </button>
         </div>

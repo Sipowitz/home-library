@@ -25,7 +25,6 @@ type Book = {
 
 type Params = {
   newBook: Partial<Book>;
-  // ✅ FIX: allow functional updates
   setNewBook: React.Dispatch<React.SetStateAction<Partial<Book>>>;
 
   addBook: (b: any) => Promise<Book>;
@@ -54,11 +53,12 @@ export function useBookActions({
 }: Params) {
   const [isFetching, setIsFetching] = useState(false);
 
-  // -------------------
   // 🔍 ISBN SEARCH
-  // -------------------
   async function handleSearch() {
-    if (!newBook.isbn) return;
+    if (!newBook.isbn) {
+      toast.error("Enter an ISBN first");
+      return;
+    }
 
     try {
       setIsFetching(true);
@@ -81,9 +81,7 @@ export function useBookActions({
     }
   }
 
-  // -------------------
   // ➕ ADD BOOK
-  // -------------------
   async function handleAddBook() {
     if (!newBook.title || !newBook.author) return;
 
@@ -122,18 +120,12 @@ export function useBookActions({
     }
   }
 
-  // -------------------
-  // ❌ DELETE
-  // -------------------
   async function handleDelete(id: number) {
     await removeBook(id);
     setSelectedBook(null);
     toast.success("Book deleted");
   }
 
-  // -------------------
-  // 💾 SAVE
-  // -------------------
   async function handleSave(category_ids: number[]) {
     if (!editData) return;
 
