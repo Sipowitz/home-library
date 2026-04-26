@@ -1,169 +1,164 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
 
-import client from "../../api/client";
-import { useAuth } from "../../context/AuthContext";
+import { getBooks } from "../../api/books";
 
-type StatItem = {
-  name: string;
-  count: number;
-};
-
-type Stats = {
-  total_books: number;
-  read_books: number;
-  unread_books: number;
-  by_category: StatItem[];
-  by_location: StatItem[];
-  recent_added_7_days: number;
-  recent_added_30_days: number;
-  recent_reads_7_days: number;
-  recent_reads_30_days: number;
+type Book = {
+  id: number;
+  read?: boolean;
+  date_added?: string;
 };
 
 export function StatsPanel() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [ready, setReady] = useState(false); // ✅ FIX: prevents width error
 
-  // ✅ NEW: track container size
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [ready, setReady] = useState(false);
-
-  const { token } = useAuth();
-
-  async function fetchStats() {
+  // -------------------
+  // 📥 LOAD DATA
+  // -------------------
+  async function loadStats() {
     try {
-      if (!token) return;
+      const data = await getBooks(0, 100, undefined, undefined);
 
-      const res = await client.get("/stats/");
-      setStats(res.data);
+      const items = data?.items ?? [];
+
+      setBooks(items);
+      buildChart(items);
     } catch (err) {
-      console.error("Stats fetch failed", err);
+      console.error("Failed to load stats", err);
+      setBooks([]);
+      setChartData([]);
     }
   }
 
   useEffect(() => {
-    fetchStats();
-  }, [refreshKey, token]);
+    loadStats();
 
-  useEffect(() => {
-    const handler = () => setRefreshKey((k) => k + 1);
+    const handler = () => loadStats();
     window.addEventListener("stats-updated", handler);
+
     return () => window.removeEventListener("stats-updated", handler);
   }, []);
 
-  // ✅ NEW: wait for real size
+  // ✅ FIX: wait until mounted before rendering chart
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const observer = new ResizeObserver(() => {
-      if (el.offsetWidth > 0 && el.offsetHeight > 0) {
-        setReady(true);
-      }
-    });
-
-    observer.observe(el);
-
-    return () => observer.disconnect();
+    setReady(true);
   }, []);
 
-  if (!stats) {
-    return <div className="text-gray-400">Loading stats...</div>;
+  // -------------------
+  // 📊 BUILD CUMULATIVE CHART
+  // -------------------
+  function buildChart(items: Book[]) {
+    if (!items || items.length === 0) {
+      setChartData([]);
+      return;
+    }
+
+    const sortedBooks = [...items]
+      .filter((b) => b.date_added)
+      .sort(
+        (a, b) =>
+          new Date(a.date_added!).getTime() - new Date(b.date_added!).getTime(),
+      );
+
+    let total = 0;
+    let read = 0;
+
+    const data: any[] = [];
+
+    sortedBooks.forEach((b) => {
+      total += 1;
+      if (b.read) read += 1;
+
+      const date = new Date(b.date_added!).toISOString().slice(0, 10);
+
+      data.push({
+        date,
+        total,
+        read,
+      });
+    });
+
+    setChartData(data);
   }
 
-  const total = stats.total_books;
-  const read = stats.read_books;
-  const unread = stats.unread_books;
-
-  const readPercent = total ? (read / total) * 100 : 0;
+  const total = books.length;
+  const read = books.filter((b) => b.read).length;
+  const unread = total - read;
 
   return (
-    <div className="bg-gray-900/80 backdrop-blur border border-gray-800 p-5 rounded-2xl shadow-xl h-full flex flex-col">
-      <h2 className="text-lg font-semibold mb-4 tracking-wide">
-        Library Stats
-      </h2>
+    <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl">
+      <h2 className="text-lg mb-4">Library Stats</h2>
 
-      {/* TOP CARDS */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-gray-800 rounded-xl p-4 text-center">
-          <div className="text-xs text-gray-400">Total</div>
-          <div className="text-xl font-semibold">{total}</div>
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* STATS */}
+        <div className="flex-1 grid grid-cols-3 gap-3">
+          <StatCard label="Total" value={total} />
+          <StatCard label="Read" value={read} highlight />
+          <StatCard label="Unread" value={unread} />
         </div>
 
-        <div className="bg-gray-800 rounded-xl p-4 text-center">
-          <div className="text-xs text-gray-400">Read</div>
-          <div className="text-xl font-semibold text-green-500">{read}</div>
-        </div>
-
-        <div className="bg-gray-800 rounded-xl p-4 text-center">
-          <div className="text-xs text-gray-400">Unread</div>
-          <div className="text-xl font-semibold">{unread}</div>
-        </div>
-      </div>
-
-      {/* PROGRESS */}
-      <div className="flex gap-6 items-center mb-6">
-        <div className="w-28 h-28 relative">
-          <div
-            className="w-full h-full rounded-full"
-            style={{
-              background: `conic-gradient(
-                #16a34a ${readPercent}%,
-                #374151 ${readPercent}% 100%
-              )`,
-            }}
-          />
-          <div className="absolute inset-3 bg-gray-900 rounded-full flex items-center justify-center text-sm">
-            {Math.round(readPercent)}%
-          </div>
-        </div>
-
-        <div className="text-sm space-y-1">
-          <div>
-            <span className="text-gray-400">Added (7d):</span>{" "}
-            {stats.recent_added_7_days}
-          </div>
-          <div>
-            <span className="text-gray-400">Added (30d):</span>{" "}
-            {stats.recent_added_30_days}
-          </div>
-          <div className="text-green-500">
-            Read (7d): {stats.recent_reads_7_days}
-          </div>
-          <div className="text-green-500">
-            Read (30d): {stats.recent_reads_30_days}
+        {/* CHART */}
+        <div className="flex-1">
+          <div className="w-full h-[180px]">
+            {ready && ( // ✅ FIX HERE
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="date" hide />
+                  <YAxis hide />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="read"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* CHART */}
-      <div className="flex-1 flex flex-col">
-        <h3 className="text-sm text-gray-400 mb-2">By Location</h3>
-
-        {/* ✅ CRITICAL FIX */}
-        <div
-          ref={containerRef}
-          className="flex-1 min-h-[260px] bg-gray-800 rounded-xl p-2"
-        >
-          {ready && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.by_location}>
-                <XAxis dataKey="name" stroke="#9ca3af" />
-                <YAxis stroke="#9ca3af" />
-                <Tooltip />
-                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+function StatCard({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="bg-gray-800 rounded-lg p-3 text-center">
+      <div className="text-sm text-gray-400">{label}</div>
+      <div
+        className={`text-xl font-semibold ${
+          highlight ? "text-green-400" : "text-white"
+        }`}
+      >
+        {value}
       </div>
     </div>
   );
