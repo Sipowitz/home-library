@@ -33,7 +33,7 @@ def create_category(
 
 
 # 📚 Get categories (TREE)
-@router.get("/", response_model=list[schemas.CategoryResponse])
+@router.get("", response_model=list[schemas.CategoryResponse])
 def get_categories(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),

@@ -17,7 +17,7 @@ def get_db():
         db.close()
 
 
-@router.get("/", response_model=schemas.StatsResponse)  # ✅ ADDED
+@router.get("", response_model=schemas.StatsResponse)  # ✅ ADDED
 def get_stats(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),

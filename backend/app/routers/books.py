@@ -52,7 +52,7 @@ def get_db():
 # -------------------
 # 📚 LIST BOOKS
 # -------------------
-@router.get("/", response_model=schemas.BookListResponse)
+@router.get("", response_model=schemas.BookListResponse)
 def get_books(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, le=100),

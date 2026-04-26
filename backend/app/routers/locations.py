@@ -19,7 +19,7 @@ def get_db():
 
 
 # 📚 Get locations (TREE)
-@router.get("/", response_model=list[schemas.LocationResponse])
+@router.get("", response_model=list[schemas.LocationResponse])
 def get_locations(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
@@ -28,7 +28,7 @@ def get_locations(
 
 
 # ➕ Create location
-@router.post("/", response_model=schemas.LocationResponse)
+@router.post("", response_model=schemas.LocationResponse)  # ✅ FIXED
 def create_location(
     loc: schemas.LocationCreate,
     db: Session = Depends(get_db),

@@ -13,7 +13,7 @@ from .core.error_handlers import (
     general_exception_handler,
 )
 
-app = FastAPI()
+app = FastAPI(redirect_slashes=False)
 
 # ✅ Create tables
 Base.metadata.create_all(bind=engine)

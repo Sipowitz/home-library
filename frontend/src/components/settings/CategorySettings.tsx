@@ -24,30 +24,30 @@ function CategoryNode({
   const hasChildren = (node.children?.length ?? 0) > 0;
 
   return (
-    <div className="ml-2">
-      <div className="flex items-center justify-between bg-gray-800 px-2 py-1 rounded">
-        <div className="flex items-center gap-2">
+    <div className="ml-2 min-w-0">
+      <div className="flex items-center justify-between bg-gray-800 px-2 py-1 rounded min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           {hasChildren && (
             <button
               onClick={() => setOpen(!open)}
-              className="text-xs text-gray-400"
+              className="text-xs text-gray-400 shrink-0"
             >
               {open ? "▼" : "▶"}
             </button>
           )}
-          <span className="text-gray-300">{node.name}</span>
+          <span className="text-gray-300 truncate">{node.name}</span>
         </div>
 
         <button
           onClick={() => onDelete(node.id)}
-          className="text-red-400 text-xs"
+          className="text-red-400 text-xs shrink-0"
         >
           Delete
         </button>
       </div>
 
       {open && hasChildren && (
-        <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
+        <div className="ml-3 mt-1 space-y-1 border-l border-gray-700 pl-2 min-w-0">
           {(node.children ?? []).map((child) => (
             <CategoryNode key={child.id} node={child} onDelete={onDelete} />
           ))}
@@ -100,7 +100,7 @@ export function CategorySettings({
         Add Category
       </button>
 
-      <div className="max-h-60 overflow-y-auto text-sm space-y-1">
+      <div className="max-h-60 overflow-y-auto overflow-x-hidden text-sm space-y-1">
         {categories.map((cat) => (
           <CategoryNode key={cat.id} node={cat} onDelete={onDeleteCategory} />
         ))}

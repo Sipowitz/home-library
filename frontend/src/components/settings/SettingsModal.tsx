@@ -41,9 +41,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
 
-  // -------------------
-  // 📥 LOAD CATEGORIES
-  // -------------------
   useEffect(() => {
     fetchCategories().then(setCategories);
   }, []);
@@ -53,7 +50,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     setCategories(data);
   };
 
-  // ✅ USE BACKEND TREE DIRECTLY
   const locationTree = locations;
 
   if (!isOpen) return null;
@@ -64,13 +60,13 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
         onClick={onClose}
       >
+        {/* ✅ FIXED MODAL CONTAINER */}
         <div
-          className="bg-gray-900 p-6 rounded-xl w-full max-w-md"
+          className="bg-gray-900 p-6 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden min-w-0"
           onClick={(e) => e.stopPropagation()}
         >
           <h2 className="text-xl mb-4">Settings</h2>
 
-          {/* LOCATIONS */}
           <LocationSettings
             locations={locations}
             locationTree={locationTree}
@@ -89,7 +85,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             onDeleteRequest={(id) => setConfirmDeleteLocation(id)}
           />
 
-          {/* CATEGORIES */}
           <CategorySettings
             categories={categories}
             newCategory={newCategory}
@@ -111,7 +106,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             }}
           />
 
-          {/* BACKUP / RESTORE */}
           <BackupSettings
             restoring={restoring}
             fileInputRef={fileInputRef}
@@ -131,7 +125,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         </div>
       </div>
 
-      {/* RESTORE MODAL */}
       <ConfirmRestoreModal
         open={confirmRestoreOpen}
         restoring={restoring}
@@ -149,7 +142,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         }}
       />
 
-      {/* DELETE LOCATION MODAL */}
       <ConfirmDeleteModal
         open={confirmDeleteLocation !== null}
         title="Delete Location?"
@@ -170,7 +162,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     </>
   );
 
-  // ================= BACKUP =================
   async function handleBackup() {
     try {
       const res = await fetch(`${API}/backup/export`, {
@@ -198,7 +189,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     }
   }
 
-  // ================= RESTORE =================
   async function handleRestore(file: File) {
     try {
       setRestoring(true);

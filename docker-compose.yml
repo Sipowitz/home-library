@@ -11,7 +11,6 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -22,28 +21,24 @@ services:
     build: ./backend
     container_name: library_backend
     restart: always
-
     depends_on:
       db:
         condition: service_healthy
-
     ports:
       - "8000:8000"
-
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/library
-      SECRET_KEY: super-secure-production-key-123
-
+      SECRET_KEY: ${SECRET_KEY}
     volumes:
       - ./backend:/app
-
     command: >
       uvicorn app.main:app
       --host 0.0.0.0
       --port 8000
       --reload
+      --proxy-headers
+      --forwarded-allow-ips="*"
 
-  # ✅ NEW: FRONTEND
   frontend:
     build: ./frontend
     container_name: library_frontend
@@ -51,20 +46,17 @@ services:
     expose:
       - "80"
 
-  # ✅ NEW: CADDY (HTTPS + routing)
   caddy:
     image: caddy:latest
     container_name: library_caddy
     restart: always
 
+    # ✅ ONLY HTTP — Tailscale handles HTTPS
     ports:
       - "80:80"
-      - "443:443"
 
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
 
     depends_on:
       - frontend
@@ -72,5 +64,3 @@ services:
 
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:
