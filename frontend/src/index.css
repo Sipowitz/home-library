@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* -------------------
+   Recharts focus fix
+   ------------------- */
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none !important;
+}
+
+/* Fallback for SVG elements (some browsers) */
+svg:focus {
+  outline: none !important;
+}
