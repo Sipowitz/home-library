@@ -65,9 +65,9 @@ export default function App() {
 
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
 
+  // ✅ FIXED: removed selectedLocation from hook
   const { searchInput, setSearchInput } = useSearch({
     isAuthenticated,
-    selectedLocation,
     updateFilters,
   });
 

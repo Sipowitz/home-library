@@ -1,6 +1,7 @@
 import axios from "axios";
 
-export const API = "http://192.168.1.200:8000";
+// ✅ USE RELATIVE API (Caddy handles routing)
+export const API = "/api";
 
 // 🆕 AXIOS CLIENT
 const client = axios.create({

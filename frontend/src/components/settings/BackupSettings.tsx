@@ -2,7 +2,7 @@ import React from "react";
 
 type Props = {
   restoring: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onBackup: () => void;
   onFileSelect: (file: File) => void;
 };

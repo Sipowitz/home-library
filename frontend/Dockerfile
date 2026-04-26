@@ -1,4 +1,5 @@
-FROM node:20
+# ---- build stage ----
+FROM node:20 AS build
 
 WORKDIR /app
 
@@ -6,7 +7,20 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+RUN npm run build
 
-EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host"]
+# ---- production stage ----
+FROM nginx:alpine
+
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# optional: remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# custom config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

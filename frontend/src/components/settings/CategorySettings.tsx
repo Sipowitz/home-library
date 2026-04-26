@@ -21,11 +21,13 @@ function CategoryNode({
 }) {
   const [open, setOpen] = useState(true);
 
+  const hasChildren = (node.children?.length ?? 0) > 0;
+
   return (
     <div className="ml-2">
       <div className="flex items-center justify-between bg-gray-800 px-2 py-1 rounded">
         <div className="flex items-center gap-2">
-          {node.children?.length > 0 && (
+          {hasChildren && (
             <button
               onClick={() => setOpen(!open)}
               className="text-xs text-gray-400"
@@ -44,9 +46,9 @@ function CategoryNode({
         </button>
       </div>
 
-      {open && node.children?.length > 0 && (
+      {open && hasChildren && (
         <div className="ml-4 mt-1 space-y-1 border-l border-gray-700 pl-2">
-          {node.children.map((child) => (
+          {(node.children ?? []).map((child) => (
             <CategoryNode key={child.id} node={child} onDelete={onDelete} />
           ))}
         </div>

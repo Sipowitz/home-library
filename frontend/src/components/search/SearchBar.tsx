@@ -1,4 +1,5 @@
-import { useMemo, ChangeEvent } from "react";
+import { useMemo } from "react";
+import type { ChangeEvent } from "react";
 
 type Location = {
   id: number;

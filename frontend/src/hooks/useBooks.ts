@@ -73,12 +73,7 @@ export function useBooks() {
 
     setIsLoading(true);
 
-    const data = await getBooks(
-      newSkip,
-      LIMIT,
-      filters.search,
-      null, // ✅ IMPORTANT: disable backend location filtering
-    );
+    const data = await getBooks(newSkip, LIMIT, filters.search, null);
 
     if (requestId !== requestIdRef.current) return;
 
@@ -88,7 +83,10 @@ export function useBooks() {
     } else {
       setBooks((prev) => {
         const existingIds = new Set(prev.map((b) => b.id));
-        const newItems = data.items.filter((b) => !existingIds.has(b.id));
+
+        // ✅ FIX HERE
+        const newItems = data.items.filter((b: Book) => !existingIds.has(b.id));
+
         return [...prev, ...newItems];
       });
 

@@ -1,12 +1,6 @@
 import { StatsPanel } from "../stats/StatsPanel";
 
-export function TopPanels({
-  newBook,
-  setNewBook,
-  onSearch,
-  onAdd,
-  isFetching,
-}: any) {
+export function TopPanels({ newBook, setNewBook, onAdd, isFetching }: any) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
       {/* ADD BOOK */}

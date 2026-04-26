@@ -25,7 +25,8 @@ type Book = {
 
 type Params = {
   newBook: Partial<Book>;
-  setNewBook: (b: Partial<Book>) => void;
+  // ✅ FIX: allow functional updates
+  setNewBook: React.Dispatch<React.SetStateAction<Partial<Book>>>;
 
   addBook: (b: any) => Promise<Book>;
   addBookFromISBN: (b: any) => Promise<Book>;
@@ -36,7 +37,7 @@ type Params = {
   setEditData: (b: Book | null) => void;
   setEditing: (v: boolean) => void;
 
-  editData: Book | null; // ✅ IMPORTANT
+  editData: Book | null;
 };
 
 export function useBookActions({
@@ -64,7 +65,7 @@ export function useBookActions({
 
       const data = await previewBookByISBN(newBook.isbn);
 
-      setNewBook((prev) => ({
+      setNewBook((prev: Partial<Book>) => ({
         ...data,
         ...prev,
         read: prev.read ?? false,
@@ -131,10 +132,10 @@ export function useBookActions({
   }
 
   // -------------------
-  // 💾 SAVE (FIXED)
+  // 💾 SAVE
   // -------------------
   async function handleSave(category_ids: number[]) {
-    if (!editData) return; // ✅ guard
+    if (!editData) return;
 
     const payload: Book = {
       ...editData,
