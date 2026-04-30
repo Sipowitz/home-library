@@ -30,7 +30,7 @@ export async function createBook(book: any) {
 }
 
 export async function createBookFromISBN(book: any) {
-  const res = await client.post("/books/from-isbn", book);
+  const res = await client.post("/books/from-isbn/", book);
   return res.data;
 }
 
@@ -46,5 +46,5 @@ export async function updateBook(id: number, book: any) {
 }
 
 export async function deleteBook(id: number) {
-  await client.delete(`/books/${id}`);
+  await client.delete(`/books/${id}/`);
 }

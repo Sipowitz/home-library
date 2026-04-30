@@ -25,7 +25,7 @@ type Book = {
 
 type Params = {
   newBook: Partial<Book>;
-  setNewBook: (b: Partial<Book>) => void;
+  setNewBook: (b: any) => void;
 
   addBook: (b: any) => Promise<Book>;
   addBookFromISBN: (b: any) => Promise<Book>;
@@ -36,7 +36,7 @@ type Params = {
   setEditData: (b: Book | null) => void;
   setEditing: (v: boolean) => void;
 
-  editData: Book | null; // ✅ IMPORTANT
+  editData: Book | null;
 };
 
 export function useBookActions({
@@ -56,17 +56,20 @@ export function useBookActions({
   // -------------------
   // 🔍 ISBN SEARCH
   // -------------------
-  async function handleSearch() {
-    if (!newBook.isbn) return;
+  async function handleSearch(overrideISBN?: string) {
+    const isbn = overrideISBN || newBook.isbn;
+
+    if (!isbn) return;
 
     try {
       setIsFetching(true);
 
-      const data = await previewBookByISBN(newBook.isbn);
+      const data = await previewBookByISBN(isbn);
 
-      setNewBook((prev) => ({
+      setNewBook((prev: any) => ({
         ...data,
         ...prev,
+        isbn,
         read: prev.read ?? false,
         date_added: prev.date_added ?? new Date().toISOString(),
       }));
@@ -131,10 +134,10 @@ export function useBookActions({
   }
 
   // -------------------
-  // 💾 SAVE (FIXED)
+  // 💾 SAVE
   // -------------------
   async function handleSave(category_ids: number[]) {
-    if (!editData) return; // ✅ guard
+    if (!editData) return;
 
     const payload: Book = {
       ...editData,
