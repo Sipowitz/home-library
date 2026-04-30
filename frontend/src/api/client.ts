@@ -1,8 +1,7 @@
 import axios from "axios";
 
-export const API = "http://192.168.1.200:8000";
+export const API = "/api";
 
-// 🆕 AXIOS CLIENT
 const client = axios.create({
   baseURL: API,
   headers: {
@@ -10,43 +9,50 @@ const client = axios.create({
   },
 });
 
-// 🔐 Attach token automatically + BLOCK if missing
+// ✅ DEBUG
+console.log("AXIOS BASE URL =", client.defaults.baseURL);
+
+// 🔐 Attach token correctly
 client.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
 
-    // ✅ allow auth endpoints without token
     const isAuthRequest =
       config.url?.includes("/login") || config.url?.includes("/register");
 
     if (!token && !isAuthRequest) {
-      // 🔥 HARD BLOCK → prevents 401 spam entirely
       return Promise.reject("NO_TOKEN");
     }
 
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      // ✅ SAFE way (works with Axios v1+)
+      config.headers = config.headers || {};
+      (config.headers as any)["Authorization"] = `Bearer ${token}`;
     }
+
+    // ✅ DEBUG
+    console.log("AXIOS REQUEST", {
+      baseURL: config.baseURL,
+      url: config.url,
+      fullURL: `${config.baseURL}${config.url}`,
+      headers: config.headers,
+    });
 
     return config;
   },
   (error) => Promise.reject(error),
 );
 
-// 🔐 RESPONSE HANDLING
+// 🔐 Response handling
 client.interceptors.response.use(
   (res) => res,
   (err) => {
-    // ✅ silently ignore blocked requests
     if (err === "NO_TOKEN") {
       return Promise.reject(err);
     }
 
     if (err.response?.status === 401) {
       console.warn("Unauthorized request");
-
-      // ❌ DO NOT auto-remove token
-      // (prevents cascade failures)
     }
 
     return Promise.reject(err);
@@ -55,19 +61,17 @@ client.interceptors.response.use(
 
 export default client;
 
-// 🔑 GOOGLE API KEY
+// 🔑 helpers
 export function getGoogleApiKey() {
   return localStorage.getItem("google_api_key") || "";
 }
 
-// 🔐 AUTH HEADER (SAFE)
 export function getAuthHeaders() {
   const token = localStorage.getItem("token");
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
 }
 
-// 🔐 STORE TOKEN
 export function setToken(token: string) {
   localStorage.setItem("token", token);
 }

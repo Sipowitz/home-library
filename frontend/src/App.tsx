@@ -176,7 +176,6 @@ export default function App() {
       const token = await loginApi(username, password);
 
       login(token);
-      loadBooks();
 
       toast.success("Logged in");
     } catch (err) {

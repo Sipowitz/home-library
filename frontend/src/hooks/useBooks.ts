@@ -7,6 +7,9 @@ import {
   updateBook,
 } from "../api/books";
 
+// ✅ ADD THIS
+import { useAuth } from "../context/AuthContext";
+
 type Category = {
   id: number;
   name: string;
@@ -60,6 +63,9 @@ export function useBooks() {
 
   const requestIdRef = useRef(0);
 
+  // ✅ ADD THIS
+  const { ready, token } = useAuth();
+
   function notifyStatsUpdate() {
     window.dispatchEvent(new Event("stats-updated"));
   }
@@ -73,12 +79,7 @@ export function useBooks() {
 
     setIsLoading(true);
 
-    const data = await getBooks(
-      newSkip,
-      LIMIT,
-      filters.search,
-      null, // ✅ IMPORTANT: disable backend location filtering
-    );
+    const data = await getBooks(newSkip, LIMIT, filters.search, null);
 
     if (requestId !== requestIdRef.current) return;
 
@@ -120,10 +121,13 @@ export function useBooks() {
     setFilters(updated);
   }
 
+  // ✅ FIX: WAIT FOR AUTH
   useEffect(() => {
+    if (!ready || !token) return;
+
     loadBooks(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters, ready, token]);
 
   // -------------------
   // ➕ ADD BOOK

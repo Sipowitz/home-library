@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 type AuthContextType = {
   token: string | null;
+  ready: boolean;
   isAuthenticated: boolean;
   login: (token: string) => void;
   logout: () => void;
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         token,
+        ready,
         isAuthenticated: !!token,
         login,
         logout,

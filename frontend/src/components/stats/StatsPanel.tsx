@@ -10,6 +10,7 @@ import {
 } from "recharts";
 
 import { getBooks } from "../../api/books";
+import { useAuth } from "../../context/AuthContext"; // ✅ ADDED
 
 type Book = {
   id: number;
@@ -30,6 +31,9 @@ export function StatsPanel() {
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [range, setRange] = useState<Range>("30d");
 
+  // ✅ AUTH
+  const { ready, token } = useAuth();
+
   async function loadStats() {
     try {
       const data = await getBooks(0, 100, undefined, undefined);
@@ -41,17 +45,20 @@ export function StatsPanel() {
     }
   }
 
+  // ✅ FIX: wait for auth before fetching
   useEffect(() => {
+    if (!ready || !token) return;
+
     loadStats();
 
     const handler = () => loadStats();
     window.addEventListener("stats-updated", handler);
 
     return () => window.removeEventListener("stats-updated", handler);
-  }, []);
+  }, [ready, token]);
 
   // -------------------
-  // 📈 CHART ONLY FILTER
+  // 📈 CHART FILTERING
   // -------------------
   useEffect(() => {
     let filtered = [...books];
@@ -95,14 +102,14 @@ export function StatsPanel() {
   }, [books, range]);
 
   // -------------------
-  // 📊 TOTALS (ALL TIME)
+  // 📊 TOTALS
   // -------------------
   const total = books.length;
   const read = books.filter((b) => b.read).length;
   const unread = total - read;
 
   // -------------------
-  // 📅 FIXED ACTIVITY
+  // 📅 ACTIVITY
   // -------------------
   const now = Date.now();
   const DAY = 1000 * 60 * 60 * 24;
@@ -120,7 +127,6 @@ export function StatsPanel() {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg">Library Stats</h2>
 
-        {/* ✅ NOW ONLY AFFECTS CHART */}
         <div className="flex gap-1 bg-gray-800 p-1 rounded-lg text-xs">
           {(["7d", "30d", "all"] as Range[]).map((r) => (
             <button
@@ -139,14 +145,12 @@ export function StatsPanel() {
       <div className="flex flex-col lg:grid lg:grid-cols-5 gap-4 items-stretch">
         {/* STATS */}
         <div className="lg:col-span-2 flex flex-col gap-3">
-          {/* TOTALS */}
           <div className="grid grid-cols-3 gap-3">
             <StatCard label="Total" value={total} />
             <StatCard label="Read" value={read} highlight />
             <StatCard label="Unread" value={unread} />
           </div>
 
-          {/* FIXED ACTIVITY */}
           <ActivityBox
             title="Last 7 days"
             added={last7.length}
@@ -191,7 +195,6 @@ export function StatsPanel() {
                 />
 
                 <YAxis hide />
-
                 <Tooltip content={<CustomTooltip />} />
 
                 <Line
@@ -220,7 +223,7 @@ export function StatsPanel() {
   );
 }
 
-/* --- helpers unchanged --- */
+/* --- helpers --- */
 
 function StatCard({ label, value, highlight }: any) {
   return (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocations } from "../../context/LocationContext";
-import { API } from "../../api/client";
+import client from "../../api/client"; // ✅ FIXED
 import toast from "react-hot-toast";
 import { BackupSettings } from "./BackupSettings";
 import { LocationSettings } from "./LocationSettings";
@@ -173,13 +173,11 @@ export function SettingsModal({ isOpen, onClose }: Props) {
   // ================= BACKUP =================
   async function handleBackup() {
     try {
-      const res = await fetch(`${API}/backup/export`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
+      const res = await client.get("/backup/export", {
+        responseType: "blob",
       });
 
-      const blob = await res.blob();
+      const blob = res.data;
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -206,12 +204,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       const formData = new FormData();
       formData.append("file", file);
 
-      await fetch(`${API}/backup/import`, {
-        method: "POST",
+      await client.post("/backup/import", formData, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "multipart/form-data",
         },
-        body: formData,
       });
 
       toast.success("Restore complete");
