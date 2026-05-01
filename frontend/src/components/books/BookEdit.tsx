@@ -1,5 +1,29 @@
 import React, { useState } from "react";
 
+import type { Book } from "../../types/book";
+import type { Category } from "../../types/category";
+import type { Location } from "../../types/location";
+
+type FlatLocation = Location & {
+  level: number;
+};
+
+type Props = {
+  editData: Book | null;
+
+  setEditData: (book: Book) => void;
+
+  categories: Category[];
+
+  selectedCategories: number[];
+
+  setSelectedCategories: React.Dispatch<React.SetStateAction<number[]>>;
+
+  flatLocations: FlatLocation[];
+
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+};
+
 export function BookEdit({
   editData,
   setEditData,
@@ -8,21 +32,22 @@ export function BookEdit({
   setSelectedCategories,
   flatLocations,
   textareaRef,
-}: any) {
+}: Props) {
   const [locationOpen, setLocationOpen] = useState(false);
 
   const toggleCategory = (id: number) => {
-    setSelectedCategories((prev: number[]) =>
+    setSelectedCategories((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
     );
   };
 
   const selectedLocation = flatLocations.find(
-    (l: any) => l.id === editData?.location_id,
+    (l) => l.id === editData?.location_id,
   );
 
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
+
     if (!img.src.includes("fallback-cover.png")) {
       img.src = "/fallback-cover.png";
     }
@@ -46,7 +71,10 @@ export function BookEdit({
             className="w-full p-2 bg-gray-700 rounded"
             value={editData?.title || ""}
             onChange={(e) =>
-              setEditData({ ...editData, title: e.target.value })
+              setEditData({
+                ...editData!,
+                title: e.target.value,
+              })
             }
           />
 
@@ -54,7 +82,10 @@ export function BookEdit({
             className="w-full p-2 bg-gray-700 rounded"
             value={editData?.author || ""}
             onChange={(e) =>
-              setEditData({ ...editData, author: e.target.value })
+              setEditData({
+                ...editData!,
+                author: e.target.value,
+              })
             }
           />
 
@@ -64,7 +95,7 @@ export function BookEdit({
               const newRead = !editData?.read;
 
               setEditData({
-                ...editData,
+                ...editData!,
                 read: newRead,
                 read_at: newRead ? new Date().toISOString() : null,
               });
@@ -82,6 +113,7 @@ export function BookEdit({
                 }`}
               />
             </div>
+
             <span>{editData?.read ? "Read" : "Unread"}</span>
           </div>
         </div>
@@ -96,12 +128,13 @@ export function BookEdit({
           <span>
             {selectedLocation ? selectedLocation.name : "Select location"}
           </span>
+
           <span>▾</span>
         </div>
 
         {locationOpen && (
           <div className="absolute z-50 mt-1 w-full bg-gray-800 rounded shadow max-h-60 overflow-y-auto border border-gray-700">
-            {flatLocations.map((loc: any) => {
+            {flatLocations.map((loc) => {
               const isParent = loc.children?.length > 0;
 
               return (
@@ -109,10 +142,12 @@ export function BookEdit({
                   key={loc.id}
                   onClick={() => {
                     if (isParent) return;
+
                     setEditData({
-                      ...editData,
+                      ...editData!,
                       location_id: loc.id,
                     });
+
                     setLocationOpen(false);
                   }}
                   className={`px-3 py-2 text-sm ${
@@ -120,7 +155,9 @@ export function BookEdit({
                       ? "text-gray-500 font-semibold cursor-default"
                       : "hover:bg-gray-700 cursor-pointer"
                   }`}
-                  style={{ paddingLeft: `${8 + loc.level * 16}px` }}
+                  style={{
+                    paddingLeft: `${8 + loc.level * 16}px`,
+                  }}
                 >
                   {loc.name}
                 </div>
@@ -133,14 +170,16 @@ export function BookEdit({
       {/* CATEGORIES */}
       <div className="mb-3">
         <div className="text-gray-400 mb-1">Categories</div>
+
         <div className="max-h-32 overflow-y-auto bg-gray-700 p-2 rounded">
-          {categories.map((cat: any) => (
+          {categories.map((cat) => (
             <label key={cat.id} className="flex gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={selectedCategories.includes(cat.id)}
                 onChange={() => toggleCategory(cat.id)}
               />
+
               {cat.name}
             </label>
           ))}
@@ -150,7 +189,12 @@ export function BookEdit({
       <input
         className="w-full p-2 bg-gray-700 rounded mb-2"
         value={editData?.isbn || ""}
-        onChange={(e) => setEditData({ ...editData, isbn: e.target.value })}
+        onChange={(e) =>
+          setEditData({
+            ...editData!,
+            isbn: e.target.value,
+          })
+        }
       />
 
       <input
@@ -158,7 +202,7 @@ export function BookEdit({
         value={editData?.year || ""}
         onChange={(e) =>
           setEditData({
-            ...editData,
+            ...editData!,
             year: Number(e.target.value),
           })
         }
@@ -171,11 +215,12 @@ export function BookEdit({
         value={editData?.description || ""}
         onChange={(e) => {
           const el = e.target;
+
           el.style.height = "auto";
           el.style.height = el.scrollHeight + "px";
 
           setEditData({
-            ...editData,
+            ...editData!,
             description: e.target.value,
           });
         }}

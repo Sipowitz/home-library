@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import {
   LineChart,
   Line,
@@ -10,13 +11,9 @@ import {
 } from "recharts";
 
 import { getBooks } from "../../api/books";
-import { useAuth } from "../../context/AuthContext"; // ✅ ADDED
+import { useAuth } from "../../context/AuthContext";
 
-type Book = {
-  id: number;
-  read?: boolean;
-  date_added?: string;
-};
+import type { Book } from "../../types/book";
 
 type ChartPoint = {
   date: string;
@@ -26,32 +23,68 @@ type ChartPoint = {
 
 type Range = "7d" | "30d" | "all";
 
+type StatCardProps = {
+  label: string;
+  value: number;
+  highlight?: boolean;
+};
+
+type ActivityBoxProps = {
+  title: string;
+  added: number;
+  read: number;
+};
+
+type LegendItemProps = {
+  color: string;
+  label: string;
+};
+
+type TooltipPayloadItem = {
+  name: string;
+  value: number;
+  dataKey: string;
+};
+
+type CustomTooltipProps = {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+};
+
 export function StatsPanel() {
   const [books, setBooks] = useState<Book[]>([]);
+
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
+
   const [range, setRange] = useState<Range>("30d");
 
-  // ✅ AUTH
   const { ready, token } = useAuth();
 
   async function loadStats() {
     try {
       const data = await getBooks(0, 100, undefined, undefined);
+
       const items = data?.items ?? [];
+
       setBooks(items);
     } catch (err) {
       console.error("Failed to load stats", err);
+
       setBooks([]);
     }
   }
 
-  // ✅ FIX: wait for auth before fetching
+  // -------------------
+  // ✅ WAIT FOR AUTH
+  // -------------------
   useEffect(() => {
     if (!ready || !token) return;
 
     loadStats();
 
     const handler = () => loadStats();
+
     window.addEventListener("stats-updated", handler);
 
     return () => window.removeEventListener("stats-updated", handler);
@@ -65,7 +98,9 @@ export function StatsPanel() {
 
     if (range !== "all") {
       const now = Date.now();
+
       const days = range === "7d" ? 7 : 30;
+
       const cutoff = now - days * 24 * 60 * 60 * 1000;
 
       filtered = filtered.filter(
@@ -87,7 +122,10 @@ export function StatsPanel() {
 
     sorted.forEach((b) => {
       total += 1;
-      if (b.read) read += 1;
+
+      if (b.read) {
+        read += 1;
+      }
 
       const date = new Date(b.date_added!).toISOString().slice(0, 10);
 
@@ -105,13 +143,16 @@ export function StatsPanel() {
   // 📊 TOTALS
   // -------------------
   const total = books.length;
+
   const read = books.filter((b) => b.read).length;
+
   const unread = total - read;
 
   // -------------------
   // 📅 ACTIVITY
   // -------------------
   const now = Date.now();
+
   const DAY = 1000 * 60 * 60 * 24;
 
   const last7 = books.filter(
@@ -147,7 +188,9 @@ export function StatsPanel() {
         <div className="lg:col-span-2 flex flex-col gap-3">
           <div className="grid grid-cols-3 gap-3">
             <StatCard label="Total" value={total} />
+
             <StatCard label="Read" value={read} highlight />
+
             <StatCard label="Unread" value={unread} />
           </div>
 
@@ -169,6 +212,7 @@ export function StatsPanel() {
           <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3">
             <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
               <LegendItem color="#60a5fa" label="Total books" />
+
               <LegendItem color="#4ade80" label="Read books" />
             </div>
 
@@ -179,22 +223,27 @@ export function StatsPanel() {
                 <XAxis
                   dataKey="date"
                   tickFormatter={(value, index) => {
-                    if (index % Math.ceil(chartData.length / 5 || 1) !== 0)
+                    if (index % Math.ceil(chartData.length / 5 || 1) !== 0) {
                       return "";
+                    }
 
                     const date = new Date(value);
+
                     return date.toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
                     });
                   }}
                   stroke="#6b7280"
-                  tick={{ fontSize: 11 }}
+                  tick={{
+                    fontSize: 11,
+                  }}
                   axisLine={false}
                   tickLine={false}
                 />
 
                 <YAxis hide />
+
                 <Tooltip content={<CustomTooltip />} />
 
                 <Line
@@ -225,10 +274,11 @@ export function StatsPanel() {
 
 /* --- helpers --- */
 
-function StatCard({ label, value, highlight }: any) {
+function StatCard({ label, value, highlight }: StatCardProps) {
   return (
     <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-3 text-center">
       <div className="text-xs text-gray-400 uppercase">{label}</div>
+
       <div className={`text-2xl ${highlight ? "text-green-400" : ""}`}>
         {value}
       </div>
@@ -236,45 +286,53 @@ function StatCard({ label, value, highlight }: any) {
   );
 }
 
-function ActivityBox({ title, added, read }: any) {
+function ActivityBox({ title, added, read }: ActivityBoxProps) {
   return (
     <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3 text-sm">
       <div className="text-xs text-gray-400 mb-2">{title}</div>
 
       <div className="flex justify-between">
         <span>Books added</span>
+
         <span className="text-blue-400">+{added}</span>
       </div>
 
       <div className="flex justify-between">
         <span>Books read</span>
+
         <span className="text-green-400">+{read}</span>
       </div>
     </div>
   );
 }
 
-function LegendItem({ color, label }: any) {
+function LegendItem({ color, label }: LegendItemProps) {
   return (
     <div className="flex items-center gap-2">
       <div
         className="w-2.5 h-2.5 rounded-full"
-        style={{ backgroundColor: color }}
+        style={{
+          backgroundColor: color,
+        }}
       />
+
       <span>{label}</span>
     </div>
   );
 }
 
-function CustomTooltip({ active, payload, label }: any) {
-  if (!active || !payload) return null;
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (!active || !payload || !label) {
+    return null;
+  }
 
   const date = new Date(label).toLocaleDateString();
 
   return (
     <div className="bg-gray-800 p-2 rounded text-sm">
       <div>{date}</div>
-      {payload.map((p: any) => (
+
+      {payload.map((p) => (
         <div key={p.dataKey}>
           {p.name}: {p.value}
         </div>

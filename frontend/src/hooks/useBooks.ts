@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+
 import {
   getBooks,
   createBook,
@@ -7,39 +8,26 @@ import {
   updateBook,
 } from "../api/books";
 
-// ✅ ADD THIS
 import { useAuth } from "../context/AuthContext";
 
-type Category = {
-  id: number;
-  name: string;
-};
-
-type Book = {
-  id: number;
-  title: string;
-  author: string;
-  year?: number;
-  isbn?: string;
-  description?: string;
-  read?: boolean;
-  location_id?: number;
-  cover_url?: string;
-  categories?: Category[];
-  category_ids?: number[];
-  date_added?: string;
-  _warning?: string;
-};
+import type { Book } from "../types/book";
 
 type BookCreateInput = {
   title: string;
   author: string;
+
   year?: number;
+
   isbn?: string;
+
   description?: string;
+
   read?: boolean;
+
   location_id?: number | null;
+
   cover_url?: string;
+
   category_ids?: number[];
 };
 
@@ -52,8 +40,11 @@ const LIMIT = 20;
 
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>([]);
+
   const [skip, setSkip] = useState(0);
+
   const [hasMore, setHasMore] = useState(true);
+
   const [isLoading, setIsLoading] = useState(false);
 
   const [filters, setFilters] = useState<Filters>({
@@ -63,7 +54,6 @@ export function useBooks() {
 
   const requestIdRef = useRef(0);
 
-  // ✅ ADD THIS
   const { ready, token } = useAuth();
 
   function notifyStatsUpdate() {
@@ -75,6 +65,7 @@ export function useBooks() {
   // -------------------
   async function loadBooks(reset = true) {
     const requestId = ++requestIdRef.current;
+
     const newSkip = reset ? 0 : skip;
 
     setIsLoading(true);
@@ -85,11 +76,14 @@ export function useBooks() {
 
     if (reset) {
       setBooks(data.items);
+
       setSkip(LIMIT);
     } else {
       setBooks((prev) => {
         const existingIds = new Set(prev.map((b) => b.id));
+
         const newItems = data.items.filter((b) => !existingIds.has(b.id));
+
         return [...prev, ...newItems];
       });
 
@@ -97,11 +91,13 @@ export function useBooks() {
     }
 
     setHasMore(newSkip + LIMIT < data.total);
+
     setIsLoading(false);
   }
 
   async function loadMoreBooks() {
     if (!hasMore || isLoading) return;
+
     await loadBooks(false);
   }
 
@@ -109,7 +105,10 @@ export function useBooks() {
   // 🔍 SET FILTERS
   // -------------------
   function updateFilters(newFilters: Partial<Filters>) {
-    const updated = { ...filters, ...newFilters };
+    const updated = {
+      ...filters,
+      ...newFilters,
+    };
 
     if (
       updated.search === filters.search &&
@@ -121,11 +120,14 @@ export function useBooks() {
     setFilters(updated);
   }
 
-  // ✅ FIX: WAIT FOR AUTH
+  // -------------------
+  // ✅ WAIT FOR AUTH
+  // -------------------
   useEffect(() => {
     if (!ready || !token) return;
 
     loadBooks(true);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, ready, token]);
 
@@ -134,14 +136,19 @@ export function useBooks() {
   // -------------------
   async function addBook(book: BookCreateInput) {
     const data = await createBook(book);
+
     await loadBooks(true);
+
     notifyStatsUpdate();
+
     return data;
   }
 
   async function addBookFromISBN(book: BookCreateInput) {
     const data = await createBookFromISBN(book);
+
     await loadBooks(true);
+
     notifyStatsUpdate();
 
     if (data._warning) {
@@ -156,7 +163,9 @@ export function useBooks() {
   // -------------------
   async function removeBook(id: number) {
     await deleteBook(id);
+
     setBooks((prev) => prev.filter((b) => b.id !== id));
+
     notifyStatsUpdate();
   }
 
@@ -165,22 +174,35 @@ export function useBooks() {
   // -------------------
   async function saveBook(book: Book) {
     const updated = await updateBook(book.id, book);
+
     await loadBooks(true);
+
     notifyStatsUpdate();
+
     return updated;
   }
 
   return {
     books,
+
     loadBooks,
+
     loadMoreBooks,
+
     hasMore,
+
     addBook,
+
     addBookFromISBN,
+
     removeBook,
+
     saveBook,
+
     updateFilters,
+
     filters,
+
     isLoading,
   };
 }

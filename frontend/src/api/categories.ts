@@ -1,28 +1,44 @@
 import client from "./client";
 
-export type Category = {
-  id: number;
+import type { Category } from "../types/category";
+
+type CategoryCreateInput = {
   name: string;
-  parent_id: number | null;
-  children?: Category[];
+  parent_id?: number | null;
 };
 
-// ✅ FIXED — trailing slash
+// -------------------
+// 📥 FETCH
+// -------------------
 export async function fetchCategories(): Promise<Category[]> {
+  // ✅ backend expects trailing slash
   const res = await client.get("/categories/");
+
   return res.data;
 }
 
-// ✅ FIXED — trailing slash
-export async function createCategory(name: string, parent_id?: number) {
-  const res = await client.post("/categories/", {
+// -------------------
+// ➕ CREATE
+// -------------------
+export async function createCategory(
+  name: string,
+  parent_id?: number,
+): Promise<Category> {
+  const payload: CategoryCreateInput = {
     name,
     parent_id: parent_id ?? null,
-  });
+  };
+
+  // ✅ backend expects trailing slash
+  const res = await client.post("/categories/", payload);
+
   return res.data;
 }
 
-// ✅ CORRECT — no change needed
-export async function deleteCategory(id: number) {
+// -------------------
+// ❌ DELETE
+// -------------------
+export async function deleteCategory(id: number): Promise<void> {
+  // ✅ backend expects NO trailing slash
   await client.delete(`/categories/${id}`);
 }

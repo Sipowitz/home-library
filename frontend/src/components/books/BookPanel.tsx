@@ -2,27 +2,13 @@ import { X } from "lucide-react";
 import { useLocations } from "../../context/LocationContext";
 import { useEffect, useState, useRef } from "react";
 import { fetchCategories } from "../../api/categories";
-import type { Category } from "../../api/categories";
 
 import { BookView } from "./BookView";
 import { BookEdit } from "./BookEdit";
 import { DeleteModal } from "./DeleteModal";
 
-type Book = {
-  id: number;
-  title: string;
-  author: string;
-  year?: number;
-  isbn?: string;
-  description?: string;
-  read?: boolean;
-  read_at?: string | null;
-  location_id?: number;
-  cover_url?: string;
-  categories?: { id: number; name: string }[];
-  category_ids?: number[];
-  date_added?: string;
-};
+import type { Book } from "../../types/book";
+import type { Category } from "../../types/category";
 
 type Props = {
   book: Book | null;
@@ -37,12 +23,15 @@ type Props = {
 
 function flattenLocations(nodes: any[], level = 0): any[] {
   let result: any[] = [];
+
   for (const node of nodes) {
     result.push({ ...node, level });
+
     if (node.children?.length) {
       result = result.concat(flattenLocations(node.children, level + 1));
     }
   }
+
   return result;
 }
 
@@ -67,6 +56,7 @@ export function BookPanel({
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     if (!token) return;
 
     fetchCategories().then(setCategories);
@@ -83,6 +73,20 @@ export function BookPanel({
       setSelectedCategories([]);
     }
   }, [editData]);
+
+  // -------------------
+  // ❌ CANCEL EDIT
+  // -------------------
+  function handleCancel() {
+    // Draft / unsaved book
+    if (!book?.id) {
+      onClose();
+      return;
+    }
+
+    // Existing saved book
+    setEditing(false);
+  }
 
   if (!book) return null;
 
@@ -152,7 +156,7 @@ export function BookPanel({
               </button>
 
               <button
-                onClick={() => setEditing(false)}
+                onClick={handleCancel}
                 className="bg-gray-600 w-full py-2 rounded"
               >
                 Cancel

@@ -1,37 +1,53 @@
 import React from "react";
 
-export function BookView({ book, locations }: any) {
+import type { Book } from "../../types/book";
+import type { Location } from "../../types/location";
+
+type Props = {
+  book: Book;
+  locations: Location[];
+};
+
+export function BookView({ book, locations }: Props) {
   function formatDate(dateString?: string) {
     if (!dateString) return "";
+
     const d = new Date(dateString);
+
     return `${String(d.getDate()).padStart(2, "0")}/${String(
       d.getMonth() + 1,
     ).padStart(2, "0")}/${d.getFullYear()}`;
   }
 
-  function flattenTree(nodes: any[]): any[] {
-    let result: any[] = [];
+  function flattenTree(nodes: Location[]): Location[] {
+    let result: Location[] = [];
+
     for (const node of nodes) {
       result.push(node);
+
       if (node.children?.length) {
         result = result.concat(flattenTree(node.children));
       }
     }
+
     return result;
   }
 
-  function getLocationPath(locations: any[], id?: number): string {
+  function getLocationPath(locations: Location[], id?: number): string {
     if (!id) return "";
 
     const flat = flattenTree(locations);
+
     const map = new Map(flat.map((l) => [l.id, l]));
 
     let current = map.get(id);
+
     const path: string[] = [];
 
     while (current) {
       path.unshift(current.name);
-      current = map.get(current.parent_id);
+
+      current = map.get(current.parent_id!);
     }
 
     return path.join(" > ");
@@ -40,11 +56,12 @@ export function BookView({ book, locations }: any) {
   const locationName = getLocationPath(locations, book.location_id);
 
   const categoryNames = book.categories?.length
-    ? book.categories.map((c: any) => c.name)
+    ? book.categories.map((c) => c.name)
     : [];
 
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
+
     if (!img.src.includes("fallback-cover.png")) {
       img.src = "/fallback-cover.png";
     }
@@ -65,6 +82,7 @@ export function BookView({ book, locations }: any) {
 
         <div className="flex-1">
           <h2 className="text-xl font-bold">{book.title}</h2>
+
           <p className="text-gray-400 mb-2">{book.author}</p>
 
           <span
@@ -112,6 +130,7 @@ export function BookView({ book, locations }: any) {
       {book.description && (
         <div className="mb-4 border-t border-gray-800 pt-3">
           <h3 className="text-sm font-semibold mb-1">Description</h3>
+
           <p className="text-sm text-gray-300 whitespace-pre-line">
             {book.description}
           </p>

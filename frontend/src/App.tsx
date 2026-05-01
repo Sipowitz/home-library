@@ -18,33 +18,8 @@ import { Header } from "./components/layout/Header";
 
 import toast from "react-hot-toast";
 
-type Category = {
-  id: number;
-  name: string;
-};
-
-type Book = {
-  id: number;
-  title: string;
-  author: string;
-  year?: number;
-  isbn?: string;
-  description?: string;
-  read?: boolean;
-  location_id?: number;
-  cover_url?: string;
-  categories?: Category[];
-  category_ids?: number[];
-  date_added?: string;
-  warning?: string;
-};
-
-type Location = {
-  id: number;
-  name: string;
-  parent_id?: number;
-  children?: Location[];
-};
+import type { Book, BookDraft } from "./types/book";
+import type { Location } from "./types/location";
 
 export default function App() {
   const {
@@ -74,9 +49,12 @@ export default function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const [newBook, setNewBook] = useState<Partial<Book>>({});
+  const [newBook, setNewBook] = useState<BookDraft>({});
+
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+
   const [editing, setEditing] = useState(false);
+
   const [editData, setEditData] = useState<Book | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
@@ -103,6 +81,7 @@ export default function App() {
 
     function walk(node: Location) {
       result.push(node.id);
+
       if (node.children) {
         node.children.forEach(walk);
       }
@@ -119,6 +98,7 @@ export default function App() {
     }
 
     find(nodes);
+
     return result;
   }
 
@@ -165,6 +145,7 @@ export default function App() {
     }
 
     window.addEventListener("scroll", handleScroll);
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, [hasMore, books]);
 
@@ -180,6 +161,7 @@ export default function App() {
       toast.success("Logged in");
     } catch (err) {
       console.error(err);
+
       toast.error("Login failed");
     }
   }
@@ -189,7 +171,9 @@ export default function App() {
   // -------------------
   function handleLogout() {
     logout();
+
     setSelectedBook(null);
+
     setNewBook({});
   }
 
@@ -236,57 +220,61 @@ export default function App() {
         setEditing(false);
       }}
     >
-      <Header
-        onOpenSettings={() => setShowSettings(true)}
-        onLogout={handleLogout}
-      />
+      <div onClick={(e) => e.stopPropagation()}>
+        <Header
+          onOpenSettings={() => setShowSettings(true)}
+          onLogout={handleLogout}
+        />
 
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-      />
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+        />
 
-      <TopPanels
-        newBook={newBook}
-        setNewBook={setNewBook}
-        onSearch={handleSearch}
-        onAdd={handleAddBook}
-        isFetching={isFetching}
-      />
+        <TopPanels
+          newBook={newBook}
+          setNewBook={setNewBook}
+          onSearch={handleSearch}
+          onAdd={handleAddBook}
+          isFetching={isFetching}
+        />
 
-      {/* ✅ STICKY + SPACING FIX */}
-      <div className="mt-6 sticky top-4 z-40 backdrop-blur bg-gray-950/80">
-        <SearchBar
-          searchInput={searchInput}
-          onSearchChange={setSearchInput}
-          selectedLocation={selectedLocation}
-          onLocationChange={setSelectedLocation}
-          locations={locations}
+        {/* ✅ STICKY + SPACING FIX */}
+        <div className="mt-6 sticky top-4 z-40 backdrop-blur bg-gray-950/80">
+          <SearchBar
+            searchInput={searchInput}
+            onSearchChange={setSearchInput}
+            selectedLocation={selectedLocation}
+            onLocationChange={setSelectedLocation}
+            locations={locations}
+          />
+        </div>
+
+        <div className="h-6 mb-3 px-1 flex items-center">
+          {isLoading && (
+            <div className="text-sm text-gray-400">Searching...</div>
+          )}
+        </div>
+
+        <BookGrid
+          books={filteredBooks}
+          onSelect={(book) => {
+            setSelectedBook(book);
+            setEditing(false);
+          }}
+        />
+
+        <BookPanel
+          book={selectedBook}
+          editing={editing}
+          editData={editData}
+          setEditing={setEditing}
+          setEditData={(b) => setEditData(b)}
+          onClose={() => setSelectedBook(null)}
+          onSave={handleSave}
+          onDelete={handleDelete}
         />
       </div>
-
-      <div className="h-6 mb-3 px-1 flex items-center">
-        {isLoading && <div className="text-sm text-gray-400">Searching...</div>}
-      </div>
-
-      <BookGrid
-        books={filteredBooks}
-        onSelect={(book) => {
-          setSelectedBook(book);
-          setEditing(false);
-        }}
-      />
-
-      <BookPanel
-        book={selectedBook}
-        editing={editing}
-        editData={editData}
-        setEditing={setEditing}
-        setEditData={(b) => setEditData(b)}
-        onClose={() => setSelectedBook(null)}
-        onSave={handleSave}
-        onDelete={handleDelete}
-      />
     </div>
   );
 }

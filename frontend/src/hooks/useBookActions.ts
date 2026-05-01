@@ -2,38 +2,24 @@ import { useState } from "react";
 import { previewBookByISBN } from "../api/books";
 import toast from "react-hot-toast";
 
-type Category = {
-  id: number;
-  name: string;
-};
-
-type Book = {
-  id: number;
-  title: string;
-  author: string;
-  year?: number;
-  isbn?: string;
-  description?: string;
-  read?: boolean;
-  location_id?: number;
-  cover_url?: string;
-  categories?: Category[];
-  category_ids?: number[];
-  date_added?: string;
-  warning?: string;
-};
+import type { Book, BookDraft } from "../types/book";
 
 type Params = {
-  newBook: Partial<Book>;
-  setNewBook: (b: any) => void;
+  newBook: BookDraft;
+
+  setNewBook: (book: BookDraft | ((prev: any) => BookDraft)) => void;
 
   addBook: (b: any) => Promise<Book>;
   addBookFromISBN: (b: any) => Promise<Book>;
+
   removeBook: (id: number) => Promise<void>;
+
   saveBook: (b: Book) => Promise<Book>;
 
   setSelectedBook: (b: Book | null) => void;
+
   setEditData: (b: Book | null) => void;
+
   setEditing: (v: boolean) => void;
 
   editData: Book | null;
@@ -84,44 +70,40 @@ export function useBookActions({
   }
 
   // -------------------
-  // ➕ ADD BOOK
+  // ➕ OPEN DRAFT BOOK
   // -------------------
   async function handleAddBook() {
     if (!newBook.title || !newBook.author) return;
 
-    const payload = {
+    const draftBook: Book = {
+      id: 0,
+
       title: newBook.title,
+
       author: newBook.author,
-      year: newBook.year ?? null,
+
+      year: newBook.year ?? undefined,
+
       isbn: newBook.isbn ?? "",
+
       description: newBook.description ?? "",
+
       read: newBook.read ?? false,
-      location_id: newBook.location_id ?? null,
+
+      location_id: newBook.location_id ?? undefined,
+
       cover_url: newBook.cover_url ?? "",
+
       category_ids: [],
+
       date_added: new Date().toISOString(),
     };
 
-    try {
-      const created = payload.isbn
-        ? await addBookFromISBN(payload)
-        : await addBook(payload);
+    setSelectedBook(draftBook);
+    setEditData(draftBook);
+    setEditing(true);
 
-      if (created.warning) {
-        toast(created.warning);
-      } else {
-        toast.success("Book added");
-      }
-
-      setSelectedBook(created);
-      setEditData(created);
-      setEditing(true);
-
-      setNewBook({});
-    } catch (err) {
-      console.error("ADD ERROR:", err);
-      toast.error("Failed to add book");
-    }
+    setNewBook({});
   }
 
   // -------------------
@@ -129,7 +111,9 @@ export function useBookActions({
   // -------------------
   async function handleDelete(id: number) {
     await removeBook(id);
+
     setSelectedBook(null);
+
     toast.success("Book deleted");
   }
 
@@ -144,6 +128,38 @@ export function useBookActions({
       category_ids,
     };
 
+    // -------------------
+    // 🆕 CREATE NEW BOOK
+    // -------------------
+    if (!payload.id) {
+      try {
+        const created = payload.isbn
+          ? await addBookFromISBN(payload)
+          : await addBook(payload);
+
+        if (created.warning) {
+          toast(created.warning);
+        } else {
+          toast.success("Book added");
+        }
+
+        setSelectedBook(created);
+        setEditData(created);
+        setEditing(false);
+
+        return;
+      } catch (err) {
+        console.error("ADD ERROR:", err);
+
+        toast.error("Failed to add book");
+
+        return;
+      }
+    }
+
+    // -------------------
+    // ✏️ UPDATE EXISTING
+    // -------------------
     const updated = await saveBook(payload);
 
     setSelectedBook(updated);

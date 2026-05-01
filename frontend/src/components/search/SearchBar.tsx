@@ -1,25 +1,26 @@
 import { useMemo, ChangeEvent } from "react";
 
-type Location = {
+import type { Location } from "../../types/location";
+
+type FlatLocation = {
   id: number;
   name: string;
-  parent_id?: number;
-  children?: Location[];
 };
 
 type Props = {
   searchInput: string;
+
   onSearchChange: (value: string) => void;
+
   selectedLocation: number | null;
+
   onLocationChange: (value: number | null) => void;
+
   locations: Location[];
 };
 
-function flattenLocations(
-  nodes: Location[],
-  depth = 0,
-): { id: number; name: string }[] {
-  let result: { id: number; name: string }[] = [];
+function flattenLocations(nodes: Location[], depth = 0): FlatLocation[] {
+  let result: FlatLocation[] = [];
 
   for (const node of nodes) {
     result.push({
@@ -75,6 +76,7 @@ export function SearchBar({
             }}
           >
             <option value="">All Locations</option>
+
             <option value="-1">No Location</option>
 
             {flatLocations.map((loc) => (

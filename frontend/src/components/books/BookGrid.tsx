@@ -1,12 +1,6 @@
 import React from "react";
 
-type Book = {
-  id: number;
-  title: string;
-  author: string;
-  cover_url?: string;
-  read?: boolean;
-};
+import type { Book } from "../../types/book";
 
 type Props = {
   books: Book[];
@@ -24,22 +18,33 @@ function BookGridComponent({ books, onSelect }: Props) {
             key={book.id}
             onClick={(e) => {
               e.stopPropagation();
+
               onSelect(book);
             }}
             className="cursor-pointer group"
           >
-            <div className="relative aspect-[2/3] bg-gray-900 rounded-xl overflow-hidden shadow-md transition-all duration-300 group-hover:shadow-2xl group-hover:-translate-y-1 group-hover:scale-[1.02]">
+            <div
+              className="relative aspect-[2/3] bg-gray-900 rounded-xl overflow-hidden
+              shadow-md transition-all duration-300
+              group-hover:shadow-2xl group-hover:-translate-y-1
+              group-hover:scale-[1.02]"
+            >
               {hasCover ? (
                 <img
                   src={book.cover_url}
                   onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement;
+                    const img = e.currentTarget;
+
                     img.style.display = "none";
                   }}
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex flex-col justify-between p-3 bg-gradient-to-br from-gray-800 to-gray-950 text-white">
+                <div
+                  className="w-full h-full flex flex-col justify-between
+                  p-3 bg-gradient-to-br from-gray-800
+                  to-gray-950 text-white"
+                >
                   <div className="text-[11px] font-semibold leading-tight line-clamp-4">
                     {book.title}
                   </div>
@@ -61,6 +66,7 @@ function BookGridComponent({ books, onSelect }: Props) {
 
             <div className="mt-2 px-1">
               <div className="text-xs font-medium truncate">{book.title}</div>
+
               <div className="text-[10px] text-gray-400 truncate">
                 {book.author}
               </div>
@@ -72,5 +78,5 @@ function BookGridComponent({ books, onSelect }: Props) {
   );
 }
 
-// ✅ prevent unnecessary re-renders
+// ✅ Prevent unnecessary re-renders
 export const BookGrid = React.memo(BookGridComponent);

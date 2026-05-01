@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+
 import {
   getLocations,
   createLocation,
@@ -7,22 +8,30 @@ import {
 
 import { useAuth } from "./AuthContext";
 
-export type Location = {
-  id: number;
+import type { Location } from "../types/location";
+
+type LocationCreateInput = {
   name: string;
   parent_id?: number;
 };
 
 type LocationContextType = {
   locations: Location[];
+
   addLocation: (name: string, parentId?: number) => Promise<void>;
+
   deleteLocation: (id: number) => Promise<void>;
-  reloadLocations: () => Promise<void>; // ✅ NEW
+
+  reloadLocations: () => Promise<void>;
+};
+
+type Props = {
+  children: React.ReactNode;
 };
 
 const LocationContext = createContext<LocationContextType | null>(null);
 
-export function LocationProvider({ children }: { children: React.ReactNode }) {
+export function LocationProvider({ children }: Props) {
   const [locations, setLocations] = useState<Location[]>([]);
 
   const { token } = useAuth();
@@ -30,12 +39,14 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   // -------------------
   // 📥 LOAD LOCATIONS
   // -------------------
-  async function load() {
+  async function load(): Promise<void> {
     try {
       const data = await getLocations();
+
       setLocations(data);
     } catch (err) {
       console.error("Failed to load locations", err);
+
       setLocations([]);
     }
   }
@@ -49,16 +60,19 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     async function run() {
       if (!token) {
         setLocations([]);
+
         return;
       }
 
       try {
         const data = await getLocations();
+
         if (!cancelled) {
           setLocations(data);
         }
       } catch (err) {
         console.error("Failed to load locations", err);
+
         if (!cancelled) {
           setLocations([]);
         }
@@ -75,8 +89,13 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   // -------------------
   // ➕ ADD LOCATION
   // -------------------
-  async function addLocation(name: string, parentId?: number) {
-    await createLocation({ name, parent_id: parentId });
+  async function addLocation(name: string, parentId?: number): Promise<void> {
+    const payload: LocationCreateInput = {
+      name,
+      parent_id: parentId,
+    };
+
+    await createLocation(payload);
 
     // keep existing behaviour
     await load();
@@ -85,7 +104,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   // -------------------
   // ❌ DELETE LOCATION
   // -------------------
-  async function deleteLocation(id: number) {
+  async function deleteLocation(id: number): Promise<void> {
     await deleteLocationApi(id);
 
     // keep existing behaviour
@@ -98,7 +117,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         locations,
         addLocation,
         deleteLocation,
-        reloadLocations: load, // ✅ exposed
+        reloadLocations: load,
       }}
     >
       {children}
@@ -108,6 +127,10 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
 export function useLocations() {
   const ctx = useContext(LocationContext);
-  if (!ctx) throw new Error("Must be inside provider");
+
+  if (!ctx) {
+    throw new Error("Must be inside provider");
+  }
+
   return ctx;
 }
