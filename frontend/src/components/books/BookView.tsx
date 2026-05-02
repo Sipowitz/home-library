@@ -2,13 +2,15 @@ import React from "react";
 
 import type { Book } from "../../types/book";
 import type { Location } from "../../types/location";
+import type { Category } from "../../types/category";
 
 type Props = {
   book: Book;
   locations: Location[];
+  categories: Category[];
 };
 
-export function BookView({ book, locations }: Props) {
+export function BookView({ book, locations, categories }: Props) {
   function formatDate(dateString?: string) {
     if (!dateString) return "";
 
@@ -19,14 +21,17 @@ export function BookView({ book, locations }: Props) {
     ).padStart(2, "0")}/${d.getFullYear()}`;
   }
 
-  function flattenTree(nodes: Location[]): Location[] {
+  // -------------------
+  // 📍 LOCATION HELPERS
+  // -------------------
+  function flattenLocationTree(nodes: Location[]): Location[] {
     let result: Location[] = [];
 
     for (const node of nodes) {
       result.push(node);
 
       if (node.children?.length) {
-        result = result.concat(flattenTree(node.children));
+        result = result.concat(flattenLocationTree(node.children));
       }
     }
 
@@ -36,7 +41,7 @@ export function BookView({ book, locations }: Props) {
   function getLocationPath(locations: Location[], id?: number): string {
     if (!id) return "";
 
-    const flat = flattenTree(locations);
+    const flat = flattenLocationTree(locations);
 
     const map = new Map(flat.map((l) => [l.id, l]));
 
@@ -47,7 +52,44 @@ export function BookView({ book, locations }: Props) {
     while (current) {
       path.unshift(current.name);
 
-      current = map.get(current.parent_id!);
+      current = current.parent_id ? map.get(current.parent_id) : undefined;
+    }
+
+    return path.join(" > ");
+  }
+
+  // -------------------
+  // 🏷 CATEGORY HELPERS
+  // -------------------
+  function flattenCategoryTree(nodes: Category[]): Category[] {
+    let result: Category[] = [];
+
+    for (const node of nodes) {
+      result.push(node);
+
+      if (node.children?.length) {
+        result = result.concat(flattenCategoryTree(node.children));
+      }
+    }
+
+    return result;
+  }
+
+  function getCategoryPath(categories: Category[], id?: number): string {
+    if (!id) return "";
+
+    const flat = flattenCategoryTree(categories);
+
+    const map = new Map(flat.map((c) => [c.id, c]));
+
+    let current = map.get(id);
+
+    const path: string[] = [];
+
+    while (current) {
+      path.unshift(current.name);
+
+      current = current.parent_id ? map.get(current.parent_id) : undefined;
     }
 
     return path.join(" > ");
@@ -55,8 +97,8 @@ export function BookView({ book, locations }: Props) {
 
   const locationName = getLocationPath(locations, book.location_id);
 
-  const categoryNames = book.categories?.length
-    ? book.categories.map((c) => c.name)
+  const categoryPaths = book.categories?.length
+    ? book.categories.map((c) => getCategoryPath(categories, c.id))
     : [];
 
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -101,9 +143,9 @@ export function BookView({ book, locations }: Props) {
           <strong>Location:</strong> {locationName || "—"}
         </div>
 
-        {categoryNames?.length > 0 && (
+        {categoryPaths.length > 0 && (
           <div>
-            <strong>Categories:</strong> {categoryNames.join(", ")}
+            <strong>Categories:</strong> {categoryPaths.join(", ")}
           </div>
         )}
 

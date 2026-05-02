@@ -14,3 +14,33 @@
 svg:focus {
   outline: none !important;
 }
+
+/* -------------------
+   🎨 APP SCROLLBARS
+------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #111827;
+}
+
+/* Chrome / Edge / Safari */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #111827;
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 9999px;
+  border: 2px solid #111827;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
