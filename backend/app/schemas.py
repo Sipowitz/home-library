@@ -33,6 +33,12 @@ class CategoryCreate(CategoryBase):
     pass
 
 
+# ✅ NEW
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    parent_id: Optional[int] = None
+
+
 class CategoryResponse(BaseModel):
     id: int
     name: str
@@ -113,7 +119,7 @@ class BookListResponse(BaseModel):
 
 
 # -------------------
-# 📍 LOCATION SCHEMAS (FIXED)
+# 📍 LOCATION SCHEMAS
 # -------------------
 
 class LocationBase(BaseModel):

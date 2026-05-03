@@ -1,10 +1,18 @@
+// frontend/src/components/settings/SettingsModal.tsx
+
 import { useState, useEffect, useRef } from "react";
+
 import { useLocations } from "../../context/LocationContext";
-import client from "../../api/client"; // ✅ FIXED
+
+import client from "../../api/client";
+
 import toast from "react-hot-toast";
+
 import { BackupSettings } from "./BackupSettings";
 import { LocationSettings } from "./LocationSettings";
 import { CategorySettings } from "./CategorySettings";
+import { SettingsSidebar } from "./SettingsSidebar";
+
 import { ConfirmRestoreModal } from "./ConfirmRestoreModal";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 
@@ -14,120 +22,258 @@ import {
   deleteCategory,
 } from "../../api/categories";
 
-import type { Category } from "../../api/categories";
+import type { Category } from "../../types/category";
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
 };
 
+type Section = "locations" | "categories" | "backup";
+
 export function SettingsModal({ isOpen, onClose }: Props) {
   const { locations, addLocation, deleteLocation } = useLocations();
 
+  const [activeSection, setActiveSection] = useState<Section>("locations");
+
+  // -------------------
+  // 📍 LOCATIONS
+  // -------------------
+
   const [newLocation, setNewLocation] = useState("");
+
   const [parentId, setParentId] = useState<number | "">("");
 
+  // -------------------
+  // 🏷 CATEGORIES
+  // -------------------
+
   const [categories, setCategories] = useState<Category[]>([]);
+
   const [newCategory, setNewCategory] = useState("");
+
   const [categoryParentId, setCategoryParentId] = useState<number | "">("");
+
+  // -------------------
+  // ❌ DELETE LOCATION
+  // -------------------
 
   const [confirmDeleteLocation, setConfirmDeleteLocation] = useState<
     number | null
   >(null);
 
+  // -------------------
+  // ❌ DELETE CATEGORY
+  // -------------------
+
+  const [confirmDeleteCategory, setConfirmDeleteCategory] = useState<
+    number | null
+  >(null);
+
+  const [categoryDeleteDetails, setCategoryDeleteDetails] = useState<string[]>(
+    [],
+  );
+
+  // -------------------
+  // 💾 BACKUP / RESTORE
+  // -------------------
+
   const [restoring, setRestoring] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
 
   // -------------------
   // 📥 LOAD CATEGORIES
   // -------------------
+
   useEffect(() => {
     fetchCategories().then(setCategories);
   }, []);
 
-  const refreshCategories = async () => {
+  async function refreshCategories() {
     const data = await fetchCategories();
-    setCategories(data);
-  };
 
-  // ✅ USE BACKEND TREE DIRECTLY
+    setCategories(data);
+  }
+
   const locationTree = locations;
 
   if (!isOpen) return null;
 
   return (
     <>
+      {/* BACKDROP */}
       <div
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        className="
+          fixed inset-0 z-50
+          bg-black/60 backdrop-blur-sm
+          flex items-center justify-center
+          p-2 lg:p-4
+        "
         onClick={onClose}
       >
+        {/* MODAL */}
         <div
-          className="bg-gray-900 p-6 rounded-xl w-full max-w-md"
+          className="
+            bg-gray-950 border border-gray-800 rounded-2xl
+            w-full h-[95vh] lg:h-[85vh]
+            lg:max-w-6xl
+            shadow-2xl overflow-hidden
+            flex flex-col lg:flex-row
+          "
           onClick={(e) => e.stopPropagation()}
         >
-          <h2 className="text-xl mb-4">Settings</h2>
-
-          {/* LOCATIONS */}
-          <LocationSettings
-            locations={locations}
-            locationTree={locationTree}
-            newLocation={newLocation}
-            setNewLocation={setNewLocation}
-            parentId={parentId}
-            setParentId={setParentId}
-            onAddLocation={async () => {
-              if (!newLocation.trim()) return;
-
-              await addLocation(newLocation, parentId || undefined);
-
-              setNewLocation("");
-              setParentId("");
-            }}
-            onDeleteRequest={(id) => setConfirmDeleteLocation(id)}
-          />
-
-          {/* CATEGORIES */}
-          <CategorySettings
-            categories={categories}
-            newCategory={newCategory}
-            setNewCategory={setNewCategory}
-            categoryParentId={categoryParentId}
-            setCategoryParentId={setCategoryParentId}
-            onAddCategory={async () => {
-              if (!newCategory.trim()) return;
-
-              await createCategory(newCategory, categoryParentId || undefined);
-
-              setNewCategory("");
-              setCategoryParentId("");
-              refreshCategories();
-            }}
-            onDeleteCategory={async (id) => {
-              await deleteCategory(id);
-              refreshCategories();
-            }}
-          />
-
-          {/* BACKUP / RESTORE */}
-          <BackupSettings
-            restoring={restoring}
-            fileInputRef={fileInputRef}
-            onBackup={handleBackup}
-            onFileSelect={(file) => {
-              setPendingFile(file);
-              setConfirmRestoreOpen(true);
-            }}
-          />
-
-          <button
-            onClick={onClose}
-            className="bg-gray-600 w-full py-2 rounded mt-4"
+          {/* SIDEBAR / MOBILE TABS */}
+          <div
+            className="
+              bg-gray-900
+              border-b lg:border-b-0 lg:border-r border-gray-800
+              p-3 lg:p-4
+              flex flex-col
+              lg:w-60
+            "
           >
-            Close
-          </button>
+            <div className="mb-4 lg:mb-6">
+              <h2 className="text-xl lg:text-2xl font-semibold">Settings</h2>
+
+              <p className="text-sm text-gray-400 mt-1 hidden lg:block">
+                Configure your library system
+              </p>
+            </div>
+
+            <SettingsSidebar
+              active={activeSection}
+              onChange={setActiveSection}
+            />
+
+            <div className="mt-3 lg:mt-auto lg:pt-4">
+              <button
+                onClick={onClose}
+                className="
+                  w-full py-2 rounded-lg
+                  bg-gray-800 hover:bg-gray-700
+                  transition
+                "
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          {/* CONTENT */}
+          <div className="flex-1 overflow-y-auto p-3 lg:p-6">
+            {/* LOCATIONS */}
+            {activeSection === "locations" && (
+              <div className="max-w-4xl">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 lg:p-4">
+                  <div className="mb-4">
+                    <h2 className="text-lg font-semibold">Locations</h2>
+
+                    <p className="text-sm text-gray-400 mt-1">
+                      Organize where books are physically stored.
+                    </p>
+                  </div>
+
+                  <LocationSettings
+                    locations={locations}
+                    locationTree={locationTree}
+                    newLocation={newLocation}
+                    setNewLocation={setNewLocation}
+                    parentId={parentId}
+                    setParentId={setParentId}
+                    onAddLocation={async () => {
+                      if (!newLocation.trim()) return;
+
+                      await addLocation(newLocation, parentId || undefined);
+
+                      setNewLocation("");
+                      setParentId("");
+                    }}
+                    onDeleteRequest={(id) => setConfirmDeleteLocation(id)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* CATEGORIES */}
+            {activeSection === "categories" && (
+              <div className="max-w-6xl">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 lg:p-4">
+                  <div className="mb-4">
+                    <h2 className="text-lg font-semibold">Categories</h2>
+
+                    <p className="text-sm text-gray-400 mt-1">
+                      Organize books by subject or collection.
+                    </p>
+                  </div>
+
+                  <CategorySettings
+                    categories={categories}
+                    newCategory={newCategory}
+                    setNewCategory={setNewCategory}
+                    categoryParentId={categoryParentId}
+                    setCategoryParentId={setCategoryParentId}
+                    onAddCategory={async () => {
+                      if (!newCategory.trim()) return;
+
+                      await createCategory(
+                        newCategory,
+                        categoryParentId || undefined,
+                      );
+
+                      setNewCategory("");
+                      setCategoryParentId("");
+
+                      refreshCategories();
+                    }}
+                    onDeleteCategory={async (id) => {
+                      const result = await deleteCategory(id);
+
+                      if (result?.blocked && result.descendants) {
+                        setConfirmDeleteCategory(id);
+
+                        setCategoryDeleteDetails(result.descendants);
+
+                        return;
+                      }
+
+                      refreshCategories();
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* BACKUP */}
+            {activeSection === "backup" && (
+              <div className="max-w-2xl">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 lg:p-4">
+                  <div className="mb-4">
+                    <h2 className="text-lg font-semibold">Backup & Restore</h2>
+
+                    <p className="text-sm text-gray-400 mt-1">
+                      Export or restore your library database.
+                    </p>
+                  </div>
+
+                  <BackupSettings
+                    restoring={restoring}
+                    fileInputRef={fileInputRef}
+                    onBackup={handleBackup}
+                    onFileSelect={(file) => {
+                      setPendingFile(file);
+
+                      setConfirmRestoreOpen(true);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -140,16 +286,19 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           if (!pendingFile || restoring) return;
 
           handleRestore(pendingFile);
+
           setConfirmRestoreOpen(false);
+
           setPendingFile(null);
         }}
         onCancel={() => {
           setConfirmRestoreOpen(false);
+
           setPendingFile(null);
         }}
       />
 
-      {/* DELETE LOCATION MODAL */}
+      {/* DELETE LOCATION */}
       <ConfirmDeleteModal
         open={confirmDeleteLocation !== null}
         title="Delete Location?"
@@ -167,10 +316,36 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         }}
         onCancel={() => setConfirmDeleteLocation(null)}
       />
+
+      {/* DELETE CATEGORY */}
+      <ConfirmDeleteModal
+        open={confirmDeleteCategory !== null}
+        title="Delete Category Tree?"
+        message="Deleting this category will also delete all child categories."
+        details={categoryDeleteDetails}
+        confirmText="Delete Everything"
+        onConfirm={async () => {
+          if (confirmDeleteCategory === null) return;
+
+          await deleteCategory(confirmDeleteCategory, true);
+
+          await refreshCategories();
+
+          setConfirmDeleteCategory(null);
+
+          setCategoryDeleteDetails([]);
+        }}
+        onCancel={() => {
+          setConfirmDeleteCategory(null);
+
+          setCategoryDeleteDetails([]);
+        }}
+      />
     </>
   );
 
   // ================= BACKUP =================
+
   async function handleBackup() {
     try {
       const res = await client.get("/backup/export", {
@@ -180,11 +355,17 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       const blob = res.data;
 
       const url = window.URL.createObjectURL(blob);
+
       const a = document.createElement("a");
+
       a.href = url;
+
       a.download = "library-backup.json";
+
       document.body.appendChild(a);
+
       a.click();
+
       a.remove();
 
       window.URL.revokeObjectURL(url);
@@ -192,16 +373,19 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       toast.success("Backup downloaded");
     } catch (err) {
       console.error("Backup failed", err);
+
       toast.error("Backup failed");
     }
   }
 
   // ================= RESTORE =================
+
   async function handleRestore(file: File) {
     try {
       setRestoring(true);
 
       const formData = new FormData();
+
       formData.append("file", file);
 
       await client.post("/backup/import", formData, {
@@ -217,6 +401,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       }, 1000);
     } catch (err) {
       console.error("Restore failed", err);
+
       toast.error("Restore failed");
     } finally {
       setRestoring(false);
