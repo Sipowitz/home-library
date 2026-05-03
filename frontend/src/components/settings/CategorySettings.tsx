@@ -1,5 +1,10 @@
+// frontend/src/components/settings/CategorySettings.tsx
+
 import { useMemo, useState } from "react";
+
 import type { Category } from "../../types/category";
+
+import { CategoryTreeModal } from "./CategoryTreeModal";
 
 type Props = {
   categories: Category[];
@@ -50,6 +55,7 @@ function CategoryNode({
             <div
               onClick={(e) => {
                 e.stopPropagation();
+
                 setOpen(!open);
               }}
               className="text-xs text-gray-400 w-4 cursor-pointer"
@@ -123,6 +129,8 @@ export function CategorySettings({
   onAddCategory,
   onDeleteCategory,
 }: Props) {
+  const [showTree, setShowTree] = useState(false);
+
   const selectedPath = useMemo(() => {
     if (!categoryParentId) return "Top Level";
 
@@ -130,84 +138,111 @@ export function CategorySettings({
   }, [categories, categoryParentId]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
-      {/* CREATE PANEL */}
-      <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 h-fit">
-        <div className="mb-5">
-          <h3 className="text-lg font-semibold">Create Category</h3>
-
-          <p className="text-sm text-gray-400 mt-1">
-            Select a parent category from the hierarchy.
-          </p>
-        </div>
-
-        {/* SELECTED PARENT */}
-        <div className="mb-4">
-          <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">
-            Parent
-          </div>
-
-          <div className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 min-h-[42px] flex items-center">
-            {selectedPath}
-          </div>
-        </div>
-
-        {/* NAME */}
-        <div className="mb-4">
-          <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">
-            Category Name
-          </div>
-
-          <input
-            placeholder="Fantasy, Philosophy, Sci-Fi..."
-            className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
-            value={newCategory}
-            onChange={(e) => setNewCategory(e.target.value)}
-          />
-        </div>
-
-        {/* ACTIONS */}
-        <div className="space-y-2">
-          <button
-            onClick={onAddCategory}
-            className="bg-purple-600 hover:bg-purple-500 transition w-full py-2 rounded font-medium"
-          >
-            Create Category
-          </button>
-
-          <button
-            onClick={() => setCategoryParentId("")}
-            className="bg-gray-800 hover:bg-gray-700 transition w-full py-2 rounded text-sm"
-          >
-            Create At Top Level
-          </button>
-        </div>
-      </div>
-
-      {/* TREE */}
-      <div className="border border-gray-800 rounded-xl p-4 bg-gray-950/40">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold">Category Hierarchy</h3>
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6">
+        {/* CREATE PANEL */}
+        <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 h-fit">
+          <div className="mb-5">
+            <h3 className="text-lg font-semibold">Create Category</h3>
 
             <p className="text-sm text-gray-400 mt-1">
-              Click a category to select where new categories should be created.
+              Select a parent category from the hierarchy.
             </p>
+          </div>
+
+          {/* SELECTED PARENT */}
+          <div className="mb-4">
+            <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">
+              Parent
+            </div>
+
+            <div className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 min-h-[42px] flex items-center">
+              {selectedPath}
+            </div>
+          </div>
+
+          {/* NAME */}
+          <div className="mb-4">
+            <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">
+              Category Name
+            </div>
+
+            <input
+              placeholder="Fantasy, Philosophy, Sci-Fi..."
+              className="w-full p-2 bg-gray-800 border border-gray-700 rounded"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+            />
+          </div>
+
+          {/* ACTIONS */}
+          <div className="space-y-2">
+            <button
+              onClick={onAddCategory}
+              className="
+                bg-purple-600 hover:bg-purple-500
+                transition w-full py-2 rounded
+                font-medium
+              "
+            >
+              Create Category
+            </button>
+
+            <button
+              onClick={() => setCategoryParentId("")}
+              className="
+                bg-gray-800 hover:bg-gray-700
+                transition w-full py-2 rounded text-sm
+              "
+            >
+              Create At Top Level
+            </button>
+
+            <button
+              onClick={() => setShowTree(true)}
+              className="
+                bg-gray-800 hover:bg-gray-700
+                transition w-full py-2 rounded text-sm
+              "
+            >
+              Expand Tree
+            </button>
           </div>
         </div>
 
-        <div className="max-h-[650px] overflow-y-auto space-y-1 pr-1">
-          {categories.map((cat) => (
-            <CategoryNode
-              key={cat.id}
-              node={cat}
-              selectedId={categoryParentId}
-              onSelect={(id) => setCategoryParentId(id)}
-              onDelete={onDeleteCategory}
-            />
-          ))}
+        {/* TREE */}
+        <div className="border border-gray-800 rounded-xl p-4 bg-gray-950/40">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Category Hierarchy</h3>
+
+              <p className="text-sm text-gray-400 mt-1">
+                Click a category to select where new categories should be
+                created.
+              </p>
+            </div>
+          </div>
+
+          <div className="max-h-[650px] overflow-y-auto space-y-1 pr-1">
+            {categories.map((cat) => (
+              <CategoryNode
+                key={cat.id}
+                node={cat}
+                selectedId={categoryParentId}
+                onSelect={(id) => setCategoryParentId(id)}
+                onDelete={onDeleteCategory}
+              />
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* TREE MODAL */}
+      <CategoryTreeModal
+        open={showTree}
+        categories={categories}
+        onClose={() => setShowTree(false)}
+      />
+    </>
   );
 }
