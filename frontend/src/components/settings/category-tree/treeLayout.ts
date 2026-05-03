@@ -32,9 +32,9 @@ export function flattenCategories(categories: Category[]): Category[] {
   return result;
 }
 
-// ================= FIND PATH =================
+// ================= FIND PATH IDS =================
 
-export function findPathToNode(
+export function findPathIdsToNode(
   categories: Category[],
   targetId: number,
 ): number[] {
@@ -44,10 +44,33 @@ export function findPathToNode(
     }
 
     if (category.children?.length) {
-      const childPath = findPathToNode(category.children, targetId);
+      const childPath = findPathIdsToNode(category.children, targetId);
 
       if (childPath.length) {
         return [category.id, ...childPath];
+      }
+    }
+  }
+
+  return [];
+}
+
+// ================= FIND PATH NAMES =================
+
+export function findPathToNode(
+  categories: Category[],
+  targetId: number,
+): string[] {
+  for (const category of categories) {
+    if (category.id === targetId) {
+      return [category.name];
+    }
+
+    if (category.children?.length) {
+      const childPath = findPathToNode(category.children, targetId);
+
+      if (childPath.length) {
+        return [category.name, ...childPath];
       }
     }
   }
@@ -142,18 +165,18 @@ export function buildTreeElements(
 
         style: {
           stroke: focused
-            ? "#ffffff"
+            ? "rgba(255,255,255,0.95)"
             : depth === 0
-              ? "#a855f7"
+              ? "rgba(192,132,252,0.75)"
               : depth === 1
-                ? "#3b82f6"
+                ? "rgba(96,165,250,0.62)"
                 : depth === 2
-                  ? "#10b981"
-                  : "#6b7280",
+                  ? "rgba(52,211,153,0.52)"
+                  : "rgba(148,163,184,0.38)",
 
-          strokeWidth: focused ? 3.2 : 2.2,
+          strokeWidth: focused ? 3 : 2.2,
 
-          opacity: dimmed ? 0.12 : 0.95,
+          opacity: dimmed ? 0.08 : 0.92,
         },
       });
     }

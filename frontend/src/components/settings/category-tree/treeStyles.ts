@@ -1,55 +1,75 @@
 export function getDepthStyles(depth: number) {
-  if (depth === 0) {
-    return {
-      border: "border-purple-500/50",
+  switch (depth) {
+    // ROOT
+    case 0:
+      return {
+        bg: `
+          bg-gradient-to-b
+          from-fuchsia-500/25
+          to-purple-900/90
+        `,
 
-      bg: `
-        from-purple-900/40
-        via-slate-950/80
-        to-black/80
-      `,
+        border: `
+          border-fuchsia-400/50
+        `,
 
-      edge: "#a855f7",
-    };
+        glow: `
+          shadow-[0_0_40px_rgba(217,70,239,0.18)]
+        `,
+      };
+
+    // LEVEL 1
+    case 1:
+      return {
+        bg: `
+          bg-gradient-to-b
+          from-blue-500/20
+          to-slate-900/95
+        `,
+
+        border: `
+          border-blue-400/40
+        `,
+
+        glow: `
+          shadow-[0_0_30px_rgba(59,130,246,0.14)]
+        `,
+      };
+
+    // LEVEL 2
+    case 2:
+      return {
+        bg: `
+          bg-gradient-to-b
+          from-emerald-500/18
+          to-slate-900/95
+        `,
+
+        border: `
+          border-emerald-400/35
+        `,
+
+        glow: `
+          shadow-[0_0_28px_rgba(16,185,129,0.12)]
+        `,
+      };
+
+    // DEEP
+    default:
+      return {
+        bg: `
+          bg-gradient-to-b
+          from-gray-700/30
+          to-slate-950/95
+        `,
+
+        border: `
+          border-gray-500/30
+        `,
+
+        glow: `
+          shadow-[0_0_20px_rgba(255,255,255,0.05)]
+        `,
+      };
   }
-
-  if (depth === 1) {
-    return {
-      border: "border-blue-500/40",
-
-      bg: `
-        from-blue-900/30
-        via-slate-950/80
-        to-black/80
-      `,
-
-      edge: "#3b82f6",
-    };
-  }
-
-  if (depth === 2) {
-    return {
-      border: "border-emerald-500/40",
-
-      bg: `
-        from-emerald-900/30
-        via-slate-950/80
-        to-black/80
-      `,
-
-      edge: "#10b981",
-    };
-  }
-
-  return {
-    border: "border-gray-700",
-
-    bg: `
-      from-gray-800/40
-      via-slate-950/80
-      to-black/80
-    `,
-
-    edge: "#6b7280",
-  };
 }

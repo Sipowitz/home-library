@@ -77,13 +77,9 @@ function ViewportController({
       if (focusedPath.length > 0) {
         setTimeout(() => {
           fitView({
-            nodes: focusedPath.map((id) => ({
-              id: String(id),
-            })),
-
             duration: 700,
 
-            padding: 0.9,
+            padding: 0.35,
           });
         }, 120);
 
@@ -109,13 +105,9 @@ function ViewportController({
 
     setTimeout(() => {
       fitView({
-        nodes: focusedPath.map((id) => ({
-          id: String(id),
-        })),
-
         duration: 700,
 
-        padding: 0.9,
+        padding: 0.35,
       });
     }, 120);
   }, [focusedPath, searchTargetId, fitView]);
@@ -231,7 +223,81 @@ export function CategoryTreeFlow({
   }, [layouted.nodes]);
 
   return (
-    <div className="hidden lg:block flex-1">
+    <div
+      className="
+        hidden lg:block flex-1
+
+        relative
+
+        overflow-hidden
+      "
+    >
+      {/* AMBIENT BACKGROUND */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* PURPLE GLOW */}
+        <div
+          className="
+            absolute
+
+            w-[900px]
+            h-[900px]
+
+            rounded-full
+
+            bg-fuchsia-500/10
+
+            blur-3xl
+
+            -top-[350px]
+            -left-[250px]
+
+            animate-[pulse_18s_ease-in-out_infinite]
+          "
+        />
+
+        {/* BLUE GLOW */}
+        <div
+          className="
+            absolute
+
+            w-[800px]
+            h-[800px]
+
+            rounded-full
+
+            bg-blue-500/10
+
+            blur-3xl
+
+            bottom-[-300px]
+            right-[-200px]
+
+            animate-[pulse_24s_ease-in-out_infinite]
+          "
+        />
+
+        {/* EMERALD GLOW */}
+        <div
+          className="
+            absolute
+
+            w-[700px]
+            h-[700px]
+
+            rounded-full
+
+            bg-emerald-500/6
+
+            blur-3xl
+
+            top-[30%]
+            left-[40%]
+
+            animate-[pulse_30s_ease-in-out_infinite]
+          "
+        />
+      </div>
+
       <ReactFlow
         nodes={animatedNodes}
         edges={layouted.edges}
@@ -240,9 +306,11 @@ export function CategoryTreeFlow({
         fitViewOptions={{
           padding: 0.2,
         }}
-        nodesDraggable={false}
+        nodesDraggable
         nodesConnectable={false}
         elementsSelectable
+        nodesFocusable={false}
+        onPaneClick={() => onFocus(-1)}
         proOptions={{
           hideAttribution: true,
         }}
@@ -264,7 +332,7 @@ export function CategoryTreeFlow({
           "
         />
 
-        <Background gap={28} size={1} color="rgba(255,255,255,0.06)" />
+        <Background gap={32} size={1} color="rgba(255,255,255,0.035)" />
       </ReactFlow>
     </div>
   );
