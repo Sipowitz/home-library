@@ -33,16 +33,24 @@ class CategoryCreate(CategoryBase):
     pass
 
 
-# ✅ NEW
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
     parent_id: Optional[int] = None
+
+
+class CategoryStats(BaseModel):
+    total_books: int = 0
+    read_books: int = 0
+    unread_books: int = 0
 
 
 class CategoryResponse(BaseModel):
     id: int
     name: str
     parent_id: Optional[int]
+
+    stats: CategoryStats = Field(default_factory=CategoryStats)
+
     children: List["CategoryResponse"] = Field(default_factory=list)
 
     class Config:

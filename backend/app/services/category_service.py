@@ -1,7 +1,72 @@
 # app/services/category_service.py
 
-from sqlalchemy.orm import Session
+from collections import defaultdict
+
+from sqlalchemy.orm import Session, joinedload
+
 from app import models
+
+
+# -------------------
+# 📊 CATEGORY STATS
+# -------------------
+
+def build_category_stats(categories):
+    direct_stats = defaultdict(
+        lambda: {
+            "total_books": 0,
+            "read_books": 0,
+            "unread_books": 0,
+        }
+    )
+
+    for category in categories:
+        total_books = len(category.books)
+
+        read_books = sum(
+            1 for book in category.books if book.read
+        )
+
+        direct_stats[category.id] = {
+            "total_books": total_books,
+            "read_books": read_books,
+            "unread_books": total_books - read_books,
+        }
+
+    recursive_stats = {}
+
+    category_map = {
+        category.id: category
+        for category in categories
+    }
+
+    def aggregate(category_id):
+        if category_id in recursive_stats:
+            return recursive_stats[category_id]
+
+        category = category_map[category_id]
+
+        totals = {
+            "total_books": direct_stats[category_id]["total_books"],
+            "read_books": direct_stats[category_id]["read_books"],
+            "unread_books": direct_stats[category_id]["unread_books"],
+        }
+
+        for child in category.children:
+            child_totals = aggregate(child.id)
+
+            totals["total_books"] += child_totals["total_books"]
+            totals["read_books"] += child_totals["read_books"]
+            totals["unread_books"] += child_totals["unread_books"]
+
+        recursive_stats[category_id] = totals
+
+        return totals
+
+    for category in categories:
+        aggregate(category.id)
+
+    return recursive_stats
 
 
 # -------------------
@@ -9,11 +74,23 @@ from app import models
 # -------------------
 
 def build_tree(categories):
+    stats_map = build_category_stats(categories)
+
     tree_nodes = {
         c.id: {
             "id": c.id,
             "name": c.name,
             "parent_id": c.parent_id,
+
+            "stats": stats_map.get(
+                c.id,
+                {
+                    "total_books": 0,
+                    "read_books": 0,
+                    "unread_books": 0,
+                },
+            ),
+
             "children": [],
         }
         for c in categories
@@ -39,6 +116,10 @@ def build_tree(categories):
 def get_categories(db: Session, user_id: int):
     categories = (
         db.query(models.Category)
+        .options(
+            joinedload(models.Category.books),
+            joinedload(models.Category.children),
+        )
         .filter(models.Category.owner_id == user_id)
         .all()
     )
