@@ -106,35 +106,44 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
   return (
     <>
+      // Change ONLY this section inside SettingsModal.tsx
       {/* BACKDROP */}
       <div
         className="
-          fixed inset-0 z-50
-          bg-black/60 backdrop-blur-sm
-          flex items-center justify-center
-          p-2 lg:p-4
-        "
+    fixed inset-0 z-50
+    bg-black/50 backdrop-blur-sm
+    flex items-center justify-center
+
+    px-12 lg:px-16
+    py-6 lg:py-10
+  "
         onClick={onClose}
       >
         {/* MODAL */}
         <div
           className="
-            bg-gray-950 border border-gray-800 rounded-2xl
-            w-full h-[95vh] lg:h-[85vh]
-            lg:max-w-6xl
-            shadow-2xl overflow-hidden
-            flex flex-col lg:flex-row
-          "
+      bg-gray-950/95
+      border border-gray-800
+      rounded-2xl
+
+      w-full
+      h-full
+
+      shadow-2xl
+      overflow-hidden
+
+      flex flex-col lg:flex-row
+    "
           onClick={(e) => e.stopPropagation()}
         >
-          {/* SIDEBAR / MOBILE TABS */}
+          {/* SIDEBAR */}
           <div
             className="
-              bg-gray-900
+              bg-gray-900/90
               border-b lg:border-b-0 lg:border-r border-gray-800
               p-3 lg:p-4
               flex flex-col
-              lg:w-60
+              lg:w-64
             "
           >
             <div className="mb-4 lg:mb-6">
@@ -165,12 +174,12 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           </div>
 
           {/* CONTENT */}
-          <div className="flex-1 overflow-y-auto p-3 lg:p-6">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
             {/* LOCATIONS */}
             {activeSection === "locations" && (
               <div className="max-w-4xl">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 lg:p-4">
-                  <div className="mb-4">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+                  <div className="mb-5">
                     <h2 className="text-lg font-semibold">Locations</h2>
 
                     <p className="text-sm text-gray-400 mt-1">
@@ -201,9 +210,9 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
             {/* CATEGORIES */}
             {activeSection === "categories" && (
-              <div className="max-w-6xl">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 lg:p-4">
-                  <div className="mb-4">
+              <div className="max-w-full relative">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+                  <div className="mb-5">
                     <h2 className="text-lg font-semibold">Categories</h2>
 
                     <p className="text-sm text-gray-400 mt-1">
@@ -251,8 +260,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             {/* BACKUP */}
             {activeSection === "backup" && (
               <div className="max-w-2xl">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 lg:p-4">
-                  <div className="mb-4">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+                  <div className="mb-5">
                     <h2 className="text-lg font-semibold">Backup & Restore</h2>
 
                     <p className="text-sm text-gray-400 mt-1">
@@ -276,7 +285,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           </div>
         </div>
       </div>
-
       {/* RESTORE MODAL */}
       <ConfirmRestoreModal
         open={confirmRestoreOpen}
@@ -297,7 +305,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           setPendingFile(null);
         }}
       />
-
       {/* DELETE LOCATION */}
       <ConfirmDeleteModal
         open={confirmDeleteLocation !== null}
@@ -316,7 +323,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         }}
         onCancel={() => setConfirmDeleteLocation(null)}
       />
-
       {/* DELETE CATEGORY */}
       <ConfirmDeleteModal
         open={confirmDeleteCategory !== null}

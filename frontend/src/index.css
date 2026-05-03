@@ -5,14 +5,27 @@
 /* -------------------
    Recharts focus fix
    ------------------- */
+
 .recharts-wrapper:focus,
 .recharts-surface:focus {
   outline: none !important;
 }
 
 /* Fallback for SVG elements (some browsers) */
+
 svg:focus {
   outline: none !important;
+}
+
+/* -------------------
+   ReactFlow transparency fix
+   ------------------- */
+
+.react-flow,
+.react-flow__renderer,
+.react-flow__viewport,
+.react-flow__pane {
+  background: transparent !important;
 }
 
 /* -------------------
@@ -25,6 +38,7 @@ svg:focus {
 }
 
 /* Chrome / Edge / Safari */
+
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;

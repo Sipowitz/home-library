@@ -1,72 +1,8 @@
 # app/services/category_service.py
 
-from collections import defaultdict
-
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app import models
-
-
-# -------------------
-# 📊 CATEGORY STATS
-# -------------------
-
-def build_category_stats(categories):
-    direct_stats = defaultdict(
-        lambda: {
-            "total_books": 0,
-            "read_books": 0,
-            "unread_books": 0,
-        }
-    )
-
-    for category in categories:
-        total_books = len(category.books)
-
-        read_books = sum(
-            1 for book in category.books if book.read
-        )
-
-        direct_stats[category.id] = {
-            "total_books": total_books,
-            "read_books": read_books,
-            "unread_books": total_books - read_books,
-        }
-
-    recursive_stats = {}
-
-    category_map = {
-        category.id: category
-        for category in categories
-    }
-
-    def aggregate(category_id):
-        if category_id in recursive_stats:
-            return recursive_stats[category_id]
-
-        category = category_map[category_id]
-
-        totals = {
-            "total_books": direct_stats[category_id]["total_books"],
-            "read_books": direct_stats[category_id]["read_books"],
-            "unread_books": direct_stats[category_id]["unread_books"],
-        }
-
-        for child in category.children:
-            child_totals = aggregate(child.id)
-
-            totals["total_books"] += child_totals["total_books"]
-            totals["read_books"] += child_totals["read_books"]
-            totals["unread_books"] += child_totals["unread_books"]
-
-        recursive_stats[category_id] = totals
-
-        return totals
-
-    for category in categories:
-        aggregate(category.id)
-
-    return recursive_stats
 
 
 # -------------------
@@ -74,23 +10,28 @@ def build_category_stats(categories):
 # -------------------
 
 def build_tree(categories):
-    stats_map = build_category_stats(categories)
-
     tree_nodes = {
         c.id: {
             "id": c.id,
             "name": c.name,
             "parent_id": c.parent_id,
-
-            "stats": stats_map.get(
-                c.id,
-                {
-                    "total_books": 0,
-                    "read_books": 0,
-                    "unread_books": 0,
-                },
-            ),
-
+            "stats": {
+                "total_books": getattr(
+                    c,
+                    "total_books",
+                    0,
+                ),
+                "read_books": getattr(
+                    c,
+                    "read_books",
+                    0,
+                ),
+                "unread_books": getattr(
+                    c,
+                    "unread_books",
+                    0,
+                ),
+            },
             "children": [],
         }
         for c in categories
@@ -101,8 +42,13 @@ def build_tree(categories):
     for c in categories:
         node = tree_nodes[c.id]
 
-        if c.parent_id and c.parent_id in tree_nodes:
-            tree_nodes[c.parent_id]["children"].append(node)
+        if (
+            c.parent_id
+            and c.parent_id in tree_nodes
+        ):
+            tree_nodes[c.parent_id][
+                "children"
+            ].append(node)
         else:
             root.append(node)
 
@@ -110,19 +56,77 @@ def build_tree(categories):
 
 
 # -------------------
+# 📊 RECURSIVE STATS
+# -------------------
+
+def attach_recursive_stats(categories):
+    category_map = {
+        c.id: c for c in categories
+    }
+
+    def calculate(category):
+        direct_books = category.books or []
+
+        total_books = len(direct_books)
+
+        read_books = sum(
+            1
+            for book in direct_books
+            if book.read
+        )
+
+        unread_books = (
+            total_books - read_books
+        )
+
+        for child in category.children:
+            child_total, child_read, child_unread = (
+                calculate(child)
+            )
+
+            total_books += child_total
+
+            read_books += child_read
+
+            unread_books += child_unread
+
+        category.total_books = total_books
+
+        category.read_books = read_books
+
+        category.unread_books = unread_books
+
+        return (
+            total_books,
+            read_books,
+            unread_books,
+        )
+
+    for category in categories:
+        if category.parent_id is None:
+            calculate(category)
+
+    return categories
+
+
+# -------------------
 # 📚 GET
 # -------------------
 
-def get_categories(db: Session, user_id: int):
+def get_categories(
+    db: Session,
+    user_id: int,
+):
     categories = (
         db.query(models.Category)
-        .options(
-            joinedload(models.Category.books),
-            joinedload(models.Category.children),
+        .filter(
+            models.Category.owner_id
+            == user_id
         )
-        .filter(models.Category.owner_id == user_id)
         .all()
     )
+
+    attach_recursive_stats(categories)
 
     return build_tree(categories)
 
@@ -131,13 +135,19 @@ def get_categories(db: Session, user_id: int):
 # ➕ CREATE
 # -------------------
 
-def create_category(db: Session, user_id: int, data: dict):
+def create_category(
+    db: Session,
+    user_id: int,
+    data: dict,
+):
     category = models.Category(**data)
 
     category.owner_id = user_id
 
     db.add(category)
+
     db.commit()
+
     db.refresh(category)
 
     return category
@@ -152,11 +162,16 @@ def get_descendant_names(category):
 
     def walk(node, prefix=""):
         for child in node.children:
-            path = f"{prefix}{child.name}"
+            path = (
+                f"{prefix}{child.name}"
+            )
 
             result.append(path)
 
-            walk(child, f"{path} > ")
+            walk(
+                child,
+                f"{path} > ",
+            )
 
     walk(category)
 
@@ -175,8 +190,14 @@ def update_category(
 ):
     category = (
         db.query(models.Category)
-        .filter(models.Category.id == category_id)
-        .filter(models.Category.owner_id == user_id)
+        .filter(
+            models.Category.id
+            == category_id
+        )
+        .filter(
+            models.Category.owner_id
+            == user_id
+        )
         .first()
     )
 
@@ -184,43 +205,61 @@ def update_category(
         return None
 
     # -------------------
-    # 🛑 PREVENT SELF-PARENT
+    # 🛑 PARENT VALIDATION
     # -------------------
 
-    new_parent_id = data.get("parent_id")
+    if "parent_id" in data:
+        new_parent_id = data.get(
+            "parent_id"
+        )
 
-    if new_parent_id == category.id:
-        raise ValueError("Category cannot be its own parent")
-
-    # -------------------
-    # 🛑 PREVENT CYCLES
-    # -------------------
-
-    if new_parent_id:
-        descendants = []
-
-        def collect_ids(node):
-            for child in node.children:
-                descendants.append(child.id)
-                collect_ids(child)
-
-        collect_ids(category)
-
-        if new_parent_id in descendants:
+        # 🛑 SELF PARENT
+        if (
+            new_parent_id
+            == category.id
+        ):
             raise ValueError(
-                "Cannot move category inside its own descendant"
+                "Category cannot be its own parent"
             )
 
+        # 🛑 PREVENT CYCLES
+        if new_parent_id:
+            descendants = []
+
+            def collect_ids(node):
+                for child in node.children:
+                    descendants.append(
+                        child.id
+                    )
+
+                    collect_ids(child)
+
+            collect_ids(category)
+
+            if (
+                new_parent_id
+                in descendants
+            ):
+                raise ValueError(
+                    "Cannot move category inside its own descendant"
+                )
+
+        category.parent_id = (
+            new_parent_id
+        )
+
     # -------------------
-    # ✏️ UPDATE FIELDS
+    # ✏️ NAME
     # -------------------
 
-    if "name" in data and data["name"] is not None:
+    if (
+        "name" in data
+        and data["name"] is not None
+    ):
         category.name = data["name"]
 
-    category.parent_id = new_parent_id
-
     db.commit()
+
     db.refresh(category)
 
     return category
@@ -238,8 +277,14 @@ def delete_category(
 ):
     category = (
         db.query(models.Category)
-        .filter(models.Category.id == category_id)
-        .filter(models.Category.owner_id == user_id)
+        .filter(
+            models.Category.id
+            == category_id
+        )
+        .filter(
+            models.Category.owner_id
+            == user_id
+        )
         .first()
     )
 
@@ -253,7 +298,9 @@ def delete_category(
     # ⚠️ HAS CHILDREN
     # -------------------
 
-    descendants = get_descendant_names(category)
+    descendants = get_descendant_names(
+        category
+    )
 
     if descendants and not cascade:
         return {
@@ -261,7 +308,9 @@ def delete_category(
             "message": {
                 "message": "Category has child categories",
                 "descendants": descendants,
-                "count": len(descendants),
+                "count": len(
+                    descendants
+                ),
             },
         }
 

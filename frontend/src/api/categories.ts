@@ -8,6 +8,13 @@ import type { Category } from "../types/category";
 
 type CategoryCreateInput = {
   name: string;
+
+  parent_id?: number | null;
+};
+
+type CategoryUpdateInput = {
+  name?: string;
+
   parent_id?: number | null;
 };
 
@@ -31,10 +38,24 @@ export async function createCategory(
 ): Promise<Category> {
   const payload: CategoryCreateInput = {
     name,
+
     parent_id: parent_id ?? null,
   };
 
   const res = await client.post("/categories/", payload);
+
+  return res.data;
+}
+
+// -------------------
+// ✏️ UPDATE
+// -------------------
+
+export async function updateCategory(
+  id: number,
+  data: CategoryUpdateInput,
+): Promise<Category> {
+  const res = await client.patch(`/categories/${id}`, data);
 
   return res.data;
 }
@@ -49,6 +70,7 @@ export async function deleteCategory(id: number, cascade = false) {
 
     return {
       success: true,
+
       data: res.data,
     };
   } catch (err) {
@@ -59,9 +81,13 @@ export async function deleteCategory(id: number, cascade = false) {
       if (err.response?.status === 409) {
         return {
           success: false,
+
           blocked: true,
+
           message: payload?.message?.message,
+
           descendants: payload?.message?.descendants ?? [],
+
           count: payload?.message?.count ?? 0,
         };
       }
@@ -69,14 +95,18 @@ export async function deleteCategory(id: number, cascade = false) {
       // ❌ REAL ERROR
       return {
         success: false,
+
         blocked: false,
+
         message: "Delete failed",
       };
     }
 
     return {
       success: false,
+
       blocked: false,
+
       message: "Unknown error",
     };
   }

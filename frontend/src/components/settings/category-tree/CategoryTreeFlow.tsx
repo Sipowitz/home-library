@@ -1,40 +1,45 @@
-import {
-  Background,
-  Controls,
-  ReactFlow,
-  useReactFlow,
-  type Node,
-} from "reactflow";
+import { Background, Controls, ReactFlow, useReactFlow } from "reactflow";
 
 import "reactflow/dist/style.css";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { Category } from "../../../types/category";
 
 import { CategoryTreeNode } from "./CategoryTreeNode";
 
-import { buildTree, getLayoutedElements } from "./categoryTreeUtils";
+import { buildTreeElements, getLayoutedElements } from "./treeLayout";
 
 type Props = {
   categories: Category[];
+
   focusedId: number | null;
+
   focusedPath: number[];
+
   searchTargetId: string | null;
+
   onFocus: (id: number) => void;
+
+  onRename: (id: number, name: string) => Promise<void>;
+
+  onAddChild: (parentId: number, name: string) => Promise<void>;
+
+  onDelete: (id: number, cascade?: boolean) => Promise<any>;
 };
 
 const nodeTypes = {
   categoryNode: CategoryTreeNode,
 };
 
-// ================= VIEWPORT CONTROLLER =================
+// ================= VIEWPORT =================
 
 function ViewportController({
   searchTargetId,
   focusedPath,
 }: {
   searchTargetId: string | null;
+
   focusedPath: number[];
 }) {
   const { fitView } = useReactFlow();
@@ -138,27 +143,100 @@ function ViewportController({
 
 export function CategoryTreeFlow({
   categories,
+
   focusedId,
+
   focusedPath,
+
   searchTargetId,
+
   onFocus,
+
+  onRename,
+
+  onAddChild,
+
+  onDelete,
 }: Props) {
-  const flow = useMemo(() => {
-    const tree = buildTree(categories, focusedPath, focusedId, onFocus);
+  const layouted = useMemo(() => {
+    const tree = buildTreeElements(
+      categories,
+
+      focusedPath,
+
+      focusedId,
+
+      onFocus,
+
+      onRename,
+
+      onAddChild,
+
+      onDelete,
+    );
 
     return getLayoutedElements(tree.nodes, tree.edges);
-  }, [categories, focusedId, focusedPath, onFocus]);
+  }, [
+    categories,
+
+    focusedId,
+
+    focusedPath,
+
+    onFocus,
+
+    onRename,
+
+    onAddChild,
+
+    onDelete,
+  ]);
+
+  // ================= ANIMATED NODES =================
+
+  const [animatedNodes, setAnimatedNodes] = useState(layouted.nodes);
+
+  useEffect(() => {
+    setAnimatedNodes((prev) =>
+      layouted.nodes.map((newNode) => {
+        const existing = prev.find((n) => n.id === newNode.id);
+
+        return {
+          ...newNode,
+
+          position: existing?.position || newNode.position,
+
+          style: {
+            ...newNode.style,
+
+            transition: "all 300ms ease",
+          },
+        };
+      }),
+    );
+
+    requestAnimationFrame(() => {
+      setAnimatedNodes(
+        layouted.nodes.map((node) => ({
+          ...node,
+
+          style: {
+            ...node.style,
+
+            transition: "all 300ms ease",
+          },
+        })),
+      );
+    });
+  }, [layouted.nodes]);
 
   return (
-    <div className="hidden lg:block flex-1 bg-transparent">
+    <div className="hidden lg:block flex-1">
       <ReactFlow
-        nodes={flow.nodes}
-        edges={flow.edges}
+        nodes={animatedNodes}
+        edges={layouted.edges}
         nodeTypes={nodeTypes}
         fitView
-        style={{
-          background: "transparent",
-        }}
         fitViewOptions={{
           padding: 0.2,
         }}
@@ -176,9 +254,12 @@ export function CategoryTreeFlow({
 
         <Controls
           className="
-            bg-gray-900/70
+            bg-gray-900/80
+
             border border-gray-700
+
             rounded-xl
+
             overflow-hidden
           "
         />

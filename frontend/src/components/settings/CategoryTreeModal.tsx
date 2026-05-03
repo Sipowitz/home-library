@@ -1,18 +1,26 @@
 import { useMemo, useState } from "react";
 
+import toast from "react-hot-toast";
+
 import type { Category } from "../../types/category";
+
+import {
+  createCategory,
+  deleteCategory,
+  fetchCategories,
+  updateCategory,
+} from "../../api/categories";
 
 import { CategoryTreeFlow } from "./category-tree/CategoryTreeFlow";
 
-import {
-  flattenCategories,
-  findPathToNode,
-} from "./category-tree/categoryTreeUtils";
+import { flattenCategories, findPathToNode } from "./category-tree/treeLayout";
 
 type Props = {
-  open: boolean;
   categories: Category[];
+
   onClose: () => void;
+
+  onRefresh: (categories: Category[]) => void;
 };
 
 // ================= MOBILE TREE =================
@@ -22,6 +30,7 @@ function MobileTreeNode({
   level = 0,
 }: {
   node: Category;
+
   level?: number;
 }) {
   return (
@@ -33,7 +42,6 @@ function MobileTreeNode({
           rounded-xl
           px-3 py-3
           text-sm
-          backdrop-blur-sm
         "
         style={{
           marginLeft: `${level * 14}px`,
@@ -75,7 +83,13 @@ function MobileTreeNode({
 
 // ================= COMPONENT =================
 
-export function CategoryTreeModal({ open, categories, onClose }: Props) {
+export function CategoryTreeModal({
+  categories,
+
+  onClose,
+
+  onRefresh,
+}: Props) {
   const flatCategories = useMemo(
     () => flattenCategories(categories),
     [categories],
@@ -85,6 +99,8 @@ export function CategoryTreeModal({ open, categories, onClose }: Props) {
 
   const [search, setSearch] = useState("");
 
+  // ================= SEARCH =================
+
   const searchMatch = useMemo(() => {
     if (!search.trim()) return null;
 
@@ -93,120 +109,171 @@ export function CategoryTreeModal({ open, categories, onClose }: Props) {
     );
   }, [flatCategories, search]);
 
+  // ================= FOCUS =================
+
   const focusedPath = useMemo(() => {
     if (!focusedId) return [];
 
     return findPathToNode(categories, focusedId);
   }, [categories, focusedId]);
 
-  if (!open) return null;
+  // ================= REFRESH =================
+
+  async function refreshTree() {
+    const updated = await fetchCategories();
+
+    onRefresh(updated);
+  }
+
+  // ================= RENAME =================
+
+  async function handleRename(id: number, name: string) {
+    await updateCategory(id, {
+      name,
+    });
+
+    await refreshTree();
+
+    toast.success("Category renamed");
+  }
+
+  // ================= CREATE CHILD =================
+
+  async function handleAddChild(parentId: number, name: string) {
+    await createCategory(name, parentId);
+
+    await refreshTree();
+
+    toast.success("Category created");
+  }
+
+  // ================= DELETE =================
+
+  async function handleDelete(id: number, cascade = false) {
+    const result = await deleteCategory(id, cascade);
+
+    // CASCADE REQUIRED
+    if (result?.blocked && !cascade) {
+      return result;
+    }
+
+    await refreshTree();
+
+    toast.success(cascade ? "Category tree deleted" : "Category deleted");
+
+    return {
+      success: true,
+    };
+  }
 
   return (
     <div
       className="
-        fixed inset-0 z-50
-        bg-black/0
-        backdrop-blur-[1px]
-        flex items-center justify-center
-        p-2 lg:p-4
+        absolute inset-0 z-30
+
+        rounded-2xl
+
+        border border-gray-800
+
+        bg-gray-950/95
+
+        backdrop-blur-sm
+
+        overflow-hidden
+
+        flex flex-col
       "
     >
-      {/* MODAL */}
+      {/* HEADER */}
       <div
         className="
-          w-full h-[95vh] lg:h-[85vh]
-          lg:max-w-6xl
-          rounded-2xl
-          overflow-hidden
-          flex flex-col
-          border border-white/10
-          bg-gray-950/20
-          backdrop-blur-[6px]
-          shadow-[0_0_40px_rgba(0,0,0,0.2)]
+          border-b border-gray-800
+
+          px-6 py-4
+
+          bg-gray-900/80
         "
       >
-        {/* HEADER */}
-        <div
-          className="
-            bg-gray-950/20
-            border-b border-white/10
-            px-6 py-4
-            backdrop-blur-sm
-          "
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-white">
-                Category Tree
-              </h2>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-white">Category Tree</h2>
 
-              <p className="text-sm text-gray-300 mt-1">
-                Interactive hierarchy explorer
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <input
-                placeholder="Search categories..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="
-                  w-64
-                  px-4 py-2
-                  rounded-xl
-                  bg-black/10
-                  border border-white/10
-                  text-sm
-                  backdrop-blur-sm
-                  focus:outline-none
-                  focus:border-purple-500
-                "
-              />
-
-              <button
-                onClick={onClose}
-                className="
-                  px-4 py-2 rounded-xl
-                  bg-black/10
-                  hover:bg-black/20
-                  border border-white/10
-                  backdrop-blur-sm
-                  transition text-sm
-                "
-              >
-                Close
-              </button>
-            </div>
+            <p className="text-sm text-gray-400 mt-1">
+              Interactive hierarchy explorer
+            </p>
           </div>
 
-          {focusedPath.length > 0 && (
-            <div className="mt-4 text-sm text-gray-300">
-              Focus:
-              <span className="text-purple-300 ml-2">
-                {focusedPath.join(" → ")}
-              </span>
-            </div>
-          )}
-        </div>
+          <div className="flex items-center gap-3">
+            <input
+              placeholder="Search categories..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="
+                w-64
 
-        {/* MOBILE */}
-        <div className="lg:hidden flex-1 overflow-y-auto p-4">
-          <div className="space-y-2">
-            {categories.map((cat) => (
-              <MobileTreeNode key={cat.id} node={cat} />
-            ))}
+                px-4 py-2
+
+                rounded-xl
+
+                bg-gray-900
+
+                border border-gray-700
+
+                text-sm
+
+                focus:outline-none
+                focus:border-purple-500
+              "
+            />
+
+            <button
+              onClick={onClose}
+              className="
+                px-4 py-2 rounded-xl
+
+                bg-gray-800 hover:bg-gray-700
+
+                border border-gray-700
+
+                transition text-sm
+              "
+            >
+              Close
+            </button>
           </div>
         </div>
 
-        {/* DESKTOP */}
-        <CategoryTreeFlow
-          categories={categories}
-          focusedId={focusedId}
-          focusedPath={focusedPath}
-          searchTargetId={searchMatch ? String(searchMatch.id) : null}
-          onFocus={(id) => setFocusedId((prev) => (prev === id ? null : id))}
-        />
+        {/* BREADCRUMB */}
+        {focusedPath.length > 0 && (
+          <div className="mt-4 text-sm text-gray-300">
+            Focus:
+            <span className="text-purple-300 ml-2">
+              {focusedPath.join(" → ")}
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* MOBILE */}
+      <div className="lg:hidden flex-1 overflow-y-auto p-4">
+        <div className="space-y-2">
+          {categories.map((cat) => (
+            <MobileTreeNode key={cat.id} node={cat} />
+          ))}
+        </div>
+      </div>
+
+      {/* DESKTOP */}
+      <CategoryTreeFlow
+        categories={categories}
+        focusedId={focusedId}
+        focusedPath={focusedPath}
+        searchTargetId={searchMatch ? String(searchMatch.id) : null}
+        onFocus={(id) => setFocusedId((prev) => (prev === id ? null : id))}
+        onRename={handleRename}
+        onAddChild={handleAddChild}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }
