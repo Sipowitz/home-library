@@ -1,25 +1,26 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+
 import App from "./App";
 
 import "./index.css";
 
+import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
-import { AuthProvider } from "./context/AuthContext"; // ✅ NEW
+import { CategoryProvider } from "./context/CategoryContext";
 
-// ✅ ADDED
 import { Toaster } from "react-hot-toast";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AuthProvider>
-      {" "}
-      {/* ✅ WRAP EVERYTHING */}
-      <LocationProvider>
-        <App />
-        {/* ✅ ADDED */}
-        <Toaster position="top-right" />
-      </LocationProvider>
+      <CategoryProvider>
+        <LocationProvider>
+          <App />
+
+          <Toaster position="top-right" />
+        </LocationProvider>
+      </CategoryProvider>
     </AuthProvider>
   </React.StrictMode>,
 );

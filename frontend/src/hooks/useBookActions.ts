@@ -1,6 +1,10 @@
 import { useState } from "react";
-import { previewBookByISBN } from "../api/books";
+
 import toast from "react-hot-toast";
+
+import { previewBookByISBN } from "../api/books";
+
+import { useCategories } from "../context/CategoryContext";
 
 import type { Book, BookDraft } from "../types/book";
 
@@ -10,6 +14,7 @@ type Params = {
   setNewBook: (book: BookDraft | ((prev: any) => BookDraft)) => void;
 
   addBook: (b: any) => Promise<Book>;
+
   addBookFromISBN: (b: any) => Promise<Book>;
 
   removeBook: (id: number) => Promise<void>;
@@ -39,9 +44,12 @@ export function useBookActions({
 }: Params) {
   const [isFetching, setIsFetching] = useState(false);
 
+  const { reloadCategories } = useCategories();
+
   // -------------------
   // 🔍 ISBN SEARCH
   // -------------------
+
   async function handleSearch(overrideISBN?: string) {
     const isbn = overrideISBN || newBook.isbn;
 
@@ -63,6 +71,7 @@ export function useBookActions({
       toast.success("Book found");
     } catch (err) {
       console.error(err);
+
       toast.error("Book not found");
     } finally {
       setIsFetching(false);
@@ -72,6 +81,7 @@ export function useBookActions({
   // -------------------
   // ➕ OPEN DRAFT BOOK
   // -------------------
+
   async function handleAddBook() {
     if (!newBook.title || !newBook.author) return;
 
@@ -100,7 +110,9 @@ export function useBookActions({
     };
 
     setSelectedBook(draftBook);
+
     setEditData(draftBook);
+
     setEditing(true);
 
     setNewBook({});
@@ -109,8 +121,11 @@ export function useBookActions({
   // -------------------
   // ❌ DELETE
   // -------------------
+
   async function handleDelete(id: number) {
     await removeBook(id);
+
+    await reloadCategories();
 
     setSelectedBook(null);
 
@@ -120,6 +135,7 @@ export function useBookActions({
   // -------------------
   // 💾 SAVE
   // -------------------
+
   async function handleSave(category_ids: number[]) {
     if (!editData) return;
 
@@ -131,11 +147,14 @@ export function useBookActions({
     // -------------------
     // 🆕 CREATE NEW BOOK
     // -------------------
+
     if (!payload.id) {
       try {
         const created = payload.isbn
           ? await addBookFromISBN(payload)
           : await addBook(payload);
+
+        await reloadCategories();
 
         if (created.warning) {
           toast(created.warning);
@@ -144,7 +163,9 @@ export function useBookActions({
         }
 
         setSelectedBook(created);
+
         setEditData(created);
+
         setEditing(false);
 
         return;
@@ -160,10 +181,15 @@ export function useBookActions({
     // -------------------
     // ✏️ UPDATE EXISTING
     // -------------------
+
     const updated = await saveBook(payload);
 
+    await reloadCategories();
+
     setSelectedBook(updated);
+
     setEditData(updated);
+
     setEditing(false);
 
     toast.success("Book updated");

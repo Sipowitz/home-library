@@ -4,7 +4,7 @@ import type { Book } from "../../types/book";
 import type { Category } from "../../types/category";
 import type { Location } from "../../types/location";
 
-import { CategoryDropdownSelector } from "./CategoryDropdownSelector";
+import { CategoryTreeSelector } from "./CategoryTreeSelector";
 import { FieldLabel } from "./FieldLabel";
 
 type FlatLocation = Location & {
@@ -192,7 +192,7 @@ export function BookEdit({
       </div>
 
       {/* METADATA */}
-      <div className="space-y-3 mb-3">
+      <div className="space-y-4 mb-3">
         {/* LOCATION */}
         <div ref={locationRef} className="relative">
           <FieldLabel>Location</FieldLabel>
@@ -247,7 +247,7 @@ export function BookEdit({
         <div>
           <FieldLabel>Category</FieldLabel>
 
-          <CategoryDropdownSelector
+          <CategoryTreeSelector
             categories={categories}
             selectedCategoryId={selectedCategoryId}
             onSelect={(id) => setSelectedCategories([id])}

@@ -4,12 +4,7 @@ import toast from "react-hot-toast";
 
 import type { Category } from "../../types/category";
 
-import {
-  createCategory,
-  deleteCategory,
-  fetchCategories,
-  updateCategory,
-} from "../../api/categories";
+import { useCategories } from "../../context/CategoryContext";
 
 import { CategoryTreeFlow } from "./category-tree/CategoryTreeFlow";
 
@@ -21,8 +16,6 @@ import {
 
 type Props = {
   categories: Category[];
-
-  onRefresh: (categories: Category[]) => void;
 };
 
 // ================= MOBILE TREE =================
@@ -85,11 +78,9 @@ function MobileTreeNode({
 
 // ================= COMPONENT =================
 
-export function CategoryTreePanel({
-  categories,
+export function CategoryTreePanel({ categories }: Props) {
+  const { addCategory, editCategory, removeCategory } = useCategories();
 
-  onRefresh,
-}: Props) {
   const flatCategories = useMemo(
     () => flattenCategories(categories),
     [categories],
@@ -129,14 +120,6 @@ export function CategoryTreePanel({
     return findPathToNode(categories, focusedId);
   }, [categories, focusedId]);
 
-  // ================= REFRESH =================
-
-  async function refreshTree() {
-    const updated = await fetchCategories();
-
-    onRefresh(updated);
-  }
-
   // ================= ROOT CREATE =================
 
   async function handleCreateRoot() {
@@ -149,9 +132,7 @@ export function CategoryTreePanel({
     }
 
     try {
-      await createCategory(rootName.trim());
-
-      await refreshTree();
+      await addCategory(rootName.trim());
 
       toast.success("Root category created");
 
@@ -168,35 +149,44 @@ export function CategoryTreePanel({
   // ================= RENAME =================
 
   async function handleRename(id: number, name: string) {
-    await updateCategory(id, {
-      name,
-    });
+    try {
+      await editCategory(id, {
+        name,
+      });
 
-    await refreshTree();
+      toast.success("Category renamed");
+    } catch (err) {
+      console.error(err);
 
-    toast.success("Category renamed");
+      toast.error("Failed to rename category");
+    }
   }
 
   // ================= CREATE CHILD =================
 
   async function handleAddChild(parentId: number, name: string) {
-    await createCategory(name, parentId);
+    try {
+      await addCategory(name, parentId);
 
-    await refreshTree();
+      toast.success("Category created");
+    } catch (err: any) {
+      console.error(err);
 
-    toast.success("Category created");
+      const message =
+        err?.response?.data?.detail || "Failed to create category";
+
+      toast.error(message);
+    }
   }
 
   // ================= DELETE =================
 
   async function handleDelete(id: number, cascade = false) {
-    const result = await deleteCategory(id, cascade);
+    const result = await removeCategory(id, cascade);
 
     if (result?.blocked && !cascade) {
       return result;
     }
-
-    await refreshTree();
 
     toast.success(cascade ? "Category tree deleted" : "Category deleted");
 
@@ -211,9 +201,7 @@ export function CategoryTreePanel({
       <div
         className="
           border-b border-gray-800
-
           px-6 py-4
-
           bg-gray-950/40
           backdrop-blur-sm
         "
@@ -229,17 +217,11 @@ export function CategoryTreePanel({
                 onChange={(e) => setSearch(e.target.value)}
                 className="
                   w-full
-
                   px-4 py-3
-
                   rounded-xl
-
                   bg-gray-900
-
                   border border-gray-700
-
                   text-sm
-
                   focus:outline-none
                   focus:border-purple-500
                 "
@@ -266,17 +248,11 @@ export function CategoryTreePanel({
                 }}
                 className="
                   w-52
-
                   px-4 py-3
-
                   rounded-xl
-
                   bg-gray-900
-
                   border border-purple-500/40
-
                   text-sm
-
                   focus:outline-none
                 "
               />
@@ -285,19 +261,13 @@ export function CategoryTreePanel({
                 onClick={() => setCreatingRoot(true)}
                 className="
                   shrink-0
-
                   px-4 py-3
-
                   rounded-xl
-
                   bg-gradient-to-r
                   from-purple-600
                   to-fuchsia-600
-
                   hover:brightness-110
-
                   text-sm font-medium
-
                   transition
                 "
               >
@@ -310,13 +280,9 @@ export function CategoryTreePanel({
               <div
                 className="
                   px-3 py-2
-
                   rounded-xl
-
                   border border-purple-500/20
-
                   bg-purple-500/10
-
                   text-xs text-purple-200
                 "
               >
@@ -331,13 +297,9 @@ export function CategoryTreePanel({
             <div
               className="
                 px-3 py-2
-
                 rounded-xl
-
                 border border-gray-700
-
                 bg-gray-900
-
                 text-xs text-gray-300
               "
             >

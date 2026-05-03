@@ -1,14 +1,14 @@
 import { X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
 import { useLocations } from "../../context/LocationContext";
-import { useEffect, useState, useRef } from "react";
-import { fetchCategories } from "../../api/categories";
+import { useCategories } from "../../context/CategoryContext";
 
 import { BookView } from "./BookView";
 import { BookEdit } from "./BookEdit";
 import { DeleteModal } from "./DeleteModal";
 
 import type { Book } from "../../types/book";
-import type { Category } from "../../types/category";
 
 type Props = {
   book: Book | null;
@@ -47,9 +47,9 @@ export function BookPanel({
 }: Props) {
   const { locations } = useLocations();
 
-  const flatLocations = flattenLocations(locations);
+  const { categories } = useCategories();
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const flatLocations = flattenLocations(locations);
 
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
 
@@ -57,13 +57,9 @@ export function BookPanel({
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    if (!token) return;
-
-    fetchCategories().then(setCategories);
-  }, []);
+  // -------------------
+  // 🏷️ SELECTED CATEGORY
+  // -------------------
 
   useEffect(() => {
     if (!editData) return;
@@ -77,9 +73,14 @@ export function BookPanel({
     }
   }, [editData]);
 
+  // -------------------
+  // ❌ CANCEL
+  // -------------------
+
   function handleCancel() {
     if (!book?.id) {
       onClose();
+
       return;
     }
 
@@ -149,6 +150,7 @@ export function BookPanel({
                 <button
                   onClick={() => {
                     setEditing(true);
+
                     setEditData(book);
                   }}
                   className="bg-yellow-600 hover:bg-yellow-700 transition w-full py-2 rounded"

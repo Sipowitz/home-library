@@ -6,6 +6,13 @@ from app import models
 
 
 # -------------------
+# ⚙️ CONFIG
+# -------------------
+
+MAX_CATEGORY_DEPTH = 4
+
+
+# -------------------
 # 🌲 BUILD TREE
 # -------------------
 
@@ -53,6 +60,56 @@ def build_tree(categories):
             root.append(node)
 
     return root
+
+
+# -------------------
+# 🌲 DEPTH HELPERS
+# -------------------
+
+def get_category_depth(category):
+    depth = 1
+
+    current = category
+
+    while current.parent is not None:
+        depth += 1
+
+        current = current.parent
+
+    return depth
+
+
+def validate_depth(
+    db: Session,
+    user_id: int,
+    parent_id: int | None,
+):
+    if parent_id is None:
+        return
+
+    parent = (
+        db.query(models.Category)
+        .filter(
+            models.Category.id == parent_id
+        )
+        .filter(
+            models.Category.owner_id
+            == user_id
+        )
+        .first()
+    )
+
+    if not parent:
+        raise ValueError(
+            "Parent category not found"
+        )
+
+    depth = get_category_depth(parent) + 1
+
+    if depth > MAX_CATEGORY_DEPTH:
+        raise ValueError(
+            f"Maximum category depth is {MAX_CATEGORY_DEPTH}"
+        )
 
 
 # -------------------
@@ -140,6 +197,12 @@ def create_category(
     user_id: int,
     data: dict,
 ):
+    validate_depth(
+        db,
+        user_id,
+        data.get("parent_id"),
+    )
+
     category = models.Category(**data)
 
     category.owner_id = user_id
@@ -243,6 +306,13 @@ def update_category(
                 raise ValueError(
                     "Cannot move category inside its own descendant"
                 )
+
+        # 🛑 DEPTH LIMIT
+        validate_depth(
+            db,
+            user_id,
+            new_parent_id,
+        )
 
         category.parent_id = (
             new_parent_id
