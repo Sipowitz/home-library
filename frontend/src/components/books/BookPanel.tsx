@@ -17,7 +17,7 @@ type Props = {
   setEditing: (value: boolean) => void;
   setEditData: (book: Book) => void;
   onClose: () => void;
-  onSave: (category_ids: number[]) => void;
+  onSave: () => void; // ✅ FIXED
   onDelete: (id: number) => void;
 };
 
@@ -50,20 +50,9 @@ export function BookPanel({
 
   const flatLocations = flattenLocations(locations);
 
-  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  // -------------------
-  // 🏷️ INITIALISE CATEGORY STATE
-  // -------------------
-
-  useEffect(() => {
-    if (!editData) return;
-
-    setSelectedCategories(editData.category_ids ?? []);
-  }, [editData]);
 
   // -------------------
   // ❌ CANCEL
@@ -127,8 +116,6 @@ export function BookPanel({
               editData={editData}
               setEditData={setEditData}
               categories={categories}
-              selectedCategories={selectedCategories}
-              setSelectedCategories={setSelectedCategories}
               flatLocations={flatLocations}
               textareaRef={textareaRef}
             />
@@ -158,7 +145,7 @@ export function BookPanel({
             ) : (
               <>
                 <button
-                  onClick={() => onSave(selectedCategories)}
+                  onClick={onSave} // ✅ FIXED
                   className="bg-green-600 hover:bg-green-700 transition w-full py-2 rounded"
                 >
                   Save

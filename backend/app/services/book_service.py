@@ -30,10 +30,11 @@ def get_books(
             )
         )
 
-    if category_id:
-        query = query.join(Book.categories).filter(
-            models.Category.id == category_id
-        )
+    # ✅ SINGLE CATEGORY FILTER
+    if category_id == -1:
+        query = query.filter(Book.category_id == None)
+    elif category_id is not None:
+        query = query.filter(Book.category_id == category_id)
 
     if location_id == -1:
         query = query.filter(Book.location_id == None)
@@ -60,7 +61,7 @@ def get_books(
     items = (
         query
         .options(
-            joinedload(Book.categories),
+            joinedload(Book.category),
             joinedload(Book.location),
         )
         .offset(skip)
@@ -75,7 +76,7 @@ def get_book(db: Session, user_id: int, book_id: int):
     return (
         db.query(Book)
         .options(
-            joinedload(Book.categories),
+            joinedload(Book.category),
             joinedload(Book.location),
         )
         .filter(Book.id == book_id)
@@ -85,7 +86,12 @@ def get_book(db: Session, user_id: int, book_id: int):
 
 
 def create_book(db: Session, user_id: int, data: dict):
-    category_ids = data.pop("category_ids", [])
+    category_id = data.get("category_id")
+
+    # ✅ FIX: normalise bad values (e.g. [] from legacy payload)
+    if isinstance(category_id, list):
+        category_id = category_id[0] if category_id else None
+        data["category_id"] = category_id
 
     data.setdefault("read", False)
     data.setdefault("location_id", None)
@@ -94,18 +100,17 @@ def create_book(db: Session, user_id: int, data: dict):
     data.setdefault("isbn", None)
     data.setdefault("cover_url", None)
 
-    # ✅ STRICT CATEGORY VALIDATION
-    categories = []
-    if category_ids:
-        categories = (
+    # ✅ STRICT CATEGORY VALIDATION (single)
+    if category_id is not None:
+        category = (
             db.query(models.Category)
-            .filter(models.Category.id.in_(category_ids))
+            .filter(models.Category.id == category_id)
             .filter(models.Category.owner_id == user_id)
-            .all()
+            .first()
         )
 
-        if len(categories) != len(category_ids):
-            raise HTTPException(status_code=400, detail="Invalid category_ids")
+        if not category:
+            raise HTTPException(status_code=400, detail="Invalid category_id")
 
     # ✅ STRICT LOCATION VALIDATION
     location_id = data.get("location_id")
@@ -128,14 +133,13 @@ def create_book(db: Session, user_id: int, data: dict):
 
     new_book = models.Book(**data)
     new_book.owner_id = user_id
-    new_book.categories = categories
 
     db.add(new_book)
     db.commit()
 
     return (
         db.query(Book)
-        .options(joinedload(Book.categories), joinedload(Book.location))
+        .options(joinedload(Book.category), joinedload(Book.location))
         .filter(Book.id == new_book.id)
         .first()
     )
@@ -152,23 +156,28 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
     if not book:
         return None
 
-    category_ids = data.pop("category_ids", None)
+    # ✅ CATEGORY UPDATE (single)
+    if "category_id" in data:
+        category_id = data.get("category_id")
 
-    # ✅ STRICT CATEGORY VALIDATION
-    if category_ids is not None:
-        categories = (
-            db.query(models.Category)
-            .filter(models.Category.id.in_(category_ids))
-            .filter(models.Category.owner_id == user_id)
-            .all()
-        )
+        # ✅ FIX: normalise here too
+        if isinstance(category_id, list):
+            category_id = category_id[0] if category_id else None
 
-        if len(categories) != len(category_ids):
-            raise HTTPException(status_code=400, detail="Invalid category_ids")
+        if category_id is not None:
+            category = (
+                db.query(models.Category)
+                .filter(models.Category.id == category_id)
+                .filter(models.Category.owner_id == user_id)
+                .first()
+            )
 
-        book.categories = categories
+            if not category:
+                raise HTTPException(status_code=400, detail="Invalid category_id")
 
-    # ✅ STRICT LOCATION VALIDATION
+        book.category_id = category_id
+
+    # ✅ LOCATION VALIDATION
     if "location_id" in data:
         location_id = data.get("location_id")
 
@@ -193,13 +202,14 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
             book.read_at = None
 
     for key, value in data.items():
-        setattr(book, key, value)
+        if key != "category_id":
+            setattr(book, key, value)
 
     db.commit()
 
     return (
         db.query(Book)
-        .options(joinedload(Book.categories), joinedload(Book.location))
+        .options(joinedload(Book.category), joinedload(Book.location))
         .filter(Book.id == book_id)
         .first()
     )

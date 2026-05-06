@@ -175,7 +175,7 @@ async def create_book_from_isbn(
         "cover_url": google_data.get("cover_url"),
         "read": False,
         "location_id": None,
-        "category_ids": [],
+        "category_id": [],
     }
 
     if extra_data:

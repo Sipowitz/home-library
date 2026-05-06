@@ -19,9 +19,11 @@ export type Book = {
 
   cover_url?: string;
 
-  categories?: Category[];
+  // ✅ single category
+  category_id?: number | null;
 
-  category_ids?: number[];
+  // optional expanded object (if used anywhere)
+  category?: Category | null;
 
   date_added?: string;
 

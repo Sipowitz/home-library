@@ -101,10 +101,10 @@ export function BookView({ book, locations, categories }: Props) {
 
   const locationName = getLocationPath(book.location_id);
 
-  const categoryPaths =
-    book.category_ids?.length > 0
-      ? book.category_ids.map((id) => getCategoryPath(id)).filter(Boolean)
-      : [];
+  // ✅ SINGLE CATEGORY
+  const categoryPath = book.category_id
+    ? getCategoryPath(book.category_id)
+    : null;
 
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
@@ -148,9 +148,9 @@ export function BookView({ book, locations, categories }: Props) {
           <strong>Location:</strong> {locationName || "—"}
         </div>
 
-        {categoryPaths.length > 0 && (
+        {categoryPath && (
           <div>
-            <strong>Categories:</strong> {categoryPaths.join(", ")}
+            <strong>Category:</strong> {categoryPath}
           </div>
         )}
 

@@ -1,19 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Table
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from .database import Base
-
-
-# -------------------
-# 🔗 ASSOCIATION TABLE (Book ↔ Category)
-# -------------------
-
-book_categories = Table(
-    "book_categories",
-    Base.metadata,
-    Column("book_id", Integer, ForeignKey("books.id", ondelete="CASCADE"), primary_key=True),
-    Column("category_id", Integer, ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True),
-)
 
 
 # -------------------
@@ -48,10 +36,11 @@ class Category(Base):
         cascade="all, delete"
     )
 
+    # ✅ ONE-TO-MANY
     books = relationship(
         "Book",
-        secondary=book_categories,
-        back_populates="categories"
+        back_populates="category",
+        cascade="all, delete"
     )
 
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -59,7 +48,7 @@ class Category(Base):
 
 
 # -------------------
-# 📚 BOOK MODEL
+# 📚 BOOK MODEL (SINGLE CATEGORY)
 # -------------------
 
 class Book(Base):
@@ -83,21 +72,14 @@ class Book(Base):
 
     cover_url = Column(String, nullable=True)
 
-    categories = relationship(
-        "Category",
-        secondary=book_categories,
-        back_populates="books"
-    )
+    # ✅ SINGLE CATEGORY
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True, index=True)
+    category = relationship("Category", back_populates="books")
 
     date_added = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     owner_id = Column(Integer, ForeignKey("users.id"), index=True)
     owner = relationship("User", back_populates="books")
-
-    # ✅ NEW: single source of truth for API
-    @property
-    def category_ids(self) -> list[int]:
-        return [c.id for c in self.categories] if self.categories else []
 
 
 # -------------------

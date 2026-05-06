@@ -17,9 +17,6 @@ type Props = {
 
   categories: Category[];
 
-  selectedCategories: number[];
-  setSelectedCategories: React.Dispatch<React.SetStateAction<number[]>>;
-
   flatLocations: FlatLocation[];
 
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -29,17 +26,14 @@ export function BookEdit({
   editData,
   setEditData,
   categories,
-  selectedCategories,
-  setSelectedCategories,
   flatLocations,
   textareaRef,
 }: Props) {
   const [locationOpen, setLocationOpen] = useState(false);
   const locationRef = useRef<HTMLDivElement | null>(null);
 
-  // ✅ single category (UI = single select, backend = array)
-  const selectedCategoryId =
-    selectedCategories.length > 0 ? selectedCategories[0] : null;
+  // ✅ single category
+  const selectedCategoryId = editData?.category_id ?? null;
 
   // -------------------
   // 📍 LOCATION PATHS
@@ -113,22 +107,18 @@ export function BookEdit({
   // -------------------
 
   function handleCategorySelect(id: number | null) {
-    const newIds = id === null || id === -1 ? [] : [id];
-
-    setSelectedCategories(newIds);
+    const newId = id === -1 ? null : id;
 
     setEditData({
       ...editData!,
-      category_ids: newIds,
+      category_id: newId,
     });
   }
 
   function clearCategory() {
-    setSelectedCategories([]);
-
     setEditData({
       ...editData!,
-      category_ids: [],
+      category_id: null,
     });
   }
 

@@ -20,8 +20,8 @@ type BookCreateInput = {
   location_id?: number | null;
   cover_url?: string;
 
-  // ✅ required now
-  category_ids: number[];
+  // ✅ single category
+  category_id?: number | null;
 };
 
 type BookUpdateInput = {
@@ -36,7 +36,8 @@ type BookUpdateInput = {
   location_id?: number | null;
   cover_url?: string;
 
-  category_ids?: number[];
+  // ✅ single category
+  category_id?: number | null;
 };
 
 export async function getBooks(
@@ -70,27 +71,18 @@ export async function getBooks(
 
   const res = await client.get(`/books/?${params.toString()}`);
 
+  // ✅ no mapping anymore
   return res.data;
 }
 
 export async function createBook(book: BookCreateInput): Promise<Book> {
-  const payload = {
-    ...book,
-    category_ids: book.category_ids ?? [],
-  };
-
-  const res = await client.post("/books/", payload);
+  const res = await client.post("/books/", book);
 
   return res.data;
 }
 
 export async function createBookFromISBN(book: BookCreateInput): Promise<Book> {
-  const payload = {
-    ...book,
-    category_ids: book.category_ids ?? [],
-  };
-
-  const res = await client.post("/books/from-isbn", payload);
+  const res = await client.post("/books/from-isbn", book);
 
   return res.data;
 }
@@ -105,12 +97,7 @@ export async function updateBook(
   id: number,
   book: BookUpdateInput,
 ): Promise<Book> {
-  const payload = {
-    ...book,
-    ...(book.category_ids && { category_ids: book.category_ids }),
-  };
-
-  const res = await client.put(`/books/${id}`, payload);
+  const res = await client.put(`/books/${id}`, book);
 
   return res.data;
 }

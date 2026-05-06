@@ -168,13 +168,10 @@ export default function App() {
       result = result.filter((b) => ids.includes(b.location_id ?? -999));
     }
 
-    // 🏷️ CATEGORY (FIXED)
+    // 🏷️ CATEGORY
     if (selectedCategory !== null) {
       if (selectedCategory === -1) {
-        // ✅ NO CATEGORY FIX
-        result = result.filter(
-          (b) => !b.category_ids || b.category_ids.length === 0,
-        );
+        result = result.filter((b) => !b.category_id);
       } else {
         const map = buildCategoryMap(categories);
         const root = map.get(selectedCategory);
@@ -182,8 +179,8 @@ export default function App() {
         if (root) {
           const allowedIds = getCategoryDescendantIds(root);
 
-          result = result.filter((b) =>
-            b.category_ids?.some((id) => allowedIds.includes(id)),
+          result = result.filter(
+            (b) => b.category_id && allowedIds.includes(b.category_id),
           );
         }
       }

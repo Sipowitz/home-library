@@ -89,13 +89,10 @@ export function useBookActions({
       id: 0,
 
       title: newBook.title,
-
       author: newBook.author,
 
       year: newBook.year ?? undefined,
-
       isbn: newBook.isbn ?? "",
-
       description: newBook.description ?? "",
 
       read: newBook.read ?? false,
@@ -104,17 +101,15 @@ export function useBookActions({
 
       cover_url: newBook.cover_url ?? "",
 
-      category_ids: [],
+      // ✅ FIXED
+      category_id: null,
 
       date_added: new Date().toISOString(),
     };
 
     setSelectedBook(draftBook);
-
     setEditData(draftBook);
-
     setEditing(true);
-
     setNewBook({});
   }
 
@@ -136,12 +131,11 @@ export function useBookActions({
   // 💾 SAVE
   // -------------------
 
-  async function handleSave(category_ids: number[]) {
+  async function handleSave() {
     if (!editData) return;
 
     const payload: Book = {
-      ...editData,
-      category_ids,
+      ...editData, // ✅ already contains category_id
     };
 
     // -------------------
@@ -163,9 +157,7 @@ export function useBookActions({
         }
 
         setSelectedBook(created);
-
         setEditData(created);
-
         setEditing(false);
 
         return;
@@ -187,9 +179,7 @@ export function useBookActions({
     await reloadCategories();
 
     setSelectedBook(updated);
-
     setEditData(updated);
-
     setEditing(false);
 
     toast.success("Book updated");

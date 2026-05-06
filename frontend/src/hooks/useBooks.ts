@@ -24,7 +24,8 @@ type BookCreateInput = {
   location_id?: number | null;
   cover_url?: string;
 
-  category_ids: number[];
+  // ✅ single category
+  category_id?: number | null;
 };
 
 type Filters = {
@@ -56,7 +57,7 @@ export function useBooks() {
   }
 
   // -------------------
-  // 📥 LOAD BOOKS (NO FILTER LOGIC)
+  // 📥 LOAD BOOKS
   // -------------------
 
   async function loadBooks(reset = true) {
@@ -70,6 +71,7 @@ export function useBooks() {
       LIMIT,
       filters.search,
       filters.locationId,
+      filters.categoryId, // ✅ already correct
     );
 
     if (requestId !== requestIdRef.current) return;
@@ -97,7 +99,7 @@ export function useBooks() {
   }
 
   // -------------------
-  // 🔍 FILTER STATE ONLY (NO LOGIC)
+  // 🔍 FILTER STATE
   // -------------------
 
   function updateFilters(newFilters: Partial<Filters>) {
@@ -124,7 +126,7 @@ export function useBooks() {
   async function addBook(book: BookCreateInput) {
     const data = await createBook({
       ...book,
-      category_ids: book.category_ids ?? [],
+      category_id: book.category_id ?? null, // ✅ FIXED
     });
 
     await loadBooks(true);
@@ -136,7 +138,7 @@ export function useBooks() {
   async function addBookFromISBN(book: BookCreateInput) {
     const data = await createBookFromISBN({
       ...book,
-      category_ids: book.category_ids ?? [],
+      category_id: book.category_id ?? null, // ✅ FIXED
     });
 
     await loadBooks(true);
@@ -175,7 +177,7 @@ export function useBooks() {
       read: book.read,
       location_id: book.location_id,
       cover_url: book.cover_url,
-      category_ids: book.category_ids ?? [],
+      category_id: book.category_id ?? null, // ✅ FIXED
     });
 
     await loadBooks(true);
