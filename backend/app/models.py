@@ -48,7 +48,7 @@ class Category(Base):
 
 
 # -------------------
-# 📚 BOOK MODEL (SINGLE CATEGORY)
+# 📚 BOOK MODEL (SINGLE CATEGORY + SINGLE LOCATION)
 # -------------------
 
 class Book(Base):
@@ -67,8 +67,9 @@ class Book(Base):
 
     read_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
+    # ✅ SINGLE LOCATION (FK)
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True, index=True)
-    location = relationship("Location")
+    location = relationship("Location", back_populates="books")
 
     cover_url = Column(String, nullable=True)
 
@@ -83,7 +84,7 @@ class Book(Base):
 
 
 # -------------------
-# 📍 LOCATION MODEL
+# 📍 LOCATION MODEL (HIERARCHICAL)
 # -------------------
 
 class Location(Base):
@@ -95,6 +96,13 @@ class Location(Base):
     parent_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=True)
 
     parent = relationship("Location", remote_side=[id])
+
+    # ✅ BACK RELATION TO BOOKS
+    books = relationship(
+        "Book",
+        back_populates="location",
+        cascade="all, delete"
+    )
 
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner = relationship("User", backref="locations")

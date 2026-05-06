@@ -76,14 +76,14 @@ class BookBase(BaseModel):
     read_at: Optional[datetime] = None
 
     location_id: Optional[int] = None
-    category_id: Optional[int] = None  # ✅ FIXED
+    category_id: Optional[int] = None
 
     cover_url: Optional[str] = None
     date_added: Optional[datetime] = None
 
 
 class BookCreate(BookBase):
-    pass  # ✅ FIXED (removed category_ids)
+    pass
 
 
 class BookUpdate(BaseModel):
@@ -96,13 +96,11 @@ class BookUpdate(BaseModel):
     location_id: Optional[int] = None
     cover_url: Optional[str] = None
 
-    category_id: Optional[int] = None  # ✅ FIXED
+    category_id: Optional[int] = None
 
 
 class BookResponse(BookBase):
     id: int
-
-    category_id: Optional[int] = None  # ✅ FIXED
 
     warning: Optional[str] = None
 

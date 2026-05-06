@@ -97,11 +97,11 @@ export function useBookActions({
 
       read: newBook.read ?? false,
 
-      location_id: newBook.location_id ?? undefined,
+      location_id: newBook.location_id ?? null,
 
       cover_url: newBook.cover_url ?? "",
 
-      // ✅ FIXED
+      // ✅ single category
       category_id: null,
 
       date_added: new Date().toISOString(),
@@ -135,7 +135,7 @@ export function useBookActions({
     if (!editData) return;
 
     const payload: Book = {
-      ...editData, // ✅ already contains category_id
+      ...editData,
     };
 
     // -------------------

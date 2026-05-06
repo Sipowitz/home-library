@@ -71,7 +71,7 @@ export function useBooks() {
       LIMIT,
       filters.search,
       filters.locationId,
-      filters.categoryId, // ✅ already correct
+      filters.categoryId,
     );
 
     if (requestId !== requestIdRef.current) return;
@@ -126,7 +126,8 @@ export function useBooks() {
   async function addBook(book: BookCreateInput) {
     const data = await createBook({
       ...book,
-      category_id: book.category_id ?? null, // ✅ FIXED
+      location_id: book.location_id ?? null,
+      category_id: book.category_id ?? null,
     });
 
     await loadBooks(true);
@@ -138,7 +139,8 @@ export function useBooks() {
   async function addBookFromISBN(book: BookCreateInput) {
     const data = await createBookFromISBN({
       ...book,
-      category_id: book.category_id ?? null, // ✅ FIXED
+      location_id: book.location_id ?? null,
+      category_id: book.category_id ?? null,
     });
 
     await loadBooks(true);
@@ -177,7 +179,7 @@ export function useBooks() {
       read: book.read,
       location_id: book.location_id,
       cover_url: book.cover_url,
-      category_id: book.category_id ?? null, // ✅ FIXED
+      category_id: book.category_id ?? null,
     });
 
     await loadBooks(true);

@@ -44,7 +44,7 @@ export async function getBooks(
   skip: number,
   limit: number,
   search?: string,
-  locationId?: number | null,
+  locationId?: number | null, // supports -1 (no location)
   categoryId?: number | null,
   read?: boolean,
 ): Promise<PaginatedBooksResponse> {
@@ -71,7 +71,6 @@ export async function getBooks(
 
   const res = await client.get(`/books/?${params.toString()}`);
 
-  // ✅ no mapping anymore
   return res.data;
 }
 

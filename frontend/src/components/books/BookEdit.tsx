@@ -45,7 +45,7 @@ export function BookEdit({
   );
 
   function getLocationPath(id?: number | null): string {
-    if (!id) return "No location";
+    if (id === null || id === undefined) return "No location";
 
     const path: string[] = [];
     let current = locationMap.get(id);

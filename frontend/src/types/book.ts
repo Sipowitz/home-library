@@ -15,7 +15,7 @@ export type Book = {
 
   read_at?: string | null;
 
-  location_id?: number;
+  location_id?: number | null;
 
   cover_url?: string;
 

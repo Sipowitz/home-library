@@ -36,9 +36,10 @@ def get_books(
     elif category_id is not None:
         query = query.filter(Book.category_id == category_id)
 
+    # ✅ SINGLE LOCATION FILTER (STRICT)
     if location_id == -1:
         query = query.filter(Book.location_id == None)
-    elif location_id:
+    elif location_id is not None:
         query = query.filter(Book.location_id == location_id)
 
     if read is not None:
@@ -87,11 +88,17 @@ def get_book(db: Session, user_id: int, book_id: int):
 
 def create_book(db: Session, user_id: int, data: dict):
     category_id = data.get("category_id")
+    location_id = data.get("location_id")
 
-    # ✅ FIX: normalise bad values (e.g. [] from legacy payload)
+    # ✅ NORMALISE CATEGORY (legacy safety)
     if isinstance(category_id, list):
         category_id = category_id[0] if category_id else None
         data["category_id"] = category_id
+
+    # ✅ NORMALISE LOCATION (legacy safety)
+    if isinstance(location_id, list):
+        location_id = location_id[0] if location_id else None
+        data["location_id"] = location_id
 
     data.setdefault("read", False)
     data.setdefault("location_id", None)
@@ -100,7 +107,7 @@ def create_book(db: Session, user_id: int, data: dict):
     data.setdefault("isbn", None)
     data.setdefault("cover_url", None)
 
-    # ✅ STRICT CATEGORY VALIDATION (single)
+    # ✅ CATEGORY VALIDATION
     if category_id is not None:
         category = (
             db.query(models.Category)
@@ -112,8 +119,7 @@ def create_book(db: Session, user_id: int, data: dict):
         if not category:
             raise HTTPException(status_code=400, detail="Invalid category_id")
 
-    # ✅ STRICT LOCATION VALIDATION
-    location_id = data.get("location_id")
+    # ✅ LOCATION VALIDATION
     if location_id is not None:
         location = (
             db.query(models.Location)
@@ -160,7 +166,6 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
     if "category_id" in data:
         category_id = data.get("category_id")
 
-        # ✅ FIX: normalise here too
         if isinstance(category_id, list):
             category_id = category_id[0] if category_id else None
 
@@ -177,9 +182,12 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
 
         book.category_id = category_id
 
-    # ✅ LOCATION VALIDATION
+    # ✅ LOCATION UPDATE (single + normalised)
     if "location_id" in data:
         location_id = data.get("location_id")
+
+        if isinstance(location_id, list):
+            location_id = location_id[0] if location_id else None
 
         if location_id is not None:
             location = (
@@ -202,7 +210,7 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
             book.read_at = None
 
     for key, value in data.items():
-        if key != "category_id":
+        if key not in ("category_id", "location_id"):
             setattr(book, key, value)
 
     db.commit()

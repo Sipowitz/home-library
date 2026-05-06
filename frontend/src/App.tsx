@@ -161,11 +161,13 @@ export default function App() {
 
     // 📍 LOCATION
     if (selectedLocation === -1) {
-      result = result.filter((b) => !b.location_id);
+      result = result.filter((b) => b.location_id === null);
     } else if (selectedLocation !== null) {
       const ids = getLocationDescendantIds(locations, selectedLocation);
 
-      result = result.filter((b) => ids.includes(b.location_id ?? -999));
+      result = result.filter(
+        (b) => b.location_id !== null && ids.includes(b.location_id),
+      );
     }
 
     // 🏷️ CATEGORY
@@ -309,7 +311,6 @@ export default function App() {
           isFetching={isFetching}
         />
 
-        {/* 🔍 SEARCH */}
         <div className="mt-6 sticky top-4 z-40 backdrop-blur bg-gray-950/80">
           <SearchBar
             searchInput={searchInput}
