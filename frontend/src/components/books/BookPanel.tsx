@@ -46,31 +46,23 @@ export function BookPanel({
   onDelete,
 }: Props) {
   const { locations } = useLocations();
-
   const { categories } = useCategories();
 
   const flatLocations = flattenLocations(locations);
 
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
-
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // -------------------
-  // 🏷️ SELECTED CATEGORY
+  // 🏷️ INITIALISE CATEGORY STATE
   // -------------------
 
   useEffect(() => {
     if (!editData) return;
 
-    if (editData.category_ids?.length) {
-      setSelectedCategories(editData.category_ids);
-    } else if (editData.categories?.length) {
-      setSelectedCategories(editData.categories.map((c) => c.id));
-    } else {
-      setSelectedCategories([]);
-    }
+    setSelectedCategories(editData.category_ids ?? []);
   }, [editData]);
 
   // -------------------
@@ -80,7 +72,6 @@ export function BookPanel({
   function handleCancel() {
     if (!book?.id) {
       onClose();
-
       return;
     }
 
@@ -118,7 +109,7 @@ export function BookPanel({
           </button>
         </div>
 
-        {/* SCROLLABLE CONTENT */}
+        {/* CONTENT */}
         <div
           className="flex-1 overflow-y-auto pr-3 min-h-0
           scrollbar-thin
@@ -150,7 +141,6 @@ export function BookPanel({
                 <button
                   onClick={() => {
                     setEditing(true);
-
                     setEditData(book);
                   }}
                   className="bg-yellow-600 hover:bg-yellow-700 transition w-full py-2 rounded"

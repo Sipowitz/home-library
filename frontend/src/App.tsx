@@ -4,6 +4,7 @@ import { login as loginApi } from "./api/auth";
 
 import { useBooks } from "./hooks/useBooks";
 import { useLocations } from "./context/LocationContext";
+import { useCategories } from "./context/CategoryContext";
 import { useAuth } from "./context/AuthContext";
 import { useSearch } from "./hooks/useSearch";
 import { useBookActions } from "./hooks/useBookActions";
@@ -20,11 +21,11 @@ import toast from "react-hot-toast";
 
 import type { Book, BookDraft } from "./types/book";
 import type { Location } from "./types/location";
+import type { Category } from "./types/category";
 
 export default function App() {
   const {
     books,
-    loadBooks,
     loadMoreBooks,
     hasMore,
     addBook,
@@ -32,13 +33,16 @@ export default function App() {
     removeBook,
     saveBook,
     updateFilters,
+    filters,
     isLoading,
   } = useBooks();
 
   const { locations } = useLocations();
+  const { categories } = useCategories();
   const { isAuthenticated, login, logout } = useAuth();
 
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
   const { searchInput, setSearchInput } = useSearch({
     isAuthenticated,
@@ -74,9 +78,13 @@ export default function App() {
     });
 
   // -------------------
-  // 🔽 GET DESCENDANT IDS
+  // 📍 LOCATION DESCENDANTS
   // -------------------
-  function getDescendantIds(nodes: Location[], parentId: number): number[] {
+
+  function getLocationDescendantIds(
+    nodes: Location[],
+    parentId: number,
+  ): number[] {
     const result: number[] = [];
 
     function walk(node: Location) {
@@ -103,11 +111,44 @@ export default function App() {
   }
 
   // -------------------
-  // ⚡ CLIENT-SIDE FILTER
+  // 🏷️ CATEGORY DESCENDANTS
   // -------------------
+
+  function buildCategoryMap(
+    nodes: Category[],
+    map = new Map<number, Category>(),
+  ) {
+    for (const node of nodes) {
+      map.set(node.id, node);
+
+      if (node.children?.length) {
+        buildCategoryMap(node.children, map);
+      }
+    }
+
+    return map;
+  }
+
+  function getCategoryDescendantIds(category: Category): number[] {
+    let ids = [category.id];
+
+    if (category.children?.length) {
+      for (const child of category.children) {
+        ids = ids.concat(getCategoryDescendantIds(child));
+      }
+    }
+
+    return ids;
+  }
+
+  // -------------------
+  // ⚡ CLIENT FILTERING
+  // -------------------
+
   const filteredBooks = useMemo(() => {
     let result = books;
 
+    // 🔍 SEARCH
     if (searchInput.trim()) {
       const q = searchInput.toLowerCase();
 
@@ -118,20 +159,50 @@ export default function App() {
       );
     }
 
+    // 📍 LOCATION
     if (selectedLocation === -1) {
       result = result.filter((b) => !b.location_id);
     } else if (selectedLocation !== null) {
-      const ids = getDescendantIds(locations, selectedLocation);
+      const ids = getLocationDescendantIds(locations, selectedLocation);
 
       result = result.filter((b) => ids.includes(b.location_id ?? -999));
     }
 
+    // 🏷️ CATEGORY (FIXED)
+    if (selectedCategory !== null) {
+      if (selectedCategory === -1) {
+        // ✅ NO CATEGORY FIX
+        result = result.filter(
+          (b) => !b.category_ids || b.category_ids.length === 0,
+        );
+      } else {
+        const map = buildCategoryMap(categories);
+        const root = map.get(selectedCategory);
+
+        if (root) {
+          const allowedIds = getCategoryDescendantIds(root);
+
+          result = result.filter((b) =>
+            b.category_ids?.some((id) => allowedIds.includes(id)),
+          );
+        }
+      }
+    }
+
     return result;
-  }, [books, searchInput, selectedLocation, locations]);
+  }, [
+    books,
+    searchInput,
+    selectedLocation,
+    selectedCategory,
+    locations,
+    categories,
+  ]);
 
   // -------------------
   // 📜 INFINITE SCROLL
   // -------------------
+
   useEffect(() => {
     function handleScroll() {
       if (!hasMore) return;
@@ -152,6 +223,7 @@ export default function App() {
   // -------------------
   // 🔐 LOGIN
   // -------------------
+
   async function handleLogin() {
     try {
       const token = await loginApi(username, password);
@@ -169,17 +241,18 @@ export default function App() {
   // -------------------
   // 🚪 LOGOUT
   // -------------------
+
   function handleLogout() {
     logout();
 
     setSelectedBook(null);
-
     setNewBook({});
   }
 
   // -------------------
   // 🧱 RENDER
   // -------------------
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
@@ -239,14 +312,17 @@ export default function App() {
           isFetching={isFetching}
         />
 
-        {/* ✅ STICKY + SPACING FIX */}
+        {/* 🔍 SEARCH */}
         <div className="mt-6 sticky top-4 z-40 backdrop-blur bg-gray-950/80">
           <SearchBar
             searchInput={searchInput}
             onSearchChange={setSearchInput}
             selectedLocation={selectedLocation}
             onLocationChange={setSelectedLocation}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
             locations={locations}
+            categories={categories}
           />
         </div>
 

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 import type { Book } from "../../types/book";
 import type { Location } from "../../types/location";
@@ -24,6 +24,7 @@ export function BookView({ book, locations, categories }: Props) {
   // -------------------
   // 📍 LOCATION HELPERS
   // -------------------
+
   function flattenLocationTree(nodes: Location[]): Location[] {
     let result: Location[] = [];
 
@@ -38,21 +39,23 @@ export function BookView({ book, locations, categories }: Props) {
     return result;
   }
 
-  function getLocationPath(locations: Location[], id?: number): string {
+  const locationMap = useMemo(() => {
+    const flat = flattenLocationTree(locations);
+    return new Map(flat.map((l) => [l.id, l]));
+  }, [locations]);
+
+  function getLocationPath(id?: number): string {
     if (!id) return "";
 
-    const flat = flattenLocationTree(locations);
-
-    const map = new Map(flat.map((l) => [l.id, l]));
-
-    let current = map.get(id);
+    let current = locationMap.get(id);
 
     const path: string[] = [];
 
     while (current) {
       path.unshift(current.name);
-
-      current = current.parent_id ? map.get(current.parent_id) : undefined;
+      current = current.parent_id
+        ? locationMap.get(current.parent_id)
+        : undefined;
     }
 
     return path.join(" > ");
@@ -61,6 +64,7 @@ export function BookView({ book, locations, categories }: Props) {
   // -------------------
   // 🏷 CATEGORY HELPERS
   // -------------------
+
   function flattenCategoryTree(nodes: Category[]): Category[] {
     let result: Category[] = [];
 
@@ -75,31 +79,32 @@ export function BookView({ book, locations, categories }: Props) {
     return result;
   }
 
-  function getCategoryPath(categories: Category[], id?: number): string {
-    if (!id) return "";
-
+  const categoryMap = useMemo(() => {
     const flat = flattenCategoryTree(categories);
+    return new Map(flat.map((c) => [c.id, c]));
+  }, [categories]);
 
-    const map = new Map(flat.map((c) => [c.id, c]));
-
-    let current = map.get(id);
+  function getCategoryPath(id: number): string {
+    let current = categoryMap.get(id);
 
     const path: string[] = [];
 
     while (current) {
       path.unshift(current.name);
-
-      current = current.parent_id ? map.get(current.parent_id) : undefined;
+      current = current.parent_id
+        ? categoryMap.get(current.parent_id)
+        : undefined;
     }
 
     return path.join(" > ");
   }
 
-  const locationName = getLocationPath(locations, book.location_id);
+  const locationName = getLocationPath(book.location_id);
 
-  const categoryPaths = book.categories?.length
-    ? book.categories.map((c) => getCategoryPath(categories, c.id))
-    : [];
+  const categoryPaths =
+    book.category_ids?.length > 0
+      ? book.category_ids.map((id) => getCategoryPath(id)).filter(Boolean)
+      : [];
 
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;

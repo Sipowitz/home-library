@@ -1,4 +1,4 @@
-from pydantic import BaseModel, computed_field, Field
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -101,14 +101,10 @@ class BookUpdate(BaseModel):
 class BookResponse(BookBase):
     id: int
 
-    categories: List[CategoryResponse] = Field(default_factory=list)
+    # ✅ ONLY source of truth now
+    category_ids: List[int] = Field(default_factory=list)
 
     warning: Optional[str] = None
-
-    @computed_field
-    @property
-    def category_ids(self) -> List[int]:
-        return [c.id for c in self.categories] if self.categories else []
 
     class Config:
         from_attributes = True

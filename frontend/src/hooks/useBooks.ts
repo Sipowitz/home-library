@@ -17,39 +17,34 @@ type BookCreateInput = {
   author: string;
 
   year?: number;
-
   isbn?: string;
-
   description?: string;
-
   read?: boolean;
 
   location_id?: number | null;
-
   cover_url?: string;
 
-  category_ids?: number[];
+  category_ids: number[];
 };
 
 type Filters = {
   search?: string;
   locationId?: number | null;
+  categoryId?: number | null;
 };
 
 const LIMIT = 20;
 
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>([]);
-
   const [skip, setSkip] = useState(0);
-
   const [hasMore, setHasMore] = useState(true);
-
   const [isLoading, setIsLoading] = useState(false);
 
   const [filters, setFilters] = useState<Filters>({
     search: "",
     locationId: null,
+    categoryId: null,
   });
 
   const requestIdRef = useRef(0);
@@ -61,29 +56,31 @@ export function useBooks() {
   }
 
   // -------------------
-  // 📥 LOAD BOOKS
+  // 📥 LOAD BOOKS (NO FILTER LOGIC)
   // -------------------
+
   async function loadBooks(reset = true) {
     const requestId = ++requestIdRef.current;
-
     const newSkip = reset ? 0 : skip;
 
     setIsLoading(true);
 
-    const data = await getBooks(newSkip, LIMIT, filters.search, null);
+    const data = await getBooks(
+      newSkip,
+      LIMIT,
+      filters.search,
+      filters.locationId,
+    );
 
     if (requestId !== requestIdRef.current) return;
 
     if (reset) {
       setBooks(data.items);
-
       setSkip(LIMIT);
     } else {
       setBooks((prev) => {
         const existingIds = new Set(prev.map((b) => b.id));
-
         const newItems = data.items.filter((b) => !existingIds.has(b.id));
-
         return [...prev, ...newItems];
       });
 
@@ -91,68 +88,62 @@ export function useBooks() {
     }
 
     setHasMore(newSkip + LIMIT < data.total);
-
     setIsLoading(false);
   }
 
   async function loadMoreBooks() {
     if (!hasMore || isLoading) return;
-
     await loadBooks(false);
   }
 
   // -------------------
-  // 🔍 SET FILTERS
+  // 🔍 FILTER STATE ONLY (NO LOGIC)
   // -------------------
+
   function updateFilters(newFilters: Partial<Filters>) {
-    const updated = {
-      ...filters,
+    setFilters((prev) => ({
+      ...prev,
       ...newFilters,
-    };
-
-    if (
-      updated.search === filters.search &&
-      updated.locationId === filters.locationId
-    ) {
-      return;
-    }
-
-    setFilters(updated);
+    }));
   }
 
   // -------------------
-  // ✅ WAIT FOR AUTH
+  // ✅ LOAD ON CHANGE
   // -------------------
+
   useEffect(() => {
     if (!ready || !token) return;
-
     loadBooks(true);
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, ready, token]);
 
   // -------------------
   // ➕ ADD BOOK
   // -------------------
+
   async function addBook(book: BookCreateInput) {
-    const data = await createBook(book);
+    const data = await createBook({
+      ...book,
+      category_ids: book.category_ids ?? [],
+    });
 
     await loadBooks(true);
-
     notifyStatsUpdate();
 
     return data;
   }
 
   async function addBookFromISBN(book: BookCreateInput) {
-    const data = await createBookFromISBN(book);
+    const data = await createBookFromISBN({
+      ...book,
+      category_ids: book.category_ids ?? [],
+    });
 
     await loadBooks(true);
-
     notifyStatsUpdate();
 
-    if (data._warning) {
-      console.warn(data._warning);
+    if ((data as any)._warning) {
+      console.warn((data as any)._warning);
     }
 
     return data;
@@ -161,6 +152,7 @@ export function useBooks() {
   // -------------------
   // ❌ DELETE
   // -------------------
+
   async function removeBook(id: number) {
     await deleteBook(id);
 
@@ -172,11 +164,21 @@ export function useBooks() {
   // -------------------
   // 💾 SAVE
   // -------------------
+
   async function saveBook(book: Book) {
-    const updated = await updateBook(book.id, book);
+    const updated = await updateBook(book.id, {
+      title: book.title,
+      author: book.author,
+      year: book.year,
+      isbn: book.isbn,
+      description: book.description,
+      read: book.read,
+      location_id: book.location_id,
+      cover_url: book.cover_url,
+      category_ids: book.category_ids ?? [],
+    });
 
     await loadBooks(true);
-
     notifyStatsUpdate();
 
     return updated;
@@ -184,25 +186,15 @@ export function useBooks() {
 
   return {
     books,
-
     loadBooks,
-
     loadMoreBooks,
-
     hasMore,
-
     addBook,
-
     addBookFromISBN,
-
     removeBook,
-
     saveBook,
-
     updateFilters,
-
     filters,
-
     isLoading,
   };
 }

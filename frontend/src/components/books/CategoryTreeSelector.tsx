@@ -7,7 +7,9 @@ type Props = {
 
   selectedCategoryId: number | null;
 
-  onSelect: (id: number) => void;
+  onSelect: (id: number | null) => void;
+
+  showSpecialOptions?: boolean;
 };
 
 type NodeProps = {
@@ -51,7 +53,7 @@ function getAncestorIds(
   id: number | null,
   categoryMap: Map<number, Category>,
 ): number[] {
-  if (!id) return [];
+  if (id === null || id === -1) return [];
 
   const ancestors: number[] = [];
 
@@ -59,7 +61,6 @@ function getAncestorIds(
 
   while (current?.parent_id != null) {
     ancestors.push(current.parent_id);
-
     current = categoryMap.get(current.parent_id);
   }
 
@@ -74,7 +75,8 @@ function getCategoryPath(
   id: number | null,
   categoryMap: Map<number, Category>,
 ): string {
-  if (!id) return "No category selected";
+  if (id === null) return "None selected";
+  if (id === -1) return "No category";
 
   const path: string[] = [];
 
@@ -178,6 +180,7 @@ export function CategoryTreeSelector({
   categories,
   selectedCategoryId,
   onSelect,
+  showSpecialOptions = false,
 }: Props) {
   const categoryMap = useMemo(() => buildCategoryMap(categories), [categories]);
 
@@ -190,15 +193,13 @@ export function CategoryTreeSelector({
   // -------------------
 
   useEffect(() => {
-    if (!selectedCategoryId) return;
+    if (selectedCategoryId === null || selectedCategoryId === -1) return;
 
     const ancestorIds = getAncestorIds(selectedCategoryId, categoryMap);
 
     setExpandedIds((prev) => {
       const next = new Set(prev);
-
       ancestorIds.forEach((id) => next.add(id));
-
       return next;
     });
   }, [selectedCategoryId, categoryMap]);
@@ -211,11 +212,8 @@ export function CategoryTreeSelector({
     setExpandedIds((prev) => {
       const next = new Set(prev);
 
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
 
       return next;
     });
@@ -231,6 +229,35 @@ export function CategoryTreeSelector({
 
         <div className="text-sm text-gray-200 break-words">{selectedPath}</div>
       </div>
+
+      {/* SPECIAL OPTIONS (only for search/filter mode) */}
+      {showSpecialOptions && (
+        <div className="mb-2 space-y-1">
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            className={`w-full text-left px-2 py-1.5 rounded text-sm ${
+              selectedCategoryId === null
+                ? "bg-blue-600/20 border border-blue-500/40"
+                : "hover:bg-gray-800"
+            }`}
+          >
+            All categories
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSelect(-1)}
+            className={`w-full text-left px-2 py-1.5 rounded text-sm ${
+              selectedCategoryId === -1
+                ? "bg-blue-600/20 border border-blue-500/40"
+                : "hover:bg-gray-800"
+            }`}
+          >
+            No category
+          </button>
+        </div>
+      )}
 
       {/* TREE */}
       <div className="space-y-1 max-h-80 overflow-y-auto pr-1">

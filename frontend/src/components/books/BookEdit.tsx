@@ -13,13 +13,11 @@ type FlatLocation = Location & {
 
 type Props = {
   editData: Book | null;
-
   setEditData: (book: Book) => void;
 
   categories: Category[];
 
   selectedCategories: number[];
-
   setSelectedCategories: React.Dispatch<React.SetStateAction<number[]>>;
 
   flatLocations: FlatLocation[];
@@ -37,30 +35,29 @@ export function BookEdit({
   textareaRef,
 }: Props) {
   const [locationOpen, setLocationOpen] = useState(false);
-
   const locationRef = useRef<HTMLDivElement | null>(null);
 
+  // ✅ single category (UI = single select, backend = array)
   const selectedCategoryId =
     selectedCategories.length > 0 ? selectedCategories[0] : null;
 
   // -------------------
   // 📍 LOCATION PATHS
   // -------------------
+
   const locationMap = useMemo(
     () => new Map(flatLocations.map((loc) => [loc.id, loc])),
     [flatLocations],
   );
 
-  function getLocationPath(id?: number): string {
-    if (!id) return "Select location";
+  function getLocationPath(id?: number | null): string {
+    if (!id) return "No location";
 
     const path: string[] = [];
-
     let current = locationMap.get(id);
 
     while (current) {
       path.unshift(current.name);
-
       current = current.parent_id
         ? locationMap.get(current.parent_id)
         : undefined;
@@ -69,11 +66,12 @@ export function BookEdit({
     return path.join(" > ");
   }
 
-  const selectedLocationPath = getLocationPath(editData?.location_id);
+  const selectedLocationPath = getLocationPath(editData?.location_id ?? null);
 
   // -------------------
-  // 📏 AUTO RESIZE DESCRIPTION
+  // 📏 AUTO RESIZE
   // -------------------
+
   useEffect(() => {
     if (!textareaRef.current) return;
 
@@ -82,8 +80,9 @@ export function BookEdit({
   }, [editData?.description, textareaRef]);
 
   // -------------------
-  // ❌ CLOSE LOCATION DROPDOWN
+  // ❌ CLOSE DROPDOWN
   // -------------------
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -109,6 +108,30 @@ export function BookEdit({
     }
   };
 
+  // -------------------
+  // 🏷️ CATEGORY HANDLERS
+  // -------------------
+
+  function handleCategorySelect(id: number | null) {
+    const newIds = id === null || id === -1 ? [] : [id];
+
+    setSelectedCategories(newIds);
+
+    setEditData({
+      ...editData!,
+      category_ids: newIds,
+    });
+  }
+
+  function clearCategory() {
+    setSelectedCategories([]);
+
+    setEditData({
+      ...editData!,
+      category_ids: [],
+    });
+  }
+
   return (
     <>
       {/* HEADER */}
@@ -126,15 +149,11 @@ export function BookEdit({
           {/* TITLE */}
           <div>
             <FieldLabel>Title</FieldLabel>
-
             <input
               className="w-full p-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={editData?.title || ""}
               onChange={(e) =>
-                setEditData({
-                  ...editData!,
-                  title: e.target.value,
-                })
+                setEditData({ ...editData!, title: e.target.value })
               }
             />
           </div>
@@ -142,15 +161,11 @@ export function BookEdit({
           {/* AUTHOR */}
           <div>
             <FieldLabel>Author</FieldLabel>
-
             <input
               className="w-full p-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={editData?.author || ""}
               onChange={(e) =>
-                setEditData({
-                  ...editData!,
-                  author: e.target.value,
-                })
+                setEditData({ ...editData!, author: e.target.value })
               }
             />
           </div>
@@ -158,7 +173,6 @@ export function BookEdit({
           {/* STATUS */}
           <div>
             <FieldLabel>Status</FieldLabel>
-
             <div
               onClick={() => {
                 const newRead = !editData?.read;
@@ -202,14 +216,21 @@ export function BookEdit({
             className="w-full p-2 bg-gray-700 rounded cursor-pointer flex justify-between items-center"
           >
             <span className="truncate">{selectedLocationPath}</span>
-
-            <span className="ml-3 flex-shrink-0">
-              {locationOpen ? "▴" : "▾"}
-            </span>
+            <span>{locationOpen ? "▴" : "▾"}</span>
           </div>
 
           {locationOpen && (
             <div className="absolute z-50 mt-1 w-full bg-gray-800 rounded shadow max-h-60 overflow-y-auto border border-gray-700">
+              <div
+                onClick={() => {
+                  setEditData({ ...editData!, location_id: null });
+                  setLocationOpen(false);
+                }}
+                className="px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 cursor-pointer"
+              >
+                — No Location —
+              </div>
+
               {flatLocations.map((loc) => {
                 const isParent = loc.children?.length > 0;
 
@@ -231,9 +252,7 @@ export function BookEdit({
                         ? "text-gray-500 font-semibold cursor-default"
                         : "hover:bg-gray-700 cursor-pointer"
                     }`}
-                    style={{
-                      paddingLeft: `${8 + loc.level * 16}px`,
-                    }}
+                    style={{ paddingLeft: `${8 + loc.level * 16}px` }}
                   >
                     {loc.name}
                   </div>
@@ -247,35 +266,44 @@ export function BookEdit({
         <div>
           <FieldLabel>Category</FieldLabel>
 
-          <CategoryTreeSelector
-            categories={categories}
-            selectedCategoryId={selectedCategoryId}
-            onSelect={(id) => setSelectedCategories([id])}
-          />
+          <div className="bg-gray-800 rounded border border-gray-700 overflow-hidden">
+            {/* CLEAR */}
+            <div
+              onClick={clearCategory}
+              className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-700 ${
+                selectedCategoryId === null ? "bg-gray-700" : ""
+              }`}
+            >
+              No category
+            </div>
+
+            {/* TREE */}
+            <CategoryTreeSelector
+              categories={categories}
+              selectedCategoryId={selectedCategoryId}
+              onSelect={handleCategorySelect}
+              showSpecialOptions={false}
+            />
+          </div>
         </div>
 
         {/* ISBN + YEAR */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel>ISBN</FieldLabel>
-
             <input
-              className="w-full p-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 bg-gray-700 rounded"
               value={editData?.isbn || ""}
               onChange={(e) =>
-                setEditData({
-                  ...editData!,
-                  isbn: e.target.value,
-                })
+                setEditData({ ...editData!, isbn: e.target.value })
               }
             />
           </div>
 
           <div>
             <FieldLabel>Year</FieldLabel>
-
             <input
-              className="w-full p-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 bg-gray-700 rounded"
               value={editData?.year || ""}
               onChange={(e) =>
                 setEditData({
@@ -291,15 +319,13 @@ export function BookEdit({
       {/* DESCRIPTION */}
       <div>
         <FieldLabel>Description</FieldLabel>
-
         <textarea
           ref={textareaRef}
           rows={3}
-          className="w-full p-3 bg-gray-700 rounded resize-none overflow-hidden leading-relaxed focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 bg-gray-700 rounded resize-none"
           value={editData?.description || ""}
           onChange={(e) => {
             const el = e.target;
-
             el.style.height = "auto";
             el.style.height = el.scrollHeight + "px";
 
