@@ -9,7 +9,8 @@ export function CategorySettings() {
     <div
       className="
         relative
-        h-[82vh]
+        flex-1
+        min-h-0
         rounded-2xl
         border border-gray-800
         bg-gray-900/40

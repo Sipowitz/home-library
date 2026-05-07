@@ -106,34 +106,33 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
   return (
     <>
-      // Change ONLY this section inside SettingsModal.tsx
       {/* BACKDROP */}
       <div
         className="
-    fixed inset-0 z-50
-    bg-black/50 backdrop-blur-sm
-    flex items-center justify-center
+          fixed inset-0 z-50
+          bg-black/50 backdrop-blur-sm
+          flex items-center justify-center
 
-    px-12 lg:px-16
-    py-6 lg:py-10
-  "
+          px-12 lg:px-16
+          py-6 lg:py-10
+        "
         onClick={onClose}
       >
         {/* MODAL */}
         <div
           className="
-      bg-gray-950/95
-      border border-gray-800
-      rounded-2xl
+            bg-gray-950/95
+            border border-gray-800
+            rounded-2xl
 
-      w-full
-      h-full
+            w-full
+            h-full
 
-      shadow-2xl
-      overflow-hidden
+            shadow-2xl
+            overflow-hidden
 
-      flex flex-col lg:flex-row
-    "
+            flex flex-col lg:flex-row
+          "
           onClick={(e) => e.stopPropagation()}
         >
           {/* SIDEBAR */}
@@ -174,7 +173,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           </div>
 
           {/* CONTENT */}
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-6 flex flex-col min-h-0">
             {/* LOCATIONS */}
             {activeSection === "locations" && (
               <div className="max-w-4xl">
@@ -210,8 +209,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
             {/* CATEGORIES */}
             {activeSection === "categories" && (
-              <div className="max-w-full relative">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+              <div className="max-w-full relative flex-1 min-h-0 flex flex-col">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
                   <div className="mb-5">
                     <h2 className="text-lg font-semibold">Categories</h2>
 
@@ -285,6 +284,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           </div>
         </div>
       </div>
+
       {/* RESTORE MODAL */}
       <ConfirmRestoreModal
         open={confirmRestoreOpen}
@@ -305,6 +305,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           setPendingFile(null);
         }}
       />
+
       {/* DELETE LOCATION */}
       <ConfirmDeleteModal
         open={confirmDeleteLocation !== null}
@@ -323,6 +324,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         }}
         onCancel={() => setConfirmDeleteLocation(null)}
       />
+
       {/* DELETE CATEGORY */}
       <ConfirmDeleteModal
         open={confirmDeleteCategory !== null}
