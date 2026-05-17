@@ -1,14 +1,10 @@
-import { useMemo, type ChangeEvent } from "react";
+import { type ChangeEvent } from "react";
 
 import type { Location } from "../../types/location";
 import type { Category } from "../../types/category";
 
-import { flattenTree } from "../../utils/tree/flattenTree";
-
-type FlatNode = {
-  id: number;
-  name: string;
-};
+import { LocationTreeSelector } from "../books/LocationTreeSelector";
+import { CategoryTreeSelector } from "../books/CategoryTreeSelector";
 
 type Props = {
   searchInput: string;
@@ -24,29 +20,6 @@ type Props = {
   categories: Category[];
 };
 
-function formatFlatTree<T extends { id: number; name: string }>(
-  nodes: T[],
-  source: T[],
-  depth = 0,
-): FlatNode[] {
-  let result: FlatNode[] = [];
-
-  source.forEach((node) => {
-    result.push({
-      id: node.id,
-      name: `${"— ".repeat(depth)}${node.name}`,
-    });
-
-    if ((node as any).children?.length) {
-      result = result.concat(
-        formatFlatTree(nodes, (node as any).children, depth + 1),
-      );
-    }
-  });
-
-  return result;
-}
-
 export function SearchBar({
   searchInput,
   onSearchChange,
@@ -57,83 +30,68 @@ export function SearchBar({
   locations,
   categories,
 }: Props) {
-  const flatLocations = useMemo(
-    () => formatFlatTree(flattenTree(locations), locations),
-    [locations],
-  );
-
-  const flatCategories = useMemo(
-    () => formatFlatTree(flattenTree(categories), categories),
-    [categories],
-  );
-
-  // -------------------
-  // 🔁 HANDLERS
-  // -------------------
-
-  function handleLocationChange(val: string) {
-    if (val === "") return onLocationChange(null);
-
-    if (val === "-1") return onLocationChange(-1);
-
-    onLocationChange(Number(val));
-  }
-
-  function handleCategoryChange(val: string) {
-    if (val === "") return onCategoryChange(null);
-
-    if (val === "-1") return onCategoryChange(-1);
-
-    onCategoryChange(Number(val));
-  }
-
   return (
     <div className="sticky top-0 z-30 pb-2">
-      <div className="bg-gray-950/95 backdrop-blur border border-gray-800 p-4 rounded-2xl shadow-lg">
-        <div className="flex flex-col sm:flex-row gap-3">
+      <div
+        className="
+          bg-gray-950/95
+          backdrop-blur
+          border border-gray-800
+          p-4
+          rounded-2xl
+          shadow-lg
+        "
+      >
+        <div className="flex flex-col gap-4">
           {/* SEARCH */}
           <input
             placeholder="Search title or author..."
-            className="p-3 bg-gray-800 rounded-lg w-full outline-none focus:ring-2 focus:ring-blue-500"
+            className="
+              p-3
+              bg-gray-800
+              rounded-xl
+              w-full
+              outline-none
+              border border-gray-700
+              focus:border-blue-500
+              focus:ring-2 focus:ring-blue-500/20
+              transition
+            "
             value={searchInput}
             onChange={(e: ChangeEvent<HTMLInputElement>) =>
               onSearchChange(e.target.value)
             }
           />
 
-          {/* LOCATION */}
-          <select
-            className="p-3 bg-gray-800 rounded-lg w-full sm:w-auto"
-            value={selectedLocation === null ? "" : String(selectedLocation)}
-            onChange={(e) => handleLocationChange(e.target.value)}
-          >
-            <option value="">All Locations</option>
+          {/* FILTERS */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* LOCATION */}
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2 px-1">
+                Location
+              </div>
 
-            <option value="-1">No Location</option>
+              <LocationTreeSelector
+                locations={locations}
+                selectedLocationId={selectedLocation}
+                onSelect={onLocationChange}
+              />
+            </div>
 
-            {flatLocations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name}
-              </option>
-            ))}
-          </select>
+            {/* CATEGORY */}
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2 px-1">
+                Category
+              </div>
 
-          {/* CATEGORY */}
-          <select
-            className="p-3 bg-gray-800 rounded-lg w-full sm:w-auto"
-            value={selectedCategory === null ? "" : String(selectedCategory)}
-            onChange={(e) => handleCategoryChange(e.target.value)}
-          >
-            <option value="">All Categories</option>
-
-            <option value="-1">No Category</option>
-
-            {flatCategories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+              <CategoryTreeSelector
+                categories={categories}
+                selectedCategoryId={selectedCategory}
+                onSelect={onCategoryChange}
+                showSpecialOptions
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

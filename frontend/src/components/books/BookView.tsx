@@ -4,6 +4,9 @@ import { usePreferences } from "../../hooks/usePreferences";
 
 import { formatDate } from "../../utils/dateFormatters";
 
+import { buildTreeMap } from "../../utils/tree/buildTreeMap";
+import { getTreePath } from "../../utils/tree/getTreePath";
+
 import type { Book } from "../../types/book";
 import type { Location } from "../../types/location";
 import type { Category } from "../../types/category";
@@ -16,96 +19,45 @@ type Props = {
   categories: Category[];
 };
 
+function MetadataItem({
+  label,
+  value,
+}: {
+  label: string;
+
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-1">
+        {label}
+      </div>
+
+      <div className="text-sm text-gray-100 break-words leading-relaxed">
+        {value}
+      </div>
+    </div>
+  );
+}
+
 export function BookView({ book, locations, categories }: Props) {
   const { preferences } = usePreferences();
 
-  // -------------------
-  // 📍 LOCATION HELPERS
-  // -------------------
+  // ================= LOCATION =================
 
-  function flattenLocationTree(nodes: Location[]): Location[] {
-    let result: Location[] = [];
+  const locationMap = useMemo(() => buildTreeMap(locations), [locations]);
 
-    for (const node of nodes) {
-      result.push(node);
+  const locationName = getTreePath(book.location_id, locationMap, "—");
 
-      if (node.children?.length) {
-        result = result.concat(flattenLocationTree(node.children));
-      }
-    }
+  // ================= CATEGORY =================
 
-    return result;
-  }
-
-  const locationMap = useMemo(() => {
-    const flat = flattenLocationTree(locations);
-
-    return new Map(flat.map((l) => [l.id, l]));
-  }, [locations]);
-
-  function getLocationPath(id?: number | null): string {
-    if (!id) return "";
-
-    let current = locationMap.get(id);
-
-    const path: string[] = [];
-
-    while (current) {
-      path.unshift(current.name);
-
-      current = current.parent_id
-        ? locationMap.get(current.parent_id)
-        : undefined;
-    }
-
-    return path.join(" > ");
-  }
-
-  // -------------------
-  // 🏷 CATEGORY HELPERS
-  // -------------------
-
-  function flattenCategoryTree(nodes: Category[]): Category[] {
-    let result: Category[] = [];
-
-    for (const node of nodes) {
-      result.push(node);
-
-      if (node.children?.length) {
-        result = result.concat(flattenCategoryTree(node.children));
-      }
-    }
-
-    return result;
-  }
-
-  const categoryMap = useMemo(() => {
-    const flat = flattenCategoryTree(categories);
-
-    return new Map(flat.map((c) => [c.id, c]));
-  }, [categories]);
-
-  function getCategoryPath(id: number): string {
-    let current = categoryMap.get(id);
-
-    const path: string[] = [];
-
-    while (current) {
-      path.unshift(current.name);
-
-      current = current.parent_id
-        ? categoryMap.get(current.parent_id)
-        : undefined;
-    }
-
-    return path.join(" > ");
-  }
-
-  const locationName = getLocationPath(book.location_id);
+  const categoryMap = useMemo(() => buildTreeMap(categories), [categories]);
 
   const categoryPath = book.category_id
-    ? getCategoryPath(book.category_id)
-    : null;
+    ? getTreePath(book.category_id, categoryMap, "—")
+    : "—";
+
+  // ================= IMAGE =================
 
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
@@ -118,68 +70,94 @@ export function BookView({ book, locations, categories }: Props) {
   return (
     <>
       {/* HEADER */}
-      <div className="flex gap-4 mb-4">
-        <img
-          src={
-            book.cover_url ||
-            "https://dummyimage.com/300x400/1f2937/ffffff&text=No+Cover"
-          }
-          onError={handleImgError}
-          className="w-32 rounded shadow"
-        />
+      <div className="flex gap-6 mb-6">
+        {/* LEFT COLUMN */}
+        <div className="flex-shrink-0 flex flex-col items-start">
+          <img
+            src={
+              book.cover_url ||
+              "https://dummyimage.com/300x400/1f2937/ffffff&text=No+Cover"
+            }
+            onError={handleImgError}
+            className="
+              w-32
+              rounded-2xl
+              shadow-2xl
+              border border-gray-800
+            "
+          />
 
-        <div className="flex-1">
-          <h2 className="text-xl font-bold">{book.title}</h2>
+          {/* STATUS */}
+          <div className="mt-3">
+            <span
+              className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-medium border backdrop-blur-sm ${
+                book.read
+                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-200"
+                  : "bg-gray-700/40 border-gray-600 text-gray-200"
+              }`}
+            >
+              {book.read ? "Read" : "Unread"}
+            </span>
+          </div>
+        </div>
 
-          <p className="text-gray-400 mb-2">{book.author}</p>
+        {/* RIGHT COLUMN */}
+        <div className="flex-1 min-w-0">
+          {/* TITLE BLOCK */}
+          <div className="mb-5">
+            <h2 className="text-4xl font-bold leading-tight text-white">
+              {book.title}
+            </h2>
 
-          <span
-            className={`text-xs px-2 py-1 rounded ${
-              book.read ? "bg-green-600" : "bg-gray-700"
-            }`}
+            <p className="text-xl text-gray-400 mt-1">{book.author}</p>
+          </div>
+
+          {/* METADATA CARD */}
+          <div
+            className="
+              bg-gray-900/35
+              border border-gray-800
+              rounded-2xl
+              backdrop-blur-sm
+              p-5
+            "
           >
-            {book.read ? "Read" : "Unread"}
-          </span>
+            <div
+              className="
+                grid
+                grid-cols-1
+                sm:grid-cols-2
+                gap-x-8
+                gap-y-5
+              "
+            >
+              <MetadataItem label="Location" value={locationName} />
+
+              <MetadataItem label="Category" value={categoryPath} />
+
+              {book.isbn && <MetadataItem label="ISBN" value={book.isbn} />}
+
+              {book.year && <MetadataItem label="Year" value={book.year} />}
+
+              {book.date_added && (
+                <MetadataItem
+                  label="Added"
+                  value={formatDate(book.date_added, preferences)}
+                />
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* METADATA */}
-      <div className="mb-4 text-sm space-y-2 border-t border-gray-800 pt-3">
-        <div>
-          <strong>Location:</strong> {locationName || "—"}
-        </div>
-
-        {categoryPath && (
-          <div>
-            <strong>Category:</strong> {categoryPath}
-          </div>
-        )}
-
-        {book.isbn && (
-          <div>
-            <strong>ISBN:</strong> {book.isbn}
-          </div>
-        )}
-
-        {book.year && (
-          <div>
-            <strong>Year:</strong> {book.year}
-          </div>
-        )}
-
-        {book.date_added && (
-          <div>
-            <strong>Added:</strong> {formatDate(book.date_added, preferences)}
-          </div>
-        )}
       </div>
 
       {/* DESCRIPTION */}
       {book.description && (
-        <div className="mb-4 border-t border-gray-800 pt-3">
-          <h3 className="text-sm font-semibold mb-1">Description</h3>
+        <div className="border-t border-gray-800 pt-5">
+          <h3 className="text-sm font-semibold tracking-wide text-white mb-3">
+            Description
+          </h3>
 
-          <p className="text-sm text-gray-300 whitespace-pre-line">
+          <p className="text-sm leading-8 text-gray-300 whitespace-pre-line">
             {book.description}
           </p>
         </div>
