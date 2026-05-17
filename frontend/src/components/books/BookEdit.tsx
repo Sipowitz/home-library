@@ -222,7 +222,7 @@ export function BookEdit({
               </div>
 
               {flatLocations.map((loc) => {
-                const isParent = loc.children?.length > 0;
+                const isParent = (loc.children?.length ?? 0) > 0;
 
                 return (
                   <div

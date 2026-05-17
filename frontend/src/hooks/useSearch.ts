@@ -2,18 +2,14 @@ import { useEffect, useState } from "react";
 
 type Params = {
   isAuthenticated: boolean;
-  selectedLocation: number | null;
+
   updateFilters: (filters: {
     search?: string;
     locationId?: number | null;
   }) => void;
 };
 
-export function useSearch({
-  isAuthenticated,
-  selectedLocation,
-  updateFilters,
-}: Params) {
+export function useSearch({ isAuthenticated, updateFilters }: Params) {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [prevSearch, setPrevSearch] = useState("");
@@ -38,7 +34,7 @@ export function useSearch({
     // ✅ ONLY search goes to backend
     updateFilters({
       search: debouncedSearch,
-      locationId: null, // disable backend location filtering
+      locationId: null,
     });
 
     if (debouncedSearch !== prevSearch) {

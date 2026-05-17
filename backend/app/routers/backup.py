@@ -32,7 +32,7 @@ def export_data(
     books = (
         db.query(models.Book)
         .options(
-            joinedload(models.Book.categories),
+            joinedload(models.Book.category),
             joinedload(models.Book.location),
         )
         .filter(models.Book.owner_id == user_id)
@@ -40,6 +40,7 @@ def export_data(
     )
 
     books_data = []
+
     for b in books:
         books_data.append({
             "id": b.id,
@@ -51,7 +52,7 @@ def export_data(
             "read": b.read,
             "read_at": b.read_at.isoformat() if b.read_at else None,
             "location_id": b.location_id,
-            "category_ids": [c.id for c in b.categories],
+            "category_id": b.category_id,
             "cover_url": b.cover_url,
             "date_added": b.date_added.isoformat() if b.date_added else None,
         })
@@ -93,10 +94,12 @@ def export_data(
         "locations": locations_data,
     }
 
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
     return JSONResponse(
         content=payload,
         headers={
-            "Content-Disposition": "attachment; filename=library_backup.json"
+            "Content-Disposition": f'attachment; filename="library-backup-{timestamp}.json"'
         },
     )
 
@@ -112,6 +115,7 @@ async def import_data(
 ):
     try:
         content = await file.read()
+
         data = json.loads(content)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON file")
@@ -125,29 +129,44 @@ async def import_data(
     # -------------------------
     # 🔥 CLEAR EXISTING DATA
     # -------------------------
-    db.query(models.Book).filter(models.Book.owner_id == user_id).delete()
-    db.query(models.Category).filter(models.Category.owner_id == user_id).delete()
-    db.query(models.Location).filter(models.Location.owner_id == user_id).delete()
+
+    db.query(models.Book).filter(
+        models.Book.owner_id == user_id
+    ).delete()
+
+    db.query(models.Category).filter(
+        models.Category.owner_id == user_id
+    ).delete()
+
+    db.query(models.Location).filter(
+        models.Location.owner_id == user_id
+    ).delete()
+
     db.commit()
 
     # -------------------------
     # 🏷️ RECREATE CATEGORIES
     # -------------------------
+
     category_map = {}
 
     for c in categories:
         new = models.Category(
             name=c["name"],
-            parent_id=None,  # temp
+            parent_id=None,
             owner_id=user_id,
         )
+
         db.add(new)
+
         db.flush()
+
         category_map[c["id"]] = new.id
 
     db.commit()
 
-    # fix parent relationships
+    # restore parent links
+
     for c in categories:
         if c["parent_id"]:
             db.query(models.Category).filter(
@@ -161,6 +180,7 @@ async def import_data(
     # -------------------------
     # 📍 RECREATE LOCATIONS
     # -------------------------
+
     location_map = {}
 
     for l in locations:
@@ -169,11 +189,16 @@ async def import_data(
             parent_id=None,
             owner_id=user_id,
         )
+
         db.add(new)
+
         db.flush()
+
         location_map[l["id"]] = new.id
 
     db.commit()
+
+    # restore parent links
 
     for l in locations:
         if l["parent_id"]:
@@ -188,6 +213,7 @@ async def import_data(
     # -------------------------
     # 📚 RECREATE BOOKS
     # -------------------------
+
     for b in books:
         new_book = models.Book(
             title=b.get("title"),
@@ -199,27 +225,24 @@ async def import_data(
             cover_url=b.get("cover_url"),
             owner_id=user_id,
             location_id=location_map.get(b.get("location_id")),
-            date_added=datetime.fromisoformat(b["date_added"]) if b.get("date_added") else None,
-            read_at=datetime.fromisoformat(b["read_at"]) if b.get("read_at") else None,
+            category_id=category_map.get(b.get("category_id")),
+            date_added=(
+                datetime.fromisoformat(b["date_added"])
+                if b.get("date_added")
+                else None
+            ),
+            read_at=(
+                datetime.fromisoformat(b["read_at"])
+                if b.get("read_at")
+                else None
+            ),
         )
 
         db.add(new_book)
-        db.flush()
-
-        # categories
-        mapped_categories = [
-            category_map[cid]
-            for cid in b.get("category_ids", [])
-            if cid in category_map
-        ]
-
-        if mapped_categories:
-            new_book.categories = (
-                db.query(models.Category)
-                .filter(models.Category.id.in_(mapped_categories))
-                .all()
-            )
 
     db.commit()
 
-    return {"message": "Import successful"}
+    return {
+        "success": True,
+        "message": "Backup restored successfully",
+    }

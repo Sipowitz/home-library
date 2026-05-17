@@ -41,6 +41,33 @@ def create_location(
     )
 
 
+# ✏️ Update location
+@router.patch(
+    "/{loc_id}",
+    response_model=schemas.LocationResponse,
+)
+def update_location(
+    loc_id: int,
+    loc: schemas.LocationUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    updated = location_service.update_location(
+        db,
+        current_user.id,
+        loc_id,
+        loc.model_dump(exclude_unset=True),
+    )
+
+    if not updated:
+        raise HTTPException(
+            status_code=404,
+            detail="Location not found",
+        )
+
+    return updated
+
+
 # 🗑️ Delete location
 @router.delete("/{loc_id}")
 def delete_location(

@@ -1,4 +1,4 @@
-import { useMemo, ChangeEvent } from "react";
+import { useMemo, type ChangeEvent } from "react";
 
 import type { Location } from "../../types/location";
 import type { Category } from "../../types/category";
@@ -72,6 +72,7 @@ export function SearchBar({
   categories,
 }: Props) {
   const flatLocations = useMemo(() => flattenLocations(locations), [locations]);
+
   const flatCategories = useMemo(
     () => flattenCategories(categories),
     [categories],
@@ -83,6 +84,7 @@ export function SearchBar({
 
   function handleLocationChange(val: string) {
     if (val === "") return onLocationChange(null);
+
     if (val === "-1") return onLocationChange(-1);
 
     onLocationChange(Number(val));
@@ -90,6 +92,7 @@ export function SearchBar({
 
   function handleCategoryChange(val: string) {
     if (val === "") return onCategoryChange(null);
+
     if (val === "-1") return onCategoryChange(-1);
 
     onCategoryChange(Number(val));
@@ -116,6 +119,7 @@ export function SearchBar({
             onChange={(e) => handleLocationChange(e.target.value)}
           >
             <option value="">All Locations</option>
+
             <option value="-1">No Location</option>
 
             {flatLocations.map((loc) => (
@@ -132,6 +136,7 @@ export function SearchBar({
             onChange={(e) => handleCategoryChange(e.target.value)}
           >
             <option value="">All Categories</option>
+
             <option value="-1">No Category</option>
 
             {flatCategories.map((cat) => (

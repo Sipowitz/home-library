@@ -33,7 +33,6 @@ export default function App() {
     removeBook,
     saveBook,
     updateFilters,
-    filters,
     isLoading,
   } = useBooks();
 
@@ -46,7 +45,6 @@ export default function App() {
 
   const { searchInput, setSearchInput } = useSearch({
     isAuthenticated,
-    selectedLocation,
     updateFilters,
   });
 
@@ -166,7 +164,7 @@ export default function App() {
       const ids = getLocationDescendantIds(locations, selectedLocation);
 
       result = result.filter(
-        (b) => b.location_id !== null && ids.includes(b.location_id),
+        (b) => typeof b.location_id === "number" && ids.includes(b.location_id),
       );
     }
 

@@ -1,26 +1,24 @@
 // frontend/src/components/settings/SettingsModal.tsx
 
-import { useState, useEffect, useRef } from "react";
-
-import { useLocations } from "../../context/LocationContext";
-
-import client from "../../api/client";
+import { useEffect, useRef, useState } from "react";
 
 import toast from "react-hot-toast";
 
-import { BackupSettings } from "./BackupSettings";
-import { LocationSettings } from "./LocationSettings";
-import { CategorySettings } from "./CategorySettings";
+import client from "../../api/client";
+
+import { useLocations } from "../../context/LocationContext";
+
 import { SettingsSidebar } from "./SettingsSidebar";
 
-import { ConfirmRestoreModal } from "./ConfirmRestoreModal";
+import { BackupSettings } from "./backup/BackupSettings";
+import { ConfirmRestoreModal } from "./backup/ConfirmRestoreModal";
+
+import { LocationSettings } from "./locations/LocationSettings";
+import { CategorySettings } from "./categories/CategorySettings";
+
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 
-import {
-  fetchCategories,
-  createCategory,
-  deleteCategory,
-} from "../../api/categories";
+import { fetchCategories } from "../../api/categories";
 
 import type { Category } from "../../types/category";
 
@@ -32,27 +30,15 @@ type Props = {
 type Section = "locations" | "categories" | "backup";
 
 export function SettingsModal({ isOpen, onClose }: Props) {
-  const { locations, addLocation, deleteLocation } = useLocations();
+  const { locations, deleteLocation } = useLocations();
 
   const [activeSection, setActiveSection] = useState<Section>("locations");
-
-  // -------------------
-  // 📍 LOCATIONS
-  // -------------------
-
-  const [newLocation, setNewLocation] = useState("");
-
-  const [parentId, setParentId] = useState<number | "">("");
 
   // -------------------
   // 🏷 CATEGORIES
   // -------------------
 
   const [categories, setCategories] = useState<Category[]>([]);
-
-  const [newCategory, setNewCategory] = useState("");
-
-  const [categoryParentId, setCategoryParentId] = useState<number | "">("");
 
   // -------------------
   // ❌ DELETE LOCATION
@@ -80,11 +66,15 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
   const [restoring, setRestoring] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
+
+  const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
+
+  const [lastRestoreAt, setLastRestoreAt] = useState<string | null>(null);
 
   // -------------------
   // 📥 LOAD CATEGORIES
@@ -92,6 +82,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
   useEffect(() => {
     fetchCategories().then(setCategories);
+
+    setLastBackupAt(localStorage.getItem("last_backup_at"));
+
+    setLastRestoreAt(localStorage.getItem("last_restore_at"));
   }, []);
 
   async function refreshCategories() {
@@ -100,7 +94,94 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     setCategories(data);
   }
 
-  const locationTree = locations;
+  // -------------------
+  // 💾 BACKUP
+  // -------------------
+
+  async function handleBackup() {
+    try {
+      const res = await client.get("/backup/export", {
+        responseType: "blob",
+      });
+
+      const blob = res.data;
+
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+
+      const now = new Date();
+
+      const timestamp =
+        `${now.getFullYear()}-` +
+        `${String(now.getMonth() + 1).padStart(2, "0")}-` +
+        `${String(now.getDate()).padStart(2, "0")}-` +
+        `${String(now.getHours()).padStart(2, "0")}` +
+        `${String(now.getMinutes()).padStart(2, "0")}`;
+
+      a.href = url;
+
+      a.download = `library-backup-${timestamp}.json`;
+
+      document.body.appendChild(a);
+
+      a.click();
+
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      const backupTimestamp = new Date().toISOString();
+
+      localStorage.setItem("last_backup_at", backupTimestamp);
+
+      setLastBackupAt(backupTimestamp);
+
+      toast.success("Backup downloaded");
+    } catch (err) {
+      console.error("Backup failed", err);
+
+      toast.error("Backup failed");
+    }
+  }
+
+  // -------------------
+  // 📥 RESTORE
+  // -------------------
+
+  async function handleRestore(file: File) {
+    try {
+      setRestoring(true);
+
+      const formData = new FormData();
+
+      formData.append("file", file);
+
+      await client.post("/backup/import", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const restoreTimestamp = new Date().toISOString();
+
+      localStorage.setItem("last_restore_at", restoreTimestamp);
+
+      setLastRestoreAt(restoreTimestamp);
+
+      toast.success("Restore complete");
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      console.error("Restore failed", err);
+
+      toast.error("Restore failed");
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   if (!isOpen) return null;
 
@@ -112,7 +193,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           fixed inset-0 z-50
           bg-black/50 backdrop-blur-sm
           flex items-center justify-center
-
           px-12 lg:px-16
           py-6 lg:py-10
         "
@@ -124,13 +204,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             bg-gray-950/95
             border border-gray-800
             rounded-2xl
-
             w-full
             h-full
-
             shadow-2xl
             overflow-hidden
-
             flex flex-col lg:flex-row
           "
           onClick={(e) => e.stopPropagation()}
@@ -176,8 +253,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           <div className="flex-1 overflow-y-auto p-4 lg:p-6 flex flex-col min-h-0">
             {/* LOCATIONS */}
             {activeSection === "locations" && (
-              <div className="max-w-4xl">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+              <div className="max-w-full relative flex-1 min-h-0 flex flex-col">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
                   <div className="mb-5">
                     <h2 className="text-lg font-semibold">Locations</h2>
 
@@ -186,23 +263,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
                     </p>
                   </div>
 
-                  <LocationSettings
-                    locations={locations}
-                    locationTree={locationTree}
-                    newLocation={newLocation}
-                    setNewLocation={setNewLocation}
-                    parentId={parentId}
-                    setParentId={setParentId}
-                    onAddLocation={async () => {
-                      if (!newLocation.trim()) return;
-
-                      await addLocation(newLocation, parentId || undefined);
-
-                      setNewLocation("");
-                      setParentId("");
-                    }}
-                    onDeleteRequest={(id) => setConfirmDeleteLocation(id)}
-                  />
+                  <LocationSettings locations={locations} />
                 </div>
               </div>
             )}
@@ -219,39 +280,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
                     </p>
                   </div>
 
-                  <CategorySettings
-                    categories={categories}
-                    newCategory={newCategory}
-                    setNewCategory={setNewCategory}
-                    categoryParentId={categoryParentId}
-                    setCategoryParentId={setCategoryParentId}
-                    onAddCategory={async () => {
-                      if (!newCategory.trim()) return;
-
-                      await createCategory(
-                        newCategory,
-                        categoryParentId || undefined,
-                      );
-
-                      setNewCategory("");
-                      setCategoryParentId("");
-
-                      refreshCategories();
-                    }}
-                    onDeleteCategory={async (id) => {
-                      const result = await deleteCategory(id);
-
-                      if (result?.blocked && result.descendants) {
-                        setConfirmDeleteCategory(id);
-
-                        setCategoryDeleteDetails(result.descendants);
-
-                        return;
-                      }
-
-                      refreshCategories();
-                    }}
-                  />
+                  <CategorySettings categories={categories} />
                 </div>
               </div>
             )}
@@ -271,8 +300,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
                   <BackupSettings
                     restoring={restoring}
                     fileInputRef={fileInputRef}
+                    lastBackupAt={lastBackupAt}
+                    lastRestoreAt={lastRestoreAt}
                     onBackup={handleBackup}
-                    onFileSelect={(file) => {
+                    onFileSelect={(file: File) => {
                       setPendingFile(file);
 
                       setConfirmRestoreOpen(true);
@@ -333,15 +364,11 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         details={categoryDeleteDetails}
         confirmText="Delete Everything"
         onConfirm={async () => {
-          if (confirmDeleteCategory === null) return;
-
-          await deleteCategory(confirmDeleteCategory, true);
-
-          await refreshCategories();
-
           setConfirmDeleteCategory(null);
 
           setCategoryDeleteDetails([]);
+
+          await refreshCategories();
         }}
         onCancel={() => {
           setConfirmDeleteCategory(null);
@@ -351,68 +378,4 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       />
     </>
   );
-
-  // ================= BACKUP =================
-
-  async function handleBackup() {
-    try {
-      const res = await client.get("/backup/export", {
-        responseType: "blob",
-      });
-
-      const blob = res.data;
-
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-
-      a.href = url;
-
-      a.download = "library-backup.json";
-
-      document.body.appendChild(a);
-
-      a.click();
-
-      a.remove();
-
-      window.URL.revokeObjectURL(url);
-
-      toast.success("Backup downloaded");
-    } catch (err) {
-      console.error("Backup failed", err);
-
-      toast.error("Backup failed");
-    }
-  }
-
-  // ================= RESTORE =================
-
-  async function handleRestore(file: File) {
-    try {
-      setRestoring(true);
-
-      const formData = new FormData();
-
-      formData.append("file", file);
-
-      await client.post("/backup/import", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      toast.success("Restore complete");
-
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } catch (err) {
-      console.error("Restore failed", err);
-
-      toast.error("Restore failed");
-    } finally {
-      setRestoring(false);
-    }
-  }
 }

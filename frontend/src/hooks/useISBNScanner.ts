@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import toast from "react-hot-toast";
 
+type TorchCapabilities = MediaTrackCapabilities & {
+  torch?: boolean;
+};
+
+type TorchConstraint = MediaTrackConstraintSet & {
+  torch?: boolean;
+};
+
 type Params = {
   scannerRegionId: string;
   onScan: (isbn: string) => void;
@@ -31,6 +39,7 @@ export function useISBNScanner({ scannerRegionId, onScan, onError }: Params) {
     if (!scannerOpen) return;
 
     const scanner = new Html5Qrcode(scannerRegionId);
+
     scannerRef.current = scanner;
 
     async function startScanner() {
@@ -55,6 +64,7 @@ export function useISBNScanner({ scannerRegionId, onScan, onError }: Params) {
           rearCamera.id,
           {
             fps: 10,
+
             qrbox: {
               width: 250,
               height: 120,
@@ -90,7 +100,8 @@ export function useISBNScanner({ scannerRegionId, onScan, onError }: Params) {
         }, 10000);
 
         // 🔦 Detect torch support
-        const capabilities = scanner.getRunningTrackCapabilities();
+        const capabilities =
+          scanner.getRunningTrackCapabilities() as TorchCapabilities;
 
         console.log("CAMERA CAPABILITIES", capabilities);
 
@@ -124,11 +135,13 @@ export function useISBNScanner({ scannerRegionId, onScan, onError }: Params) {
     try {
       if (scannerTimeoutRef.current) {
         clearTimeout(scannerTimeoutRef.current);
+
         scannerTimeoutRef.current = null;
       }
 
       if (scannerRef.current && scannerRef.current.isScanning) {
         await scannerRef.current.stop();
+
         await scannerRef.current.clear();
       }
     } catch (err) {
@@ -138,6 +151,7 @@ export function useISBNScanner({ scannerRegionId, onScan, onError }: Params) {
     scannerRef.current = null;
 
     setTorchOn(false);
+
     setTorchSupported(false);
 
     setScannerOpen(false);
@@ -151,7 +165,11 @@ export function useISBNScanner({ scannerRegionId, onScan, onError }: Params) {
 
     try {
       await scannerRef.current.applyVideoConstraints({
-        advanced: [{ torch: !torchOn }],
+        advanced: [
+          {
+            torch: !torchOn,
+          } as TorchConstraint,
+        ],
       });
 
       setTorchOn((prev) => !prev);

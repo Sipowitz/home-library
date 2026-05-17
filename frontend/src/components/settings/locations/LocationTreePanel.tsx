@@ -1,21 +1,23 @@
+// frontend/src/components/settings/locations/LocationTreePanel.tsx
+
 import { useMemo, useState } from "react";
 
 import toast from "react-hot-toast";
 
-import type { Category } from "../../types/category";
+import type { Location } from "../../../types/location";
 
-import { useCategories } from "../../context/CategoryContext";
+import { useLocations } from "../../../context/LocationContext";
 
-import { CategoryTreeFlow } from "./category-tree/CategoryTreeFlow";
+import { LocationTreeFlow } from "./tree/LocationTreeFlow";
 
 import {
-  flattenCategories,
+  flattenCategories as flattenLocations,
   findPathIdsToNode,
   findPathToNode,
-} from "./category-tree/treeLayout";
+} from "../shared/treeLayout";
 
 type Props = {
-  categories: Category[];
+  locations: Location[];
 };
 
 // ================= MOBILE TREE =================
@@ -24,7 +26,7 @@ function MobileTreeNode({
   node,
   level = 0,
 }: {
-  node: Category;
+  node: Location;
 
   level?: number;
 }) {
@@ -46,28 +48,14 @@ function MobileTreeNode({
           <div className="font-medium text-white truncate">{node.name}</div>
 
           <div className="text-xs text-gray-300 whitespace-nowrap">
-            {node.stats.total_books} books
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 mt-3 text-[11px]">
-          <div className="px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-200">
-            Total: {node.stats.total_books}
-          </div>
-
-          <div className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-200">
-            Read: {node.stats.read_books}
-          </div>
-
-          <div className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200">
-            Unread: {node.stats.unread_books}
+            {node.children?.length || 0} children
           </div>
         </div>
       </div>
 
-      {node.children?.length > 0 && (
+      {(node.children?.length ?? 0) > 0 && (
         <div className="mt-1 space-y-1">
-          {node.children.map((child) => (
+          {node.children?.map((child: Location) => (
             <MobileTreeNode key={child.id} node={child} level={level + 1} />
           ))}
         </div>
@@ -78,13 +66,11 @@ function MobileTreeNode({
 
 // ================= COMPONENT =================
 
-export function CategoryTreePanel({ categories }: Props) {
-  const { addCategory, editCategory, removeCategory } = useCategories();
+export function LocationTreePanel({ locations }: Props) {
+  const { addLocation, editLocation, deleteLocation, reloadLocations } =
+    useLocations();
 
-  const flatCategories = useMemo(
-    () => flattenCategories(categories),
-    [categories],
-  );
+  const flatLocations = useMemo(() => flattenLocations(locations), [locations]);
 
   const [focusedId, setFocusedId] = useState<number | null>(null);
 
@@ -101,24 +87,24 @@ export function CategoryTreePanel({ categories }: Props) {
   const searchMatches = useMemo(() => {
     if (!search.trim()) return [];
 
-    return flatCategories.filter((c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()),
+    return flatLocations.filter((l: Location) =>
+      l.name.toLowerCase().includes(search.toLowerCase()),
     );
-  }, [flatCategories, search]);
+  }, [flatLocations, search]);
 
   // ================= FOCUS =================
 
   const focusedPathIds = useMemo(() => {
     if (!focusedId) return [];
 
-    return findPathIdsToNode(categories, focusedId);
-  }, [categories, focusedId]);
+    return findPathIdsToNode(locations, focusedId);
+  }, [locations, focusedId]);
 
   const focusedPath = useMemo(() => {
     if (!focusedId) return [];
 
-    return findPathToNode(categories, focusedId);
-  }, [categories, focusedId]);
+    return findPathToNode(locations, focusedId);
+  }, [locations, focusedId]);
 
   // ================= ROOT CREATE =================
 
@@ -132,9 +118,9 @@ export function CategoryTreePanel({ categories }: Props) {
     }
 
     try {
-      await addCategory(rootName.trim());
+      await addLocation(rootName.trim());
 
-      toast.success("Root category created");
+      toast.success("Root location created");
 
       setRootName("");
 
@@ -142,7 +128,7 @@ export function CategoryTreePanel({ categories }: Props) {
     } catch (err) {
       console.error(err);
 
-      toast.error("Failed to create category");
+      toast.error("Failed to create location");
     }
   }
 
@@ -150,15 +136,18 @@ export function CategoryTreePanel({ categories }: Props) {
 
   async function handleRename(id: number, name: string) {
     try {
-      await editCategory(id, {
+      await editLocation(id, {
         name,
       });
 
-      toast.success("Category renamed");
-    } catch (err) {
+      toast.success("Location renamed");
+    } catch (err: any) {
       console.error(err);
 
-      toast.error("Failed to rename category");
+      const message =
+        err?.response?.data?.detail || "Failed to rename location";
+
+      toast.error(message);
     }
   }
 
@@ -166,14 +155,14 @@ export function CategoryTreePanel({ categories }: Props) {
 
   async function handleAddChild(parentId: number, name: string) {
     try {
-      await addCategory(name, parentId);
+      await addLocation(name, parentId);
 
-      toast.success("Category created");
+      toast.success("Location created");
     } catch (err: any) {
       console.error(err);
 
       const message =
-        err?.response?.data?.detail || "Failed to create category";
+        err?.response?.data?.detail || "Failed to create location";
 
       toast.error(message);
     }
@@ -181,18 +170,18 @@ export function CategoryTreePanel({ categories }: Props) {
 
   // ================= DELETE =================
 
-  async function handleDelete(id: number, cascade = false) {
-    const result = await removeCategory(id, cascade);
+  async function handleDelete(id: number) {
+    try {
+      await deleteLocation(id);
 
-    if (result?.blocked && !cascade) {
-      return result;
+      toast.success("Location deleted");
+
+      await reloadLocations();
+    } catch (err) {
+      console.error(err);
+
+      toast.error("Failed to delete location");
     }
-
-    toast.success(cascade ? "Category tree deleted" : "Category deleted");
-
-    return {
-      success: true,
-    };
   }
 
   return (
@@ -212,7 +201,7 @@ export function CategoryTreePanel({ categories }: Props) {
             {/* SEARCH */}
             <div className="w-full max-w-md">
               <input
-                placeholder="Search categories..."
+                placeholder="Search locations..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="
@@ -234,7 +223,7 @@ export function CategoryTreePanel({ categories }: Props) {
                 autoFocus
                 value={rootName}
                 onChange={(e) => setRootName(e.target.value)}
-                placeholder="Root category..."
+                placeholder="Root location..."
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleCreateRoot();
@@ -271,7 +260,7 @@ export function CategoryTreePanel({ categories }: Props) {
                   transition
                 "
               >
-                + Root Category
+                + Root Location
               </button>
             )}
 
@@ -303,7 +292,7 @@ export function CategoryTreePanel({ categories }: Props) {
                 text-xs text-gray-300
               "
             >
-              {categories.length} root categories
+              {locations.length} root locations
             </div>
           </div>
         </div>
@@ -323,20 +312,20 @@ export function CategoryTreePanel({ categories }: Props) {
       {/* MOBILE */}
       <div className="lg:hidden flex-1 overflow-y-auto p-4">
         <div className="space-y-2">
-          {categories.map((cat) => (
-            <MobileTreeNode key={cat.id} node={cat} level={0} />
+          {locations.map((loc: Location) => (
+            <MobileTreeNode key={loc.id} node={loc} level={0} />
           ))}
         </div>
       </div>
 
       {/* DESKTOP */}
       <div className="hidden lg:flex flex-1">
-        <CategoryTreeFlow
-          categories={categories}
+        <LocationTreeFlow
+          locations={locations}
           focusedId={focusedId}
           focusedPath={focusedPathIds}
           searchTargetId={searchMatches[0] ? String(searchMatches[0].id) : null}
-          onFocus={(id) => {
+          onFocus={(id: number) => {
             if (id === -1) {
               setFocusedId(null);
 

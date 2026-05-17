@@ -2,22 +2,18 @@ import type { Edge, Node } from "reactflow";
 
 import dagre from "dagre";
 
-import type { Category } from "../../../types/category";
-
 const NODE_WIDTH = 260;
 
 const NODE_HEIGHT = 170;
 
-const dagreGraph = new dagre.graphlib.Graph();
-
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-
 // ================= FLATTEN =================
 
-export function flattenCategories(categories: Category[]): Category[] {
-  const result: Category[] = [];
+export function flattenCategories<T extends { children?: T[] }>(
+  categories: T[],
+): T[] {
+  const result: T[] = [];
 
-  function walk(nodes: Category[]) {
+  function walk(nodes: T[]) {
     nodes.forEach((node) => {
       result.push(node);
 
@@ -34,17 +30,24 @@ export function flattenCategories(categories: Category[]): Category[] {
 
 // ================= FIND PATH IDS =================
 
-export function findPathIdsToNode(
-  categories: Category[],
-  targetId: number,
-): number[] {
+export function findPathIdsToNode<
+  T extends {
+    id: number;
+
+    children?: T[];
+  },
+>(categories: T[], targetId: number): number[] {
   for (const category of categories) {
     if (category.id === targetId) {
       return [category.id];
     }
 
     if (category.children?.length) {
-      const childPath = findPathIdsToNode(category.children, targetId);
+      const childPath = findPathIdsToNode(
+        category.children,
+
+        targetId,
+      );
 
       if (childPath.length) {
         return [category.id, ...childPath];
@@ -57,17 +60,26 @@ export function findPathIdsToNode(
 
 // ================= FIND PATH NAMES =================
 
-export function findPathToNode(
-  categories: Category[],
-  targetId: number,
-): string[] {
+export function findPathToNode<
+  T extends {
+    id: number;
+
+    name: string;
+
+    children?: T[];
+  },
+>(categories: T[], targetId: number): string[] {
   for (const category of categories) {
     if (category.id === targetId) {
       return [category.name];
     }
 
     if (category.children?.length) {
-      const childPath = findPathToNode(category.children, targetId);
+      const childPath = findPathToNode(
+        category.children,
+
+        targetId,
+      );
 
       if (childPath.length) {
         return [category.name, ...childPath];
@@ -80,8 +92,24 @@ export function findPathToNode(
 
 // ================= BUILD TREE =================
 
-export function buildTreeElements(
-  categories: Category[],
+export function buildTreeElements<
+  T extends {
+    id: number;
+
+    name: string;
+
+    children?: T[];
+
+    stats?: {
+      total_books?: number;
+
+      read_books?: number;
+
+      unread_books?: number;
+    };
+  },
+>(
+  categories: T[],
 
   focusedPath: number[],
 
@@ -94,6 +122,8 @@ export function buildTreeElements(
   onAddChild: (parentId: number, name: string) => Promise<void>,
 
   onDelete: (id: number, cascade?: boolean) => Promise<any>,
+
+  nodeType = "categoryNode",
 
   depth = 0,
 
@@ -113,7 +143,7 @@ export function buildTreeElements(
     nodes.push({
       id,
 
-      type: "categoryNode",
+      type: nodeType,
 
       data: {
         id: category.id,
@@ -197,6 +227,8 @@ export function buildTreeElements(
 
         onDelete,
 
+        nodeType,
+
         depth + 1,
 
         id,
@@ -221,6 +253,10 @@ export function getLayoutedElements(
 
   edges: Edge[],
 ) {
+  const dagreGraph = new dagre.graphlib.Graph();
+
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+
   dagreGraph.setGraph({
     rankdir: "TB",
 

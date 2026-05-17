@@ -1,57 +1,18 @@
-import { LocationSettings } from "./LocationSettings";
-import { CategorySettings } from "./CategorySettings";
+// frontend/src/components/settings/LibrarySettings.tsx
 
-import type { Category } from "../../api/categories";
+import { LocationSettings } from "./locations/LocationSettings";
+import { CategorySettings } from "./categories/CategorySettings";
 
-type Location = {
-  id: number;
-  name: string;
-  parent_id?: number;
-  children?: Location[];
-};
+import type { Category } from "../../types/category";
+import type { Location } from "../../types/location";
 
 type Props = {
   locations: Location[];
-  locationTree: Location[];
-
-  newLocation: string;
-  setNewLocation: (v: string) => void;
-
-  parentId: number | "";
-  setParentId: (v: number | "") => void;
-
-  onAddLocation: () => void;
-  onDeleteRequest: (id: number) => void;
 
   categories: Category[];
-
-  newCategory: string;
-  setNewCategory: (v: string) => void;
-
-  categoryParentId: number | "";
-  setCategoryParentId: (v: number | "") => void;
-
-  onAddCategory: () => void;
-  onDeleteCategory: (id: number) => void;
 };
 
-export function LibrarySettings({
-  locations,
-  locationTree,
-  newLocation,
-  setNewLocation,
-  parentId,
-  setParentId,
-  onAddLocation,
-  onDeleteRequest,
-  categories,
-  newCategory,
-  setNewCategory,
-  categoryParentId,
-  setCategoryParentId,
-  onAddCategory,
-  onDeleteCategory,
-}: Props) {
+export function LibrarySettings({ locations, categories }: Props) {
   return (
     <div className="space-y-8">
       {/* LOCATIONS */}
@@ -64,16 +25,7 @@ export function LibrarySettings({
           </p>
         </div>
 
-        <LocationSettings
-          locations={locations}
-          locationTree={locationTree}
-          newLocation={newLocation}
-          setNewLocation={setNewLocation}
-          parentId={parentId}
-          setParentId={setParentId}
-          onAddLocation={onAddLocation}
-          onDeleteRequest={onDeleteRequest}
-        />
+        <LocationSettings locations={locations} />
       </div>
 
       {/* CATEGORIES */}
@@ -86,15 +38,7 @@ export function LibrarySettings({
           </p>
         </div>
 
-        <CategorySettings
-          categories={categories}
-          newCategory={newCategory}
-          setNewCategory={setNewCategory}
-          categoryParentId={categoryParentId}
-          setCategoryParentId={setCategoryParentId}
-          onAddCategory={onAddCategory}
-          onDeleteCategory={onDeleteCategory}
-        />
+        <CategorySettings categories={categories} />
       </div>
     </div>
   );

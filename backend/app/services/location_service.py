@@ -80,6 +80,68 @@ def create_location(db: Session, user_id: int, data: dict):
     return location
 
 
+# -------------------
+# ✏️ UPDATE
+# -------------------
+
+def update_location(
+    db: Session,
+    user_id: int,
+    location_id: int,
+    data: dict,
+):
+    location = (
+        db.query(Location)
+        .filter(Location.id == location_id)
+        .filter(Location.owner_id == user_id)
+        .first()
+    )
+
+    if not location:
+        return None
+
+    # -------------------
+    # ✏️ NAME
+    # -------------------
+
+    if (
+        "name" in data
+        and data["name"] is not None
+    ):
+        name = data["name"].strip()
+
+        if not name:
+            raise HTTPException(
+                status_code=400,
+                detail="Name is required",
+            )
+
+        existing = (
+            db.query(Location)
+            .filter(
+                Location.owner_id == user_id,
+                Location.parent_id == location.parent_id,
+                Location.name.ilike(name),
+                Location.id != location.id,
+            )
+            .first()
+        )
+
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Location already exists in this parent",
+            )
+
+        location.name = name
+
+    db.commit()
+
+    db.refresh(location)
+
+    return location
+
+
 # 🔥 helper: get full subtree
 def _get_descendant_ids(db: Session, user_id: int, parent_id: int):
     all_locations = (

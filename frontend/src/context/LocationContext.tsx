@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import {
   getLocations,
   createLocation,
+  updateLocation,
   deleteLocationApi,
 } from "../api/locations";
 
@@ -15,10 +16,17 @@ type LocationCreateInput = {
   parent_id?: number;
 };
 
+type LocationUpdateInput = {
+  name?: string;
+  parent_id?: number;
+};
+
 type LocationContextType = {
   locations: Location[];
 
   addLocation: (name: string, parentId?: number) => Promise<void>;
+
+  editLocation: (id: number, data: LocationUpdateInput) => Promise<void>;
 
   deleteLocation: (id: number) => Promise<void>;
 
@@ -102,6 +110,19 @@ export function LocationProvider({ children }: Props) {
   }
 
   // -------------------
+  // ✏️ EDIT LOCATION
+  // -------------------
+  async function editLocation(
+    id: number,
+    data: LocationUpdateInput,
+  ): Promise<void> {
+    await updateLocation(id, data);
+
+    // keep existing behaviour
+    await load();
+  }
+
+  // -------------------
   // ❌ DELETE LOCATION
   // -------------------
   async function deleteLocation(id: number): Promise<void> {
@@ -116,6 +137,7 @@ export function LocationProvider({ children }: Props) {
       value={{
         locations,
         addLocation,
+        editLocation,
         deleteLocation,
         reloadLocations: load,
       }}

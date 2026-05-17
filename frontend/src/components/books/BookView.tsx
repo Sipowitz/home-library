@@ -44,7 +44,7 @@ export function BookView({ book, locations, categories }: Props) {
     return new Map(flat.map((l) => [l.id, l]));
   }, [locations]);
 
-  function getLocationPath(id?: number): string {
+  function getLocationPath(id?: number | null): string {
     if (!id) return "";
 
     let current = locationMap.get(id);

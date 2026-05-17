@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { useLocations } from "../../context/LocationContext";
 import { useCategories } from "../../context/CategoryContext";
@@ -17,7 +17,7 @@ type Props = {
   setEditing: (value: boolean) => void;
   setEditData: (book: Book) => void;
   onClose: () => void;
-  onSave: () => void; // ✅ FIXED
+  onSave: () => void;
   onDelete: (id: number) => void;
 };
 
@@ -145,7 +145,7 @@ export function BookPanel({
             ) : (
               <>
                 <button
-                  onClick={onSave} // ✅ FIXED
+                  onClick={onSave}
                   className="bg-green-600 hover:bg-green-700 transition w-full py-2 rounded"
                 >
                   Save

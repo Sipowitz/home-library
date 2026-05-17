@@ -1,23 +1,49 @@
+// frontend/src/components/settings/shared/BaseTreeFlow.tsx
+
 import { Background, Controls, ReactFlow, useReactFlow } from "reactflow";
 
 import "reactflow/dist/style.css";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 
-import type { Category } from "../../../types/category";
-
-import { CategoryTreeNode } from "./CategoryTreeNode";
+import type { Node } from "reactflow";
 
 import { buildTreeElements, getLayoutedElements } from "./treeLayout";
 
-type Props = {
-  categories: Category[];
+type TreeItem<T = any> = {
+  id: number;
+
+  name: string;
+
+  children?: T[];
+
+  stats?: {
+    total_books?: number;
+
+    read_books?: number;
+
+    unread_books?: number;
+  };
+};
+
+type Props<T extends TreeItem<T>> = {
+  items: T[];
 
   focusedId: number | null;
 
   focusedPath: number[];
 
   searchTargetId: string | null;
+
+  nodeType: string;
+
+  nodeComponent: ComponentType<any>;
 
   onFocus: (id: number) => void;
 
@@ -26,10 +52,6 @@ type Props = {
   onAddChild: (parentId: number, name: string) => Promise<void>;
 
   onDelete: (id: number, cascade?: boolean) => Promise<any>;
-};
-
-const nodeTypes = {
-  categoryNode: CategoryTreeNode,
 };
 
 // ================= VIEWPORT =================
@@ -46,13 +68,13 @@ function ViewportController({
 
   const previousSearchRef = useRef<string | null>(null);
 
-  // ================= SEARCH =================
-
   useEffect(() => {
-    if (searchTargetId) {
-      previousSearchRef.current = searchTargetId;
+    const timeout = setTimeout(() => {
+      // ================= SEARCH =================
 
-      setTimeout(() => {
+      if (searchTargetId) {
+        previousSearchRef.current = searchTargetId;
+
         fitView({
           nodes: [
             {
@@ -64,83 +86,57 @@ function ViewportController({
 
           padding: 0.7,
         });
-      }, 120);
-
-      return;
-    }
-
-    // ================= SEARCH CLEARED =================
-
-    if (previousSearchRef.current && !searchTargetId) {
-      previousSearchRef.current = null;
-
-      if (focusedPath.length > 0) {
-        setTimeout(() => {
-          fitView({
-            duration: 700,
-
-            padding: 0.35,
-          });
-        }, 120);
 
         return;
       }
 
-      setTimeout(() => {
+      // ================= SEARCH CLEARED =================
+
+      if (previousSearchRef.current && !searchTargetId) {
+        previousSearchRef.current = null;
+      }
+
+      // ================= FOCUS =================
+
+      if (focusedPath.length > 0) {
         fitView({
           duration: 700,
 
-          padding: 0.2,
+          padding: 0.35,
         });
-      }, 120);
-    }
-  }, [searchTargetId, focusedPath, fitView]);
 
-  // ================= FOCUS =================
+        return;
+      }
 
-  useEffect(() => {
-    if (focusedPath.length === 0) return;
+      // ================= OVERVIEW =================
 
-    if (searchTargetId) return;
-
-    setTimeout(() => {
-      fitView({
-        duration: 700,
-
-        padding: 0.35,
-      });
-    }, 120);
-  }, [focusedPath, searchTargetId, fitView]);
-
-  // ================= OVERVIEW =================
-
-  useEffect(() => {
-    if (focusedPath.length > 0) return;
-
-    if (searchTargetId) return;
-
-    setTimeout(() => {
       fitView({
         duration: 700,
 
         padding: 0.2,
       });
     }, 120);
-  }, [focusedPath, searchTargetId, fitView]);
+
+    return () => clearTimeout(timeout);
+  }, [searchTargetId, focusedPath, fitView]);
 
   return null;
 }
 
 // ================= COMPONENT =================
 
-export function CategoryTreeFlow({
-  categories,
+export function BaseTreeFlow<T extends TreeItem<T>>({
+  items,
 
   focusedId,
 
   focusedPath,
 
   searchTargetId,
+
+  nodeType,
+
+  nodeComponent,
 
   onFocus,
 
@@ -149,10 +145,17 @@ export function CategoryTreeFlow({
   onAddChild,
 
   onDelete,
-}: Props) {
+}: Props<T>) {
+  const nodeTypes = useMemo(
+    () => ({
+      [nodeType]: nodeComponent,
+    }),
+    [nodeType, nodeComponent],
+  );
+
   const layouted = useMemo(() => {
     const tree = buildTreeElements(
-      categories,
+      items,
 
       focusedPath,
 
@@ -165,11 +168,13 @@ export function CategoryTreeFlow({
       onAddChild,
 
       onDelete,
+
+      nodeType,
     );
 
     return getLayoutedElements(tree.nodes, tree.edges);
   }, [
-    categories,
+    items,
 
     focusedId,
 
@@ -182,16 +187,24 @@ export function CategoryTreeFlow({
     onAddChild,
 
     onDelete,
+
+    nodeType,
   ]);
 
   // ================= ANIMATED NODES =================
 
-  const [animatedNodes, setAnimatedNodes] = useState(layouted.nodes);
+  const [animatedNodes, setAnimatedNodes] = useState<Node[]>(
+    layouted.nodes as Node[],
+  );
 
   useEffect(() => {
-    setAnimatedNodes((prev) =>
-      layouted.nodes.map((newNode) => {
-        const existing = prev.find((n) => n.id === newNode.id);
+    setAnimatedNodes((prev) => {
+      const previousNodeMap = new Map(
+        prev.map((node: Node) => [node.id, node]),
+      );
+
+      return layouted.nodes.map((newNode: Node) => {
+        const existing = previousNodeMap.get(newNode.id);
 
         return {
           ...newNode,
@@ -204,12 +217,12 @@ export function CategoryTreeFlow({
             transition: "all 300ms ease",
           },
         };
-      }),
-    );
+      });
+    });
 
     requestAnimationFrame(() => {
       setAnimatedNodes(
-        layouted.nodes.map((node) => ({
+        layouted.nodes.map((node: Node) => ({
           ...node,
 
           style: {
@@ -302,10 +315,6 @@ export function CategoryTreeFlow({
         nodes={animatedNodes}
         edges={layouted.edges}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{
-          padding: 0.2,
-        }}
         nodesDraggable
         nodesConnectable={false}
         elementsSelectable

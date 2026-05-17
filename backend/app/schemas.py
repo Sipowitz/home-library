@@ -133,6 +133,11 @@ class LocationCreate(LocationBase):
     pass
 
 
+class LocationUpdate(BaseModel):
+    name: Optional[str] = None
+    parent_id: Optional[int] = None
+
+
 class LocationResponse(BaseModel):
     id: int
     name: str
