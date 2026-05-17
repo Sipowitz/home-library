@@ -11,7 +11,7 @@ import { useCategories } from "../../../context/CategoryContext";
 import { CategoryTreeFlow } from "./tree/CategoryTreeFlow";
 
 import {
-  flattenCategories,
+  flattenTree,
   findPathIdsToNode,
   findPathToNode,
 } from "../shared/treeLayout";
@@ -83,10 +83,7 @@ function MobileTreeNode({
 export function CategoryTreePanel({ categories }: Props) {
   const { addCategory, editCategory, removeCategory } = useCategories();
 
-  const flatCategories = useMemo(
-    () => flattenCategories(categories),
-    [categories],
-  );
+  const flatCategories = useMemo(() => flattenTree(categories), [categories]);
 
   const [focusedId, setFocusedId] = useState<number | null>(null);
 

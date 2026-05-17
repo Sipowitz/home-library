@@ -22,7 +22,6 @@ export function LocationTreeSelector({
       onSelect={onSelect}
       emptyLabel="No location"
       clearLabel="No location"
-      selectable={(node) => !node.children?.length}
     />
   );
 }
