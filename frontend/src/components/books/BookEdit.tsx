@@ -1,12 +1,12 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 
 import type { Book } from "../../types/book";
 import type { Category } from "../../types/category";
 import type { Location } from "../../types/location";
 
 import { CategoryTreeSelector } from "./CategoryTreeSelector";
-import { FieldLabel } from "./FieldLabel";
 import { LocationTreeSelector } from "./LocationTreeSelector";
+import { FieldLabel } from "./FieldLabel";
 
 type Props = {
   editData: Book | null;
@@ -58,13 +58,6 @@ export function BookEdit({
     setEditData({
       ...editData!,
       category_id: newId,
-    });
-  }
-
-  function clearCategory() {
-    setEditData({
-      ...editData!,
-      category_id: null,
     });
   }
 
@@ -154,8 +147,6 @@ export function BookEdit({
       <div className="space-y-4 mb-3">
         {/* LOCATION */}
         <div>
-          <FieldLabel>Location</FieldLabel>
-
           <LocationTreeSelector
             locations={locations}
             selectedLocationId={editData?.location_id ?? null}
@@ -170,27 +161,12 @@ export function BookEdit({
 
         {/* CATEGORY */}
         <div>
-          <FieldLabel>Category</FieldLabel>
-
-          <div className="bg-gray-800 rounded border border-gray-700 overflow-hidden">
-            {/* CLEAR */}
-            <div
-              onClick={clearCategory}
-              className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-700 ${
-                selectedCategoryId === null ? "bg-gray-700" : ""
-              }`}
-            >
-              No category
-            </div>
-
-            {/* TREE */}
-            <CategoryTreeSelector
-              categories={categories}
-              selectedCategoryId={selectedCategoryId}
-              onSelect={handleCategorySelect}
-              showSpecialOptions={false}
-            />
-          </div>
+          <CategoryTreeSelector
+            categories={categories}
+            selectedCategoryId={selectedCategoryId}
+            onSelect={handleCategorySelect}
+            showSpecialOptions={false}
+          />
         </div>
 
         {/* ISBN + YEAR */}

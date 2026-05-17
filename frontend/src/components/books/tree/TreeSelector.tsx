@@ -20,6 +20,8 @@ type Props<T extends TreeNode<T>> = {
   selectable?: (node: T) => boolean;
 
   clearLabel?: string;
+
+  onSelected?: () => void;
 };
 
 export function TreeSelector<T extends TreeNode<T>>({
@@ -29,6 +31,7 @@ export function TreeSelector<T extends TreeNode<T>>({
   emptyLabel,
   selectable,
   clearLabel,
+  onSelected,
 }: Props<T>) {
   const nodeMap = useMemo(() => buildTreeMap(nodes), [nodes]);
 
@@ -65,6 +68,12 @@ export function TreeSelector<T extends TreeNode<T>>({
     });
   }
 
+  function handleSelect(id: number | null) {
+    onSelect(id);
+
+    onSelected?.();
+  }
+
   return (
     <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3">
       {/* CURRENT */}
@@ -80,7 +89,7 @@ export function TreeSelector<T extends TreeNode<T>>({
       {clearLabel && (
         <button
           type="button"
-          onClick={() => onSelect(null)}
+          onClick={() => handleSelect(null)}
           className={`w-full text-left px-2 py-1.5 rounded text-sm mb-2 ${
             selectedId === null
               ? "bg-blue-600/20 border border-blue-500/40"
@@ -101,7 +110,7 @@ export function TreeSelector<T extends TreeNode<T>>({
             selectedId={selectedId}
             expandedIds={expandedIds}
             toggleExpanded={toggleExpanded}
-            onSelect={(id) => onSelect(id)}
+            onSelect={(id) => handleSelect(id)}
             selectable={selectable}
           />
         ))}
