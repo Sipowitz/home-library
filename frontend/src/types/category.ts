@@ -1,3 +1,5 @@
+import type { TreeNode } from "./tree";
+
 export type CategoryStats = {
   total_books: number;
 
@@ -6,14 +8,6 @@ export type CategoryStats = {
   unread_books: number;
 };
 
-export type Category = {
-  id: number;
-
-  name: string;
-
-  parent_id?: number | null;
-
-  children?: Category[];
-
+export type Category = TreeNode<Category> & {
   stats: CategoryStats;
 };

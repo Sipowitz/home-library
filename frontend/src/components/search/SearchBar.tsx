@@ -3,12 +3,9 @@ import { useMemo, type ChangeEvent } from "react";
 import type { Location } from "../../types/location";
 import type { Category } from "../../types/category";
 
-type FlatLocation = {
-  id: number;
-  name: string;
-};
+import { flattenTree } from "../../utils/tree/flattenTree";
 
-type FlatCategory = {
+type FlatNode = {
   id: number;
   name: string;
 };
@@ -27,36 +24,25 @@ type Props = {
   categories: Category[];
 };
 
-function flattenLocations(nodes: Location[], depth = 0): FlatLocation[] {
-  let result: FlatLocation[] = [];
+function formatFlatTree<T extends { id: number; name: string }>(
+  nodes: T[],
+  source: T[],
+  depth = 0,
+): FlatNode[] {
+  let result: FlatNode[] = [];
 
-  for (const node of nodes) {
+  source.forEach((node) => {
     result.push({
       id: node.id,
       name: `${"— ".repeat(depth)}${node.name}`,
     });
 
-    if (node.children?.length) {
-      result = result.concat(flattenLocations(node.children, depth + 1));
+    if ((node as any).children?.length) {
+      result = result.concat(
+        formatFlatTree(nodes, (node as any).children, depth + 1),
+      );
     }
-  }
-
-  return result;
-}
-
-function flattenCategories(nodes: Category[], depth = 0): FlatCategory[] {
-  let result: FlatCategory[] = [];
-
-  for (const node of nodes) {
-    result.push({
-      id: node.id,
-      name: `${"— ".repeat(depth)}${node.name}`,
-    });
-
-    if (node.children?.length) {
-      result = result.concat(flattenCategories(node.children, depth + 1));
-    }
-  }
+  });
 
   return result;
 }
@@ -71,10 +57,13 @@ export function SearchBar({
   locations,
   categories,
 }: Props) {
-  const flatLocations = useMemo(() => flattenLocations(locations), [locations]);
+  const flatLocations = useMemo(
+    () => formatFlatTree(flattenTree(locations), locations),
+    [locations],
+  );
 
   const flatCategories = useMemo(
-    () => flattenCategories(categories),
+    () => formatFlatTree(flattenTree(categories), categories),
     [categories],
   );
 

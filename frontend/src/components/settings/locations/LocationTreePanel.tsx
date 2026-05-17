@@ -11,7 +11,7 @@ import { useLocations } from "../../../context/LocationContext";
 import { LocationTreeFlow } from "./tree/LocationTreeFlow";
 
 import {
-  flattenCategories as flattenLocations,
+  flattenTree,
   findPathIdsToNode,
   findPathToNode,
 } from "../shared/treeLayout";
@@ -70,7 +70,7 @@ export function LocationTreePanel({ locations }: Props) {
   const { addLocation, editLocation, deleteLocation, reloadLocations } =
     useLocations();
 
-  const flatLocations = useMemo(() => flattenLocations(locations), [locations]);
+  const flatLocations = useMemo(() => flattenTree(locations), [locations]);
 
   const [focusedId, setFocusedId] = useState<number | null>(null);
 

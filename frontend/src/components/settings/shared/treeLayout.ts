@@ -2,93 +2,17 @@ import type { Edge, Node } from "reactflow";
 
 import dagre from "dagre";
 
+import { flattenTree } from "../../../utils/tree/flattenTree";
+import { findPathIdsToNode } from "../../../utils/tree/findPathIdsToNode";
+import { findPathToNode } from "../../../utils/tree/findPathToNode";
+
 const NODE_WIDTH = 260;
 
 const NODE_HEIGHT = 170;
 
-// ================= FLATTEN =================
+// ================= RE-EXPORT SHARED TREE UTILS =================
 
-export function flattenCategories<T extends { children?: T[] }>(
-  categories: T[],
-): T[] {
-  const result: T[] = [];
-
-  function walk(nodes: T[]) {
-    nodes.forEach((node) => {
-      result.push(node);
-
-      if (node.children?.length) {
-        walk(node.children);
-      }
-    });
-  }
-
-  walk(categories);
-
-  return result;
-}
-
-// ================= FIND PATH IDS =================
-
-export function findPathIdsToNode<
-  T extends {
-    id: number;
-
-    children?: T[];
-  },
->(categories: T[], targetId: number): number[] {
-  for (const category of categories) {
-    if (category.id === targetId) {
-      return [category.id];
-    }
-
-    if (category.children?.length) {
-      const childPath = findPathIdsToNode(
-        category.children,
-
-        targetId,
-      );
-
-      if (childPath.length) {
-        return [category.id, ...childPath];
-      }
-    }
-  }
-
-  return [];
-}
-
-// ================= FIND PATH NAMES =================
-
-export function findPathToNode<
-  T extends {
-    id: number;
-
-    name: string;
-
-    children?: T[];
-  },
->(categories: T[], targetId: number): string[] {
-  for (const category of categories) {
-    if (category.id === targetId) {
-      return [category.name];
-    }
-
-    if (category.children?.length) {
-      const childPath = findPathToNode(
-        category.children,
-
-        targetId,
-      );
-
-      if (childPath.length) {
-        return [category.name, ...childPath];
-      }
-    }
-  }
-
-  return [];
-}
+export { flattenTree, findPathIdsToNode, findPathToNode };
 
 // ================= BUILD TREE =================
 

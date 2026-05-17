@@ -21,20 +21,6 @@ type Props = {
   onDelete: (id: number) => void;
 };
 
-function flattenLocations(nodes: any[], level = 0): any[] {
-  let result: any[] = [];
-
-  for (const node of nodes) {
-    result.push({ ...node, level });
-
-    if (node.children?.length) {
-      result = result.concat(flattenLocations(node.children, level + 1));
-    }
-  }
-
-  return result;
-}
-
 export function BookPanel({
   book,
   editing,
@@ -46,9 +32,8 @@ export function BookPanel({
   onDelete,
 }: Props) {
   const { locations } = useLocations();
-  const { categories } = useCategories();
 
-  const flatLocations = flattenLocations(locations);
+  const { categories } = useCategories();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -61,6 +46,7 @@ export function BookPanel({
   function handleCancel() {
     if (!book?.id) {
       onClose();
+
       return;
     }
 
@@ -116,7 +102,7 @@ export function BookPanel({
               editData={editData}
               setEditData={setEditData}
               categories={categories}
-              flatLocations={flatLocations}
+              locations={locations}
               textareaRef={textareaRef}
             />
           )}
@@ -128,6 +114,7 @@ export function BookPanel({
                 <button
                   onClick={() => {
                     setEditing(true);
+
                     setEditData(book);
                   }}
                   className="bg-yellow-600 hover:bg-yellow-700 transition w-full py-2 rounded"

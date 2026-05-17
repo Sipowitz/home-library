@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 
 import type { Book } from "../../types/book";
 import type { Category } from "../../types/category";
@@ -6,10 +6,7 @@ import type { Location } from "../../types/location";
 
 import { CategoryTreeSelector } from "./CategoryTreeSelector";
 import { FieldLabel } from "./FieldLabel";
-
-type FlatLocation = Location & {
-  level: number;
-};
+import { LocationTreeSelector } from "./LocationTreeSelector";
 
 type Props = {
   editData: Book | null;
@@ -17,7 +14,7 @@ type Props = {
 
   categories: Category[];
 
-  flatLocations: FlatLocation[];
+  locations: Location[];
 
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 };
@@ -26,41 +23,11 @@ export function BookEdit({
   editData,
   setEditData,
   categories,
-  flatLocations,
+  locations,
   textareaRef,
 }: Props) {
-  const [locationOpen, setLocationOpen] = useState(false);
-  const locationRef = useRef<HTMLDivElement | null>(null);
-
   // ✅ single category
   const selectedCategoryId = editData?.category_id ?? null;
-
-  // -------------------
-  // 📍 LOCATION PATHS
-  // -------------------
-
-  const locationMap = useMemo(
-    () => new Map(flatLocations.map((loc) => [loc.id, loc])),
-    [flatLocations],
-  );
-
-  function getLocationPath(id?: number | null): string {
-    if (id === null || id === undefined) return "No location";
-
-    const path: string[] = [];
-    let current = locationMap.get(id);
-
-    while (current) {
-      path.unshift(current.name);
-      current = current.parent_id
-        ? locationMap.get(current.parent_id)
-        : undefined;
-    }
-
-    return path.join(" > ");
-  }
-
-  const selectedLocationPath = getLocationPath(editData?.location_id ?? null);
 
   // -------------------
   // 📏 AUTO RESIZE
@@ -72,27 +39,6 @@ export function BookEdit({
     textareaRef.current.style.height = "auto";
     textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
   }, [editData?.description, textareaRef]);
-
-  // -------------------
-  // ❌ CLOSE DROPDOWN
-  // -------------------
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        locationRef.current &&
-        !locationRef.current.contains(event.target as Node)
-      ) {
-        setLocationOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
 
   const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
@@ -139,11 +85,15 @@ export function BookEdit({
           {/* TITLE */}
           <div>
             <FieldLabel>Title</FieldLabel>
+
             <input
               className="w-full p-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={editData?.title || ""}
               onChange={(e) =>
-                setEditData({ ...editData!, title: e.target.value })
+                setEditData({
+                  ...editData!,
+                  title: e.target.value,
+                })
               }
             />
           </div>
@@ -151,11 +101,15 @@ export function BookEdit({
           {/* AUTHOR */}
           <div>
             <FieldLabel>Author</FieldLabel>
+
             <input
               className="w-full p-2 bg-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={editData?.author || ""}
               onChange={(e) =>
-                setEditData({ ...editData!, author: e.target.value })
+                setEditData({
+                  ...editData!,
+                  author: e.target.value,
+                })
               }
             />
           </div>
@@ -163,6 +117,7 @@ export function BookEdit({
           {/* STATUS */}
           <div>
             <FieldLabel>Status</FieldLabel>
+
             <div
               onClick={() => {
                 const newRead = !editData?.read;
@@ -198,58 +153,19 @@ export function BookEdit({
       {/* METADATA */}
       <div className="space-y-4 mb-3">
         {/* LOCATION */}
-        <div ref={locationRef} className="relative">
+        <div>
           <FieldLabel>Location</FieldLabel>
 
-          <div
-            onClick={() => setLocationOpen((o) => !o)}
-            className="w-full p-2 bg-gray-700 rounded cursor-pointer flex justify-between items-center"
-          >
-            <span className="truncate">{selectedLocationPath}</span>
-            <span>{locationOpen ? "▴" : "▾"}</span>
-          </div>
-
-          {locationOpen && (
-            <div className="absolute z-50 mt-1 w-full bg-gray-800 rounded shadow max-h-60 overflow-y-auto border border-gray-700">
-              <div
-                onClick={() => {
-                  setEditData({ ...editData!, location_id: null });
-                  setLocationOpen(false);
-                }}
-                className="px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 cursor-pointer"
-              >
-                — No Location —
-              </div>
-
-              {flatLocations.map((loc) => {
-                const isParent = (loc.children?.length ?? 0) > 0;
-
-                return (
-                  <div
-                    key={loc.id}
-                    onClick={() => {
-                      if (isParent) return;
-
-                      setEditData({
-                        ...editData!,
-                        location_id: loc.id,
-                      });
-
-                      setLocationOpen(false);
-                    }}
-                    className={`px-3 py-2 text-sm ${
-                      isParent
-                        ? "text-gray-500 font-semibold cursor-default"
-                        : "hover:bg-gray-700 cursor-pointer"
-                    }`}
-                    style={{ paddingLeft: `${8 + loc.level * 16}px` }}
-                  >
-                    {loc.name}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <LocationTreeSelector
+            locations={locations}
+            selectedLocationId={editData?.location_id ?? null}
+            onSelect={(id) =>
+              setEditData({
+                ...editData!,
+                location_id: id,
+              })
+            }
+          />
         </div>
 
         {/* CATEGORY */}
@@ -281,17 +197,22 @@ export function BookEdit({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel>ISBN</FieldLabel>
+
             <input
               className="w-full p-2 bg-gray-700 rounded"
               value={editData?.isbn || ""}
               onChange={(e) =>
-                setEditData({ ...editData!, isbn: e.target.value })
+                setEditData({
+                  ...editData!,
+                  isbn: e.target.value,
+                })
               }
             />
           </div>
 
           <div>
             <FieldLabel>Year</FieldLabel>
+
             <input
               className="w-full p-2 bg-gray-700 rounded"
               value={editData?.year || ""}
@@ -309,6 +230,7 @@ export function BookEdit({
       {/* DESCRIPTION */}
       <div>
         <FieldLabel>Description</FieldLabel>
+
         <textarea
           ref={textareaRef}
           rows={3}
@@ -316,6 +238,7 @@ export function BookEdit({
           value={editData?.description || ""}
           onChange={(e) => {
             const el = e.target;
+
             el.style.height = "auto";
             el.style.height = el.scrollHeight + "px";
 

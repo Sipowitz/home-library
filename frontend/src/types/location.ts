@@ -1,6 +1,3 @@
-export type Location = {
-  id: number;
-  name: string;
-  parent_id?: number;
-  children?: Location[];
-};
+import type { TreeNode } from "./tree";
+
+export type Location = TreeNode<Location>;
