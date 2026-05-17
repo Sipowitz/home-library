@@ -1,5 +1,9 @@
 import React from "react";
 
+import { usePreferences } from "../../../hooks/usePreferences";
+
+import { formatDateTime } from "../../../utils/dateFormatters";
+
 type Props = {
   restoring: boolean;
 
@@ -14,12 +18,6 @@ type Props = {
   lastRestoreAt: string | null;
 };
 
-function formatDate(value: string | null) {
-  if (!value) return "Never";
-
-  return new Date(value).toLocaleString();
-}
-
 export function BackupSettings({
   restoring,
   fileInputRef,
@@ -28,6 +26,16 @@ export function BackupSettings({
   lastBackupAt,
   lastRestoreAt,
 }: Props) {
+  const { preferences } = usePreferences();
+
+  function renderDate(value: string | null) {
+    if (!value) {
+      return "Never";
+    }
+
+    return formatDateTime(value, preferences);
+  }
+
   return (
     <>
       <h3 className="text-lg mt-6 mb-4">Backup & Restore</h3>
@@ -37,13 +45,13 @@ export function BackupSettings({
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-400">Last Backup</span>
 
-          <span className="text-gray-200">{formatDate(lastBackupAt)}</span>
+          <span className="text-gray-200">{renderDate(lastBackupAt)}</span>
         </div>
 
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-400">Last Restore</span>
 
-          <span className="text-gray-200">{formatDate(lastRestoreAt)}</span>
+          <span className="text-gray-200">{renderDate(lastRestoreAt)}</span>
         </div>
       </div>
 

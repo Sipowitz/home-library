@@ -11,13 +11,22 @@ import {
 } from "recharts";
 
 import { getBooks } from "../../api/books";
+
 import { useAuth } from "../../context/AuthContext";
+
+import { usePreferences } from "../../hooks/usePreferences";
+
+import { formatDate } from "../../utils/dateFormatters";
 
 import type { Book } from "../../types/book";
 
+import type { Preferences } from "../../types/preferences";
+
 type ChartPoint = {
   date: string;
+
   total: number;
+
   read: number;
 };
 
@@ -25,31 +34,42 @@ type Range = "7d" | "30d" | "all";
 
 type StatCardProps = {
   label: string;
+
   value: number;
+
   highlight?: boolean;
 };
 
 type ActivityBoxProps = {
   title: string;
+
   added: number;
+
   read: number;
 };
 
 type LegendItemProps = {
   color: string;
+
   label: string;
 };
 
 type TooltipPayloadItem = {
   name: string;
+
   value: number;
+
   dataKey: string;
 };
 
 type CustomTooltipProps = {
   active?: boolean;
+
   payload?: TooltipPayloadItem[];
+
   label?: string;
+
+  preferences: Preferences | null;
 };
 
 export function StatsPanel() {
@@ -60,6 +80,8 @@ export function StatsPanel() {
   const [range, setRange] = useState<Range>("30d");
 
   const { ready, token } = useAuth();
+
+  const { preferences } = usePreferences();
 
   async function loadStats() {
     try {
@@ -78,8 +100,11 @@ export function StatsPanel() {
   // -------------------
   // ✅ WAIT FOR AUTH
   // -------------------
+
   useEffect(() => {
-    if (!ready || !token) return;
+    if (!ready || !token) {
+      return;
+    }
 
     loadStats();
 
@@ -93,6 +118,7 @@ export function StatsPanel() {
   // -------------------
   // 📈 CHART FILTERING
   // -------------------
+
   useEffect(() => {
     let filtered = [...books];
 
@@ -116,6 +142,7 @@ export function StatsPanel() {
       );
 
     let total = 0;
+
     let read = 0;
 
     const data: ChartPoint[] = [];
@@ -142,6 +169,7 @@ export function StatsPanel() {
   // -------------------
   // 📊 TOTALS
   // -------------------
+
   const total = books.length;
 
   const read = books.filter((b) => b.read).length;
@@ -151,6 +179,7 @@ export function StatsPanel() {
   // -------------------
   // 📅 ACTIVITY
   // -------------------
+
   const now = Date.now();
 
   const DAY = 1000 * 60 * 60 * 24;
@@ -227,12 +256,7 @@ export function StatsPanel() {
                       return "";
                     }
 
-                    const date = new Date(value);
-
-                    return date.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    });
+                    return formatDate(value, preferences);
                   }}
                   stroke="#6b7280"
                   tick={{
@@ -244,7 +268,9 @@ export function StatsPanel() {
 
                 <YAxis hide />
 
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip
+                  content={<CustomTooltip preferences={preferences} />}
+                />
 
                 <Line
                   type="monotone"
@@ -321,16 +347,19 @@ function LegendItem({ color, label }: LegendItemProps) {
   );
 }
 
-function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+function CustomTooltip({
+  active,
+  payload,
+  label,
+  preferences,
+}: CustomTooltipProps) {
   if (!active || !payload || !label) {
     return null;
   }
 
-  const date = new Date(label).toLocaleDateString();
-
   return (
     <div className="bg-gray-800 p-2 rounded text-sm">
-      <div>{date}</div>
+      <div>{formatDate(label, preferences)}</div>
 
       {payload.map((p) => (
         <div key={p.dataKey}>

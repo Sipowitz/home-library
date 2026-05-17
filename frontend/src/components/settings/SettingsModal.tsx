@@ -8,6 +8,8 @@ import client from "../../api/client";
 
 import { useLocations } from "../../context/LocationContext";
 
+import { formatFileTimestamp } from "../../utils/dateFormatters";
+
 import { SettingsSidebar } from "./SettingsSidebar";
 
 import { BackupSettings } from "./backup/BackupSettings";
@@ -15,6 +17,8 @@ import { ConfirmRestoreModal } from "./backup/ConfirmRestoreModal";
 
 import { LocationSettings } from "./locations/LocationSettings";
 import { CategorySettings } from "./categories/CategorySettings";
+
+import { PreferencesSettings } from "./preferences/PreferencesSettings";
 
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 
@@ -24,10 +28,11 @@ import type { Category } from "../../types/category";
 
 type Props = {
   isOpen: boolean;
+
   onClose: () => void;
 };
 
-type Section = "locations" | "categories" | "backup";
+type Section = "locations" | "categories" | "backup" | "preferences";
 
 export function SettingsModal({ isOpen, onClose }: Props) {
   const { locations, deleteLocation } = useLocations();
@@ -110,14 +115,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
       const a = document.createElement("a");
 
-      const now = new Date();
-
-      const timestamp =
-        `${now.getFullYear()}-` +
-        `${String(now.getMonth() + 1).padStart(2, "0")}-` +
-        `${String(now.getDate()).padStart(2, "0")}-` +
-        `${String(now.getHours()).padStart(2, "0")}` +
-        `${String(now.getMinutes()).padStart(2, "0")}`;
+      const timestamp = formatFileTimestamp(new Date());
 
       a.href = url;
 
@@ -285,6 +283,24 @@ export function SettingsModal({ isOpen, onClose }: Props) {
               </div>
             )}
 
+            {/* PREFERENCES */}
+            {activeSection === "preferences" && (
+              <div className="max-w-2xl">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+                  <div className="mb-5">
+                    <h2 className="text-lg font-semibold">Preferences</h2>
+
+                    <p className="text-sm text-gray-400 mt-1">
+                      Configure how dates and times are shown throughout the
+                      library.
+                    </p>
+                  </div>
+
+                  <PreferencesSettings />
+                </div>
+              </div>
+            )}
+
             {/* BACKUP */}
             {activeSection === "backup" && (
               <div className="max-w-2xl">
@@ -322,7 +338,9 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         restoring={restoring}
         file={pendingFile}
         onConfirm={() => {
-          if (!pendingFile || restoring) return;
+          if (!pendingFile || restoring) {
+            return;
+          }
 
           handleRestore(pendingFile);
 
@@ -343,7 +361,9 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         title="Delete Location?"
         message="Books in this location will be unassigned."
         onConfirm={async () => {
-          if (confirmDeleteLocation === null) return;
+          if (confirmDeleteLocation === null) {
+            return;
+          }
 
           try {
             await deleteLocation(confirmDeleteLocation);

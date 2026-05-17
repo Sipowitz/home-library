@@ -1,25 +1,23 @@
 import React, { useMemo } from "react";
 
+import { usePreferences } from "../../hooks/usePreferences";
+
+import { formatDate } from "../../utils/dateFormatters";
+
 import type { Book } from "../../types/book";
 import type { Location } from "../../types/location";
 import type { Category } from "../../types/category";
 
 type Props = {
   book: Book;
+
   locations: Location[];
+
   categories: Category[];
 };
 
 export function BookView({ book, locations, categories }: Props) {
-  function formatDate(dateString?: string) {
-    if (!dateString) return "";
-
-    const d = new Date(dateString);
-
-    return `${String(d.getDate()).padStart(2, "0")}/${String(
-      d.getMonth() + 1,
-    ).padStart(2, "0")}/${d.getFullYear()}`;
-  }
+  const { preferences } = usePreferences();
 
   // -------------------
   // 📍 LOCATION HELPERS
@@ -41,6 +39,7 @@ export function BookView({ book, locations, categories }: Props) {
 
   const locationMap = useMemo(() => {
     const flat = flattenLocationTree(locations);
+
     return new Map(flat.map((l) => [l.id, l]));
   }, [locations]);
 
@@ -53,6 +52,7 @@ export function BookView({ book, locations, categories }: Props) {
 
     while (current) {
       path.unshift(current.name);
+
       current = current.parent_id
         ? locationMap.get(current.parent_id)
         : undefined;
@@ -81,6 +81,7 @@ export function BookView({ book, locations, categories }: Props) {
 
   const categoryMap = useMemo(() => {
     const flat = flattenCategoryTree(categories);
+
     return new Map(flat.map((c) => [c.id, c]));
   }, [categories]);
 
@@ -91,6 +92,7 @@ export function BookView({ book, locations, categories }: Props) {
 
     while (current) {
       path.unshift(current.name);
+
       current = current.parent_id
         ? categoryMap.get(current.parent_id)
         : undefined;
@@ -101,7 +103,6 @@ export function BookView({ book, locations, categories }: Props) {
 
   const locationName = getLocationPath(book.location_id);
 
-  // ✅ SINGLE CATEGORY
   const categoryPath = book.category_id
     ? getCategoryPath(book.category_id)
     : null;
@@ -168,7 +169,7 @@ export function BookView({ book, locations, categories }: Props) {
 
         {book.date_added && (
           <div>
-            <strong>Added:</strong> {formatDate(book.date_added)}
+            <strong>Added:</strong> {formatDate(book.date_added, preferences)}
           </div>
         )}
       </div>
