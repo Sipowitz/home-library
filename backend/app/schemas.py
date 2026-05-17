@@ -21,6 +21,31 @@ class UserResponse(BaseModel):
 
 
 # -------------------
+# ⚙️ PREFERENCES SCHEMAS
+# -------------------
+
+class PreferencesBase(BaseModel):
+    date_format: str = "DD/MM/YYYY"
+    time_format: str = "24h"
+
+
+class PreferencesUpdate(BaseModel):
+    date_format: Optional[str] = None
+    time_format: Optional[str] = None
+
+
+class PreferencesResponse(PreferencesBase):
+    id: int
+    user_id: int
+
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# -------------------
 # 🏷️ CATEGORY SCHEMAS
 # -------------------
 
@@ -49,9 +74,13 @@ class CategoryResponse(BaseModel):
     name: str
     parent_id: Optional[int]
 
-    stats: CategoryStats = Field(default_factory=CategoryStats)
+    stats: CategoryStats = Field(
+        default_factory=CategoryStats
+    )
 
-    children: List["CategoryResponse"] = Field(default_factory=list)
+    children: List["CategoryResponse"] = Field(
+        default_factory=list
+    )
 
     class Config:
         from_attributes = True
@@ -69,16 +98,21 @@ class BookBase(BaseModel):
     author: str
 
     year: Optional[int] = None
+
     isbn: Optional[str] = None
+
     description: Optional[str] = None
 
     read: Optional[bool] = False
+
     read_at: Optional[datetime] = None
 
     location_id: Optional[int] = None
+
     category_id: Optional[int] = None
 
     cover_url: Optional[str] = None
+
     date_added: Optional[datetime] = None
 
 
@@ -88,12 +122,19 @@ class BookCreate(BookBase):
 
 class BookUpdate(BaseModel):
     title: Optional[str] = None
+
     author: Optional[str] = None
+
     year: Optional[int] = None
+
     isbn: Optional[str] = None
+
     description: Optional[str] = None
+
     read: Optional[bool] = None
+
     location_id: Optional[int] = None
+
     cover_url: Optional[str] = None
 
     category_id: Optional[int] = None
@@ -142,7 +183,10 @@ class LocationResponse(BaseModel):
     id: int
     name: str
     parent_id: Optional[int]
-    children: List["LocationResponse"] = Field(default_factory=list)
+
+    children: List["LocationResponse"] = Field(
+        default_factory=list
+    )
 
     class Config:
         from_attributes = True
