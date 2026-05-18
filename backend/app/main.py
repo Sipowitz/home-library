@@ -1,7 +1,5 @@
 from fastapi import (
     FastAPI,
-    HTTPException,
-    Request,
 )
 
 from fastapi.middleware.cors import (
@@ -16,8 +14,6 @@ from starlette.exceptions import (
     HTTPException as StarletteHTTPException,
 )
 
-from .database import engine, Base
-
 from .routers import (
     books,
     auth,
@@ -29,7 +25,6 @@ from .routers import (
     preferences,
 )
 
-# ✅ Error handlers
 from .core.error_handlers import (
     http_exception_handler,
     validation_exception_handler,
@@ -37,9 +32,6 @@ from .core.error_handlers import (
 )
 
 app = FastAPI()
-
-# ✅ Create tables
-Base.metadata.create_all(bind=engine)
 
 # ✅ CORS
 app.add_middleware(

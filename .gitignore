@@ -1,3 +1,54 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment files
 .env
+backend/.env
+frontend/.env
+
+# Certificates / keys
 *.pem
 *.key
+*.crt
+
+# Virtual environments
+venv/
+.venv/
+
+# Alembic cache
+alembic/__pycache__/
+
+# Node
+node_modules/
+
+# Build output
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Database backups
+*.sql
+*.dump
+
+# Docker
+postgres_data/
+
+# Python cache
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/

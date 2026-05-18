@@ -11,3 +11,9 @@ passlib[bcrypt]
 python-multipart
 
 httpx
+
+
+pydantic-settings
+
+
+alembic
