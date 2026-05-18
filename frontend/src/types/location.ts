@@ -1,3 +1,9 @@
 import type { TreeNode } from "./tree";
 
-export type Location = TreeNode<Location>;
+export interface Location extends TreeNode<Location> {
+  id: number;
+
+  name: string;
+
+  parent_id?: number | null;
+}

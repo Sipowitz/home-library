@@ -1,13 +1,17 @@
 import type { TreeNode } from "./tree";
 
-export type CategoryStats = {
-  total_books: number;
+export interface Category extends TreeNode<Category> {
+  id: number;
 
-  read_books: number;
+  name: string;
 
-  unread_books: number;
-};
+  parent_id?: number | null;
 
-export type Category = TreeNode<Category> & {
-  stats: CategoryStats;
-};
+  stats?: {
+    total_books?: number;
+
+    read_books?: number;
+
+    unread_books?: number;
+  };
+}

@@ -8,7 +8,12 @@ from app import models
 # -------------------
 
 DEFAULT_DATE_FORMAT = "DD/MM/YYYY"
+
 DEFAULT_TIME_FORMAT = "24h"
+
+DEFAULT_LIBRARY_VIEW_MODE = "grid"
+
+DEFAULT_SHOW_COVERS_IN_LIST = True
 
 VALID_DATE_FORMATS = {
     "DD/MM/YYYY",
@@ -19,6 +24,11 @@ VALID_DATE_FORMATS = {
 VALID_TIME_FORMATS = {
     "24h",
     "12h",
+}
+
+VALID_LIBRARY_VIEW_MODES = {
+    "grid",
+    "list",
 }
 
 
@@ -46,6 +56,8 @@ def get_or_create_preferences(
         user_id=user_id,
         date_format=DEFAULT_DATE_FORMAT,
         time_format=DEFAULT_TIME_FORMAT,
+        library_view_mode=DEFAULT_LIBRARY_VIEW_MODE,
+        show_covers_in_list=DEFAULT_SHOW_COVERS_IN_LIST,
     )
 
     db.add(preferences)
@@ -114,6 +126,31 @@ def update_preferences(
                 )
 
             preferences.time_format = value
+
+    # -------------------
+    # 📚 LIBRARY VIEW MODE
+    # -------------------
+
+    if "library_view_mode" in data:
+        value = data["library_view_mode"]
+
+        if value is not None:
+            if value not in VALID_LIBRARY_VIEW_MODES:
+                raise ValueError(
+                    "Invalid library view mode"
+                )
+
+            preferences.library_view_mode = value
+
+    # -------------------
+    # 🖼️ SHOW COVERS
+    # -------------------
+
+    if "show_covers_in_list" in data:
+        value = data["show_covers_in_list"]
+
+        if value is not None:
+            preferences.show_covers_in_list = bool(value)
 
     db.commit()
 

@@ -8,8 +8,12 @@ import { useCategories } from "./context/CategoryContext";
 import { useAuth } from "./context/AuthContext";
 import { useSearch } from "./hooks/useSearch";
 import { useBookActions } from "./hooks/useBookActions";
+import { usePreferences } from "./hooks/usePreferences";
 
-import { BookGrid } from "./components/books/BookGrid";
+import { BookGridView } from "./components/books/views/BookGridView";
+import { BookListView } from "./components/books/views/BookListView";
+import { ViewModeSwitcher } from "./components/books/views/ViewModeSwitcher";
+
 import { SettingsModal } from "./components/settings/SettingsModal";
 import { BookPanel } from "./components/books/BookPanel";
 
@@ -22,6 +26,7 @@ import toast from "react-hot-toast";
 import type { Book, BookDraft } from "./types/book";
 import type { Location } from "./types/location";
 import type { Category } from "./types/category";
+import type { LibraryViewMode } from "./types/preferences";
 
 export default function App() {
   const {
@@ -37,10 +42,15 @@ export default function App() {
   } = useBooks();
 
   const { locations } = useLocations();
+
   const { categories } = useCategories();
+
   const { isAuthenticated, login, logout } = useAuth();
 
+  const { preferences, updatePreferences } = usePreferences();
+
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
+
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
   const { searchInput, setSearchInput } = useSearch({
@@ -49,6 +59,7 @@ export default function App() {
   });
 
   const [username, setUsername] = useState("");
+
   const [password, setPassword] = useState("");
 
   const [newBook, setNewBook] = useState<BookDraft>({});
@@ -74,6 +85,24 @@ export default function App() {
       setEditing,
       editData,
     });
+
+  // ================= VIEW MODE =================
+
+  const viewMode: LibraryViewMode = preferences?.library_view_mode ?? "grid";
+
+  const showCoversInList = preferences?.show_covers_in_list ?? true;
+
+  async function handleViewModeChange(mode: LibraryViewMode) {
+    try {
+      await updatePreferences({
+        library_view_mode: mode,
+      });
+    } catch (err) {
+      console.error(err);
+
+      toast.error("Failed to update view mode");
+    }
+  }
 
   // -------------------
   // 📍 LOCATION DESCENDANTS
@@ -174,6 +203,7 @@ export default function App() {
         result = result.filter((b) => !b.category_id);
       } else {
         const map = buildCategoryMap(categories);
+
         const root = map.get(selectedCategory);
 
         if (root) {
@@ -243,6 +273,7 @@ export default function App() {
     logout();
 
     setSelectedBook(null);
+
     setNewBook({});
   }
 
@@ -287,6 +318,7 @@ export default function App() {
       className="min-h-screen bg-gray-950 text-white p-6"
       onClick={() => {
         setSelectedBook(null);
+
         setEditing(false);
       }}
     >
@@ -309,17 +341,27 @@ export default function App() {
           isFetching={isFetching}
         />
 
+        {/* SEARCH + VIEWS */}
         <div className="mt-6 sticky top-4 z-40 backdrop-blur bg-gray-950/80">
-          <SearchBar
-            searchInput={searchInput}
-            onSearchChange={setSearchInput}
-            selectedLocation={selectedLocation}
-            onLocationChange={setSelectedLocation}
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
-            locations={locations}
-            categories={categories}
-          />
+          <div className="space-y-4">
+            <SearchBar
+              searchInput={searchInput}
+              onSearchChange={setSearchInput}
+              selectedLocation={selectedLocation}
+              onLocationChange={setSelectedLocation}
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
+              locations={locations}
+              categories={categories}
+            />
+
+            <div className="flex justify-end">
+              <ViewModeSwitcher
+                value={viewMode}
+                onChange={handleViewModeChange}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="h-6 mb-3 px-1 flex items-center">
@@ -328,13 +370,29 @@ export default function App() {
           )}
         </div>
 
-        <BookGrid
-          books={filteredBooks}
-          onSelect={(book) => {
-            setSelectedBook(book);
-            setEditing(false);
-          }}
-        />
+        {/* BOOK VIEWS */}
+        {viewMode === "grid" ? (
+          <BookGridView
+            books={filteredBooks}
+            onSelect={(book) => {
+              setSelectedBook(book);
+
+              setEditing(false);
+            }}
+          />
+        ) : (
+          <BookListView
+            books={filteredBooks}
+            locations={locations}
+            categories={categories}
+            showCovers={showCoversInList}
+            onSelect={(book) => {
+              setSelectedBook(book);
+
+              setEditing(false);
+            }}
+          />
+        )}
 
         <BookPanel
           book={selectedBook}

@@ -79,6 +79,18 @@ class UserPreferences(Base):
         default="24h",
     )
 
+    library_view_mode = Column(
+        String,
+        nullable=False,
+        default="grid",
+    )
+
+    show_covers_in_list = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

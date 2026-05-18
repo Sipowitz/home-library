@@ -39,6 +39,7 @@ services:
       # ✅ persistent JWT secret
       SECRET_KEY: super-secure-production-key-123
       # ❌ REMOVED GOOGLE_API_KEY FROM HERE
+      GOOGLE_API_KEY: AIzaSyCh-qjTfZQktxKVQAsbgtVN4hNCxaHHjSE
 
     volumes:
       - ./backend:/app

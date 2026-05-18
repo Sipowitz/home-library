@@ -26,19 +26,31 @@ class UserResponse(BaseModel):
 
 class PreferencesBase(BaseModel):
     date_format: str = "DD/MM/YYYY"
+
     time_format: str = "24h"
+
+    library_view_mode: str = "grid"
+
+    show_covers_in_list: bool = True
 
 
 class PreferencesUpdate(BaseModel):
     date_format: Optional[str] = None
+
     time_format: Optional[str] = None
+
+    library_view_mode: Optional[str] = None
+
+    show_covers_in_list: Optional[bool] = None
 
 
 class PreferencesResponse(PreferencesBase):
     id: int
+
     user_id: int
 
     created_at: datetime
+
     updated_at: datetime
 
     class Config:
