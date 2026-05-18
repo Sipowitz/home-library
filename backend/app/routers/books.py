@@ -1,21 +1,45 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+)
+
 from sqlalchemy.orm import Session
+
 from pydantic import BaseModel
 
 import re
 
-from ..database import SessionLocal
-from .. import models, schemas
+from ..database import (
+    SessionLocal,
+)
 
-from ..auth.dependencies import get_current_user
+from .. import (
+    models,
+    schemas,
+)
 
-from ..services import book_service
+from ..auth.dependencies import (
+    get_current_user,
+)
+
+from ..services import (
+    book_service,
+)
+
 from ..services.google_books import (
     create_book_from_isbn,
+)
+
+from ..services.providers.manager import (
     fetch_book_by_isbn,
 )
 
-router = APIRouter(prefix="/books", tags=["Books"])
+router = APIRouter(
+    prefix="/books",
+    tags=["Books"],
+)
 
 
 class ISBNRequest(BaseModel):
@@ -36,15 +60,22 @@ def clean_input(data: dict) -> dict:
         cleaned[key] = value
 
     if "isbn" in cleaned and cleaned["isbn"]:
-        cleaned["isbn"] = re.sub(r"[^0-9X]", "", cleaned["isbn"], flags=re.IGNORECASE)
+        cleaned["isbn"] = re.sub(
+            r"[^0-9X]",
+            "",
+            cleaned["isbn"],
+            flags=re.IGNORECASE,
+        )
 
     return cleaned
 
 
 def get_db():
     db = SessionLocal()
+
     try:
         yield db
+
     finally:
         db.close()
 
@@ -52,19 +83,20 @@ def get_db():
 # -------------------
 # 📚 LIST BOOKS
 # -------------------
-@router.get("/", response_model=schemas.BookListResponse)
+
+@router.get(
+    "/",
+    response_model=schemas.BookListResponse,
+)
 def get_books(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, le=100),
-
     search: str | None = Query(None),
     category_id: int | None = Query(None),
     location_id: int | None = Query(None),
     read: bool | None = Query(None),
-
     sort: str = Query("author"),
     order: str = Query("asc"),
-
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -85,24 +117,50 @@ def get_books(
 # -------------------
 # 🔎 ISBN PREVIEW
 # -------------------
+
 @router.get("/preview-isbn/{isbn}")
-async def preview_book_by_isbn(isbn: str):
-    return await fetch_book_by_isbn(isbn)
+async def preview_book_by_isbn(
+    isbn: str,
+    db: Session = Depends(get_db),
+):
+    result = await fetch_book_by_isbn(
+        db,
+        isbn,
+    )
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="No book found for this ISBN",
+        )
+
+    return result
 
 
 # -------------------
 # 📖 GET SINGLE BOOK
 # -------------------
-@router.get("/{book_id}", response_model=schemas.BookResponse)
+
+@router.get(
+    "/{book_id}",
+    response_model=schemas.BookResponse,
+)
 def get_book(
     book_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    book = book_service.get_book(db, current_user.id, book_id)
+    book = book_service.get_book(
+        db,
+        current_user.id,
+        book_id,
+    )
 
     if not book:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found",
+        )
 
     return book
 
@@ -110,27 +168,47 @@ def get_book(
 # -------------------
 # ➕ CREATE BOOK
 # -------------------
-@router.post("/", response_model=schemas.BookResponse)
+
+@router.post(
+    "/",
+    response_model=schemas.BookResponse,
+)
 def create_book(
     book: schemas.BookCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    data = clean_input(book.model_dump())
+    data = clean_input(
+        book.model_dump()
+    )
 
     if not data.get("title"):
-        raise HTTPException(status_code=400, detail="Title is required")
+        raise HTTPException(
+            status_code=400,
+            detail="Title is required",
+        )
 
     if not data.get("author"):
-        raise HTTPException(status_code=400, detail="Author is required")
+        raise HTTPException(
+            status_code=400,
+            detail="Author is required",
+        )
 
-    return book_service.create_book(db, current_user.id, data)
+    return book_service.create_book(
+        db,
+        current_user.id,
+        data,
+    )
 
 
 # -------------------
-# ➕ CREATE FROM ISBN (FIXED)
+# ➕ CREATE FROM ISBN
 # -------------------
-@router.post("/from-isbn", response_model=schemas.BookResponse)
+
+@router.post(
+    "/from-isbn",
+    response_model=schemas.BookResponse,
+)
 async def create_book_from_isbn_endpoint(
     payload: ISBNRequest,
     db: Session = Depends(get_db),
@@ -139,9 +217,11 @@ async def create_book_from_isbn_endpoint(
     isbn = payload.isbn.strip()
 
     if not isbn:
-        raise HTTPException(status_code=400, detail="ISBN is required")
+        raise HTTPException(
+            status_code=400,
+            detail="ISBN is required",
+        )
 
-    # ✅ NO try/except — let service handle errors
     return await create_book_from_isbn(
         db,
         current_user.id,
@@ -152,14 +232,22 @@ async def create_book_from_isbn_endpoint(
 # -------------------
 # ✏️ UPDATE BOOK
 # -------------------
-@router.put("/{book_id}", response_model=schemas.BookResponse)
+
+@router.put(
+    "/{book_id}",
+    response_model=schemas.BookResponse,
+)
 def update_book(
     book_id: int,
     updated: schemas.BookUpdate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    data = clean_input(updated.model_dump(exclude_unset=True))
+    data = clean_input(
+        updated.model_dump(
+            exclude_unset=True
+        )
+    )
 
     book = book_service.update_book(
         db,
@@ -169,7 +257,10 @@ def update_book(
     )
 
     if not book:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found",
+        )
 
     return book
 
@@ -177,15 +268,28 @@ def update_book(
 # -------------------
 # ❌ DELETE BOOK
 # -------------------
-@router.delete("/{book_id}", response_model=DeleteResponse)
+
+@router.delete(
+    "/{book_id}",
+    response_model=DeleteResponse,
+)
 def delete_book(
     book_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    success = book_service.delete_book(db, current_user.id, book_id)
+    success = book_service.delete_book(
+        db,
+        current_user.id,
+        book_id,
+    )
 
     if not success:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found",
+        )
 
-    return {"message": "Book deleted"}
+    return {
+        "message": "Book deleted"
+    }

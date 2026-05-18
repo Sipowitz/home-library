@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import (
     FastAPI,
 )
@@ -14,6 +16,8 @@ from starlette.exceptions import (
     HTTPException as StarletteHTTPException,
 )
 
+from .database import SessionLocal
+
 from .routers import (
     books,
     auth,
@@ -23,6 +27,7 @@ from .routers import (
     stats,
     backup,
     preferences,
+    provider_settings,
 )
 
 from .core.error_handlers import (
@@ -31,9 +36,30 @@ from .core.error_handlers import (
     general_exception_handler,
 )
 
-app = FastAPI()
+from .services.provider_settings_service import (
+    ensure_default_provider_settings,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db = SessionLocal()
+
+    try:
+        ensure_default_provider_settings(db)
+
+        yield
+
+    finally:
+        db.close()
+
+
+app = FastAPI(
+    lifespan=lifespan,
+)
 
 # ✅ CORS
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -80,6 +106,10 @@ app.include_router(stats.router)
 app.include_router(backup.router)
 
 app.include_router(preferences.router)
+
+app.include_router(
+    provider_settings.router
+)
 
 
 @app.get("/")

@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
+
 from typing import Optional, List
+
 from datetime import datetime
 
 
@@ -9,11 +11,13 @@ from datetime import datetime
 
 class UserCreate(BaseModel):
     username: str
+
     password: str
 
 
 class UserResponse(BaseModel):
     id: int
+
     username: str
 
     class Config:
@@ -58,11 +62,53 @@ class PreferencesResponse(PreferencesBase):
 
 
 # -------------------
+# 🔌 PROVIDER SETTINGS
+# -------------------
+
+class ProviderSettingBase(BaseModel):
+    provider_name: str
+
+    enabled: bool = True
+
+    priority: int = 100
+
+    api_key: Optional[str] = None
+
+    timeout_seconds: int = 5
+
+    max_retries: int = 3
+
+
+class ProviderSettingUpdate(BaseModel):
+    enabled: Optional[bool] = None
+
+    priority: Optional[int] = None
+
+    api_key: Optional[str] = None
+
+    timeout_seconds: Optional[int] = None
+
+    max_retries: Optional[int] = None
+
+
+class ProviderSettingResponse(ProviderSettingBase):
+    id: int
+
+    created_at: datetime
+
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# -------------------
 # 🏷️ CATEGORY SCHEMAS
 # -------------------
 
 class CategoryBase(BaseModel):
     name: str
+
     parent_id: Optional[int] = None
 
 
@@ -72,18 +118,23 @@ class CategoryCreate(CategoryBase):
 
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
+
     parent_id: Optional[int] = None
 
 
 class CategoryStats(BaseModel):
     total_books: int = 0
+
     read_books: int = 0
+
     unread_books: int = 0
 
 
 class CategoryResponse(BaseModel):
     id: int
+
     name: str
+
     parent_id: Optional[int]
 
     stats: CategoryStats = Field(
@@ -107,6 +158,7 @@ CategoryResponse.model_rebuild()
 
 class BookBase(BaseModel):
     title: str
+
     author: str
 
     year: Optional[int] = None
@@ -167,6 +219,7 @@ class BookResponse(BookBase):
 
 class BookListResponse(BaseModel):
     items: List[BookResponse]
+
     total: int
 
     class Config:
@@ -179,6 +232,7 @@ class BookListResponse(BaseModel):
 
 class LocationBase(BaseModel):
     name: str
+
     parent_id: Optional[int] = None
 
 
@@ -188,12 +242,15 @@ class LocationCreate(LocationBase):
 
 class LocationUpdate(BaseModel):
     name: Optional[str] = None
+
     parent_id: Optional[int] = None
 
 
 class LocationResponse(BaseModel):
     id: int
+
     name: str
+
     parent_id: Optional[int]
 
     children: List["LocationResponse"] = Field(
@@ -213,26 +270,33 @@ LocationResponse.model_rebuild()
 
 class StatItem(BaseModel):
     name: str
+
     count: int
 
 
 class MonthlyStat(BaseModel):
     month: str
+
     count: int
 
 
 class StatsResponse(BaseModel):
     total_books: int
+
     read_books: int
+
     unread_books: int
 
     by_category: List[StatItem]
+
     by_location: List[StatItem]
 
     recent_reads_7_days: int
+
     recent_reads_30_days: int
 
     recent_added_7_days: int
+
     recent_added_30_days: int
 
     monthly_reads: List[MonthlyStat]

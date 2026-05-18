@@ -1,5 +1,3 @@
-// frontend/src/components/settings/SettingsModal.tsx
-
 import { useEffect, useRef, useState } from "react";
 
 import toast from "react-hot-toast";
@@ -13,12 +11,16 @@ import { formatFileTimestamp } from "../../utils/dateFormatters";
 import { SettingsSidebar } from "./SettingsSidebar";
 
 import { BackupSettings } from "./backup/BackupSettings";
+
 import { ConfirmRestoreModal } from "./backup/ConfirmRestoreModal";
 
 import { LocationSettings } from "./locations/LocationSettings";
+
 import { CategorySettings } from "./categories/CategorySettings";
 
 import { PreferencesSettings } from "./preferences/PreferencesSettings";
+
+import { ProviderSettingsPanel } from "./providers/ProviderSettingsPanel";
 
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 
@@ -32,7 +34,12 @@ type Props = {
   onClose: () => void;
 };
 
-type Section = "locations" | "categories" | "backup" | "preferences";
+type Section =
+  | "locations"
+  | "categories"
+  | "providers"
+  | "backup"
+  | "preferences";
 
 export function SettingsModal({ isOpen, onClose }: Props) {
   const { locations, deleteLocation } = useLocations();
@@ -181,11 +188,14 @@ export function SettingsModal({ isOpen, onClose }: Props) {
     }
   }
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <>
       {/* BACKDROP */}
+
       <div
         className="
           fixed inset-0 z-50
@@ -197,6 +207,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         onClick={onClose}
       >
         {/* MODAL */}
+
         <div
           className="
             bg-gray-950/95
@@ -211,6 +222,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           onClick={(e) => e.stopPropagation()}
         >
           {/* SIDEBAR */}
+
           <div
             className="
               bg-gray-900/90
@@ -248,8 +260,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           </div>
 
           {/* CONTENT */}
+
           <div className="flex-1 overflow-y-auto p-4 lg:p-6 flex flex-col min-h-0">
             {/* LOCATIONS */}
+
             {activeSection === "locations" && (
               <div className="max-w-full relative flex-1 min-h-0 flex flex-col">
                 <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
@@ -267,6 +281,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             )}
 
             {/* CATEGORIES */}
+
             {activeSection === "categories" && (
               <div className="max-w-full relative flex-1 min-h-0 flex flex-col">
                 <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
@@ -283,7 +298,26 @@ export function SettingsModal({ isOpen, onClose }: Props) {
               </div>
             )}
 
+            {/* PROVIDERS */}
+
+            {activeSection === "providers" && (
+              <div className="max-w-4xl">
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">Providers</h2>
+
+                    <p className="text-sm text-gray-400 mt-1">
+                      Configure metadata search providers and priority order.
+                    </p>
+                  </div>
+
+                  <ProviderSettingsPanel />
+                </div>
+              </div>
+            )}
+
             {/* PREFERENCES */}
+
             {activeSection === "preferences" && (
               <div className="max-w-2xl">
                 <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
@@ -302,6 +336,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             )}
 
             {/* BACKUP */}
+
             {activeSection === "backup" && (
               <div className="max-w-2xl">
                 <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
@@ -333,6 +368,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       </div>
 
       {/* RESTORE MODAL */}
+
       <ConfirmRestoreModal
         open={confirmRestoreOpen}
         restoring={restoring}
@@ -356,6 +392,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       />
 
       {/* DELETE LOCATION */}
+
       <ConfirmDeleteModal
         open={confirmDeleteLocation !== null}
         title="Delete Location?"
@@ -377,6 +414,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       />
 
       {/* DELETE CATEGORY */}
+
       <ConfirmDeleteModal
         open={confirmDeleteCategory !== null}
         title="Delete Category Tree?"

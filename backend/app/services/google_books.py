@@ -1,9 +1,14 @@
 from fastapi import HTTPException
+
 from sqlalchemy.orm import Session
 
 from app.models import Book
+
 from app.services.book_service import create_book
-from app.services.providers.manager import fetch_book_by_isbn
+
+from app.services.providers.manager import (
+    fetch_book_by_isbn,
+)
 
 
 async def create_book_from_isbn(
@@ -12,7 +17,10 @@ async def create_book_from_isbn(
     raw_isbn: str,
     extra_data: dict | None = None,
 ):
-    provider_data = await fetch_book_by_isbn(raw_isbn)
+    provider_data = await fetch_book_by_isbn(
+        db,
+        raw_isbn,
+    )
 
     if not provider_data:
         raise HTTPException(
@@ -42,7 +50,11 @@ async def create_book_from_isbn(
         .first()
     )
 
-    new_book = create_book(db, user_id, payload)
+    new_book = create_book(
+        db,
+        user_id,
+        payload,
+    )
 
     if existing:
         setattr(

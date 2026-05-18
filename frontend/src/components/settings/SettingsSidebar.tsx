@@ -1,6 +1,9 @@
-// frontend/src/components/settings/SettingsSidebar.tsx
-
-type Section = "locations" | "categories" | "backup" | "preferences";
+type Section =
+  | "locations"
+  | "categories"
+  | "providers"
+  | "backup"
+  | "preferences";
 
 type Props = {
   active: Section;
@@ -20,6 +23,11 @@ const items: {
   {
     id: "categories",
     label: "Categories",
+  },
+
+  {
+    id: "providers",
+    label: "Providers",
   },
 
   {
