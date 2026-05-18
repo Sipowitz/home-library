@@ -6,9 +6,13 @@ from app.services.providers.google_books import (
     GoogleBooksProvider,
 )
 
+from app.services.providers.openlibrary import (
+    OpenLibraryProvider,
+)
 
 PROVIDER_MAP = {
     "google_books": GoogleBooksProvider,
+    "openlibrary": OpenLibraryProvider,
 }
 
 
@@ -18,8 +22,12 @@ async def fetch_book_by_isbn(
 ) -> dict | None:
     provider_settings = (
         db.query(ProviderSetting)
-        .filter(ProviderSetting.enabled.is_(True))
-        .order_by(ProviderSetting.priority.asc())
+        .filter(
+            ProviderSetting.enabled.is_(True)
+        )
+        .order_by(
+            ProviderSetting.priority.asc()
+        )
         .all()
     )
 
@@ -34,12 +42,26 @@ async def fetch_book_by_isbn(
         provider = provider_class()
 
         try:
-            result = await provider.fetch_book_by_isbn(isbn)
+            result = (
+                await provider.fetch_book_by_isbn(
+                    isbn
+                )
+            )
 
             if result:
+                print(
+                    f"Provider success: {setting.provider_name}"
+                )
+
                 return result
 
-        except Exception:
+        except Exception as exc:
+            print(
+                f"Provider failed: {setting.provider_name}"
+            )
+
+            print(exc)
+
             continue
 
     return None

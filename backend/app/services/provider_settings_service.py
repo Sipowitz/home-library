@@ -13,6 +13,13 @@ DEFAULT_PROVIDERS = [
         "timeout_seconds": 5,
         "max_retries": 3,
     },
+    {
+        "provider_name": "openlibrary",
+        "enabled": True,
+        "priority": 2,
+        "timeout_seconds": 5,
+        "max_retries": 3,
+    },
 ]
 
 
