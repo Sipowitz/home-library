@@ -6,7 +6,9 @@ from sqlalchemy import (
     ForeignKey,
     DateTime,
 )
+
 from sqlalchemy.orm import relationship, backref
+
 from sqlalchemy.sql import func
 
 from .database import Base
@@ -19,7 +21,11 @@ from .database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
     username = Column(
         String,
@@ -111,13 +117,81 @@ class UserPreferences(Base):
 
 
 # -------------------
-# 🏷️ CATEGORY MODEL (HIERARCHICAL)
+# 🔌 PROVIDER SETTINGS
+# -------------------
+
+class ProviderSetting(Base):
+    __tablename__ = "provider_settings"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    provider_name = Column(
+        String,
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    enabled = Column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+
+    priority = Column(
+        Integer,
+        nullable=False,
+        default=100,
+        index=True,
+    )
+
+    api_key = Column(
+        String,
+        nullable=True,
+    )
+
+    timeout_seconds = Column(
+        Integer,
+        nullable=False,
+        default=5,
+    )
+
+    max_retries = Column(
+        Integer,
+        nullable=False,
+        default=3,
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+# -------------------
+# 🏷️ CATEGORY MODEL
 # -------------------
 
 class Category(Base):
     __tablename__ = "categories"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
     name = Column(
         String,
@@ -142,7 +216,6 @@ class Category(Base):
         cascade="all, delete",
     )
 
-    # ✅ ONE-TO-MANY
     books = relationship(
         "Book",
         back_populates="category",
@@ -211,7 +284,6 @@ class Book(Base):
         index=True,
     )
 
-    # ✅ SINGLE LOCATION
     location_id = Column(
         Integer,
         ForeignKey("locations.id"),
@@ -229,7 +301,6 @@ class Book(Base):
         nullable=True,
     )
 
-    # ✅ SINGLE CATEGORY
     category_id = Column(
         Integer,
         ForeignKey("categories.id"),
