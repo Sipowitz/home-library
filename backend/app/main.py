@@ -1,5 +1,3 @@
-from contextlib import asynccontextmanager
-
 from fastapi import (
     FastAPI,
 )
@@ -12,11 +10,13 @@ from fastapi.exceptions import (
     RequestValidationError,
 )
 
+from fastapi.staticfiles import (
+    StaticFiles,
+)
+
 from starlette.exceptions import (
     HTTPException as StarletteHTTPException,
 )
-
-from .database import SessionLocal
 
 from .routers import (
     books,
@@ -36,29 +36,21 @@ from .core.error_handlers import (
     general_exception_handler,
 )
 
-from .services.provider_settings_service import (
-    ensure_default_provider_settings,
+app = FastAPI()
+
+# ---------------------------
+# ✅ STATIC COVER STORAGE
+# ---------------------------
+
+app.mount(
+    "/covers",
+    StaticFiles(directory="covers"),
+    name="covers",
 )
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    db = SessionLocal()
-
-    try:
-        ensure_default_provider_settings(db)
-
-        yield
-
-    finally:
-        db.close()
-
-
-app = FastAPI(
-    lifespan=lifespan,
-)
-
+# ---------------------------
 # ✅ CORS
+# ---------------------------
 
 app.add_middleware(
     CORSMiddleware,

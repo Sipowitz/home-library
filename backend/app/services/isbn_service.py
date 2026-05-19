@@ -4,7 +4,13 @@ from sqlalchemy.orm import Session
 
 from app.models import Book
 
-from app.services.book_service import create_book
+from app.services.book_service import (
+    create_book,
+)
+
+from app.services.covers.download import (
+    download_cover,
+)
 
 from app.services.providers.manager import (
     fetch_book_by_isbn,
@@ -28,13 +34,28 @@ async def create_book_from_isbn(
             detail="No book found for this ISBN",
         )
 
+    remote_cover_url = provider_data.get(
+        "cover_url"
+    )
+
+    local_cover_path = (
+        await download_cover(
+            remote_cover_url
+        )
+    )
+
     payload = {
         "title": provider_data.get("title"),
         "author": provider_data.get("author"),
         "year": provider_data.get("year"),
-        "description": provider_data.get("description"),
+        "description": provider_data.get(
+            "description"
+        ),
         "isbn": provider_data.get("isbn"),
-        "cover_url": provider_data.get("cover_url"),
+        "cover_url": (
+            local_cover_path
+            or remote_cover_url
+        ),
         "read": False,
         "location_id": None,
         "category_id": [],
@@ -46,7 +67,10 @@ async def create_book_from_isbn(
     existing = (
         db.query(Book)
         .filter(Book.owner_id == user_id)
-        .filter(Book.isbn == payload.get("isbn"))
+        .filter(
+            Book.isbn
+            == payload.get("isbn")
+        )
         .first()
     )
 

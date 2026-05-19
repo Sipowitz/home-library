@@ -1,34 +1,17 @@
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Query,
-)
-
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-
 from pydantic import BaseModel
 
 import re
 
-from ..database import (
-    SessionLocal,
-)
+from ..database import SessionLocal
+from .. import models, schemas
 
-from .. import (
-    models,
-    schemas,
-)
+from ..auth.dependencies import get_current_user
 
-from ..auth.dependencies import (
-    get_current_user,
-)
+from ..services import book_service
 
-from ..services import (
-    book_service,
-)
-
-from ..services.google_books import (
+from ..services.isbn_service import (
     create_book_from_isbn,
 )
 
@@ -59,7 +42,10 @@ def clean_input(data: dict) -> dict:
 
         cleaned[key] = value
 
-    if "isbn" in cleaned and cleaned["isbn"]:
+    if (
+        "isbn" in cleaned
+        and cleaned["isbn"]
+    ):
         cleaned["isbn"] = re.sub(
             r"[^0-9X]",
             "",
@@ -90,26 +76,46 @@ def get_db():
 )
 def get_books(
     skip: int = Query(0, ge=0),
+
     limit: int = Query(20, le=100),
+
     search: str | None = Query(None),
+
     category_id: int | None = Query(None),
+
     location_id: int | None = Query(None),
+
     read: bool | None = Query(None),
+
     sort: str = Query("author"),
+
     order: str = Query("asc"),
+
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
 ):
     return book_service.get_books(
         db=db,
+
         user_id=current_user.id,
+
         skip=skip,
+
         limit=limit,
+
         search=search,
+
         category_id=category_id,
+
         location_id=location_id,
+
         read=read,
+
         sort=sort,
+
         order=order,
     )
 
@@ -121,6 +127,7 @@ def get_books(
 @router.get("/preview-isbn/{isbn}")
 async def preview_book_by_isbn(
     isbn: str,
+
     db: Session = Depends(get_db),
 ):
     result = await fetch_book_by_isbn(
@@ -131,7 +138,7 @@ async def preview_book_by_isbn(
     if not result:
         raise HTTPException(
             status_code=404,
-            detail="No book found for this ISBN",
+            detail="Book not found",
         )
 
     return result
@@ -147,8 +154,12 @@ async def preview_book_by_isbn(
 )
 def get_book(
     book_id: int,
+
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
 ):
     book = book_service.get_book(
         db,
@@ -175,8 +186,12 @@ def get_book(
 )
 def create_book(
     book: schemas.BookCreate,
+
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
 ):
     data = clean_input(
         book.model_dump()
@@ -211,8 +226,12 @@ def create_book(
 )
 async def create_book_from_isbn_endpoint(
     payload: ISBNRequest,
+
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
 ):
     isbn = payload.isbn.strip()
 
@@ -239,9 +258,14 @@ async def create_book_from_isbn_endpoint(
 )
 def update_book(
     book_id: int,
+
     updated: schemas.BookUpdate,
+
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
 ):
     data = clean_input(
         updated.model_dump(
@@ -275,8 +299,12 @@ def update_book(
 )
 def delete_book(
     book_id: int,
+
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
 ):
     success = book_service.delete_book(
         db,
