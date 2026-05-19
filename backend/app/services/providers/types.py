@@ -1,10 +1,7 @@
-from dataclasses import dataclass
-
-from typing import Any
+from pydantic import BaseModel
 
 
-@dataclass
-class ProviderResult:
+class ProviderResult(BaseModel):
     provider: str
 
     success: bool
@@ -13,6 +10,6 @@ class ProviderResult:
 
     duration_ms: int
 
-    data: dict[str, Any] | None = None
+    data: dict | None = None
 
     error: str | None = None

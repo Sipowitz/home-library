@@ -17,6 +17,11 @@ from ..services.isbn_service import (
 
 from ..services.providers.manager import (
     fetch_book_by_isbn,
+    fetch_all_provider_results,
+)
+
+from ..services.providers.types import (
+    ProviderResult,
 )
 
 router = APIRouter(
@@ -142,6 +147,47 @@ async def preview_book_by_isbn(
         )
 
     return result
+
+
+# -------------------
+# 🆕 METADATA CANDIDATES
+# -------------------
+
+@router.get(
+    "/{book_id}/metadata-candidates",
+    response_model=list[ProviderResult],
+)
+async def get_metadata_candidates(
+    book_id: int,
+
+    db: Session = Depends(get_db),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
+):
+    book = book_service.get_book(
+        db,
+        current_user.id,
+        book_id,
+    )
+
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found",
+        )
+
+    if not book.isbn:
+        raise HTTPException(
+            status_code=400,
+            detail="Book has no ISBN",
+        )
+
+    return await fetch_all_provider_results(
+        db,
+        book.isbn,
+    )
 
 
 # -------------------

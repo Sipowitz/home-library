@@ -29,3 +29,17 @@ export interface ProviderSettingUpdate {
 
   max_retries?: number;
 }
+
+export interface ProviderResult {
+  provider: string;
+
+  success: boolean;
+
+  isbn: string;
+
+  duration_ms: number;
+
+  data: Record<string, any> | null;
+
+  error: string | null;
+}
