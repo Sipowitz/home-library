@@ -73,7 +73,7 @@ export function MetadataComparisonPanel({ bookId }: Props) {
         <h3 className="text-lg font-semibold">Metadata Comparison</h3>
 
         <p className="text-sm text-gray-400 mt-1">
-          Compare metadata and covers returned by all enabled providers.
+          Compare metadata returned by all enabled providers.
         </p>
       </div>
 
@@ -90,41 +90,45 @@ export function MetadataComparisonPanel({ bookId }: Props) {
         {providers.map((provider) => {
           const data = provider.data || {};
 
-          const coverCandidates = data.cover_candidates || [];
-
           return (
             <div
               key={provider.provider}
               className="
-                rounded-2xl
-                border border-gray-800
-                bg-gray-900/60
-                p-5
-                space-y-5
-              "
+                  rounded-2xl
+                  border border-gray-800
+                  bg-gray-900/60
+                  p-5
+                  space-y-5
+                "
             >
               {/* PROVIDER HEADER */}
 
               <div
                 className="
-                  flex
-                  items-start
-                  justify-between
-                  gap-4
-                "
+                    flex
+                    items-start
+                    justify-between
+                    gap-4
+                  "
               >
                 <div>
                   <h4
                     className="
-                      font-semibold
-                      text-lg
-                      capitalize
-                    "
+                        font-semibold
+                        text-lg
+                        capitalize
+                      "
                   >
                     {provider.provider.replace("_", " ")}
                   </h4>
 
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p
+                    className="
+                        text-xs
+                        text-gray-400
+                        mt-1
+                      "
+                  >
                     {provider.duration_ms}
                     ms
                   </p>
@@ -134,133 +138,30 @@ export function MetadataComparisonPanel({ bookId }: Props) {
                   {provider.success ? (
                     <span
                       className="
-                        text-xs
-                        px-2 py-1
-                        rounded-full
-                        bg-green-500/20
-                        text-green-300
-                      "
+                          text-xs
+                          px-2 py-1
+                          rounded-full
+                          bg-green-500/20
+                          text-green-300
+                        "
                     >
                       Success
                     </span>
                   ) : (
                     <span
                       className="
-                        text-xs
-                        px-2 py-1
-                        rounded-full
-                        bg-red-500/20
-                        text-red-300
-                      "
+                          text-xs
+                          px-2 py-1
+                          rounded-full
+                          bg-red-500/20
+                          text-red-300
+                        "
                     >
                       Failed
                     </span>
                   )}
                 </div>
               </div>
-
-              {/* PRIMARY COVER */}
-
-              {data.cover_url && (
-                <div>
-                  <p
-                    className="
-                      text-xs
-                      text-gray-500
-                      mb-2
-                    "
-                  >
-                    Selected Cover
-                  </p>
-
-                  <img
-                    src={data.cover_url}
-                    alt={data.title}
-                    className="
-                      w-full
-                      h-72
-                      object-contain
-                      rounded-xl
-                      bg-black/30
-                    "
-                  />
-                </div>
-              )}
-
-              {/* COVER CANDIDATES */}
-
-              {!!coverCandidates.length && (
-                <div>
-                  <div
-                    className="
-                      flex
-                      items-center
-                      justify-between
-                      mb-3
-                    "
-                  >
-                    <p
-                      className="
-                        text-xs
-                        text-gray-500
-                      "
-                    >
-                      Cover Candidates
-                    </p>
-
-                    <span
-                      className="
-                        text-xs
-                        text-gray-400
-                      "
-                    >
-                      {coverCandidates.length} covers
-                    </span>
-                  </div>
-
-                  <div
-                    className="
-                      flex
-                      gap-3
-                      overflow-x-auto
-                      pb-2
-                    "
-                  >
-                    {coverCandidates.map((candidate: any, index: number) => (
-                      <div
-                        key={`${candidate.url}-${index}`}
-                        className="
-                            min-w-[120px]
-                            space-y-2
-                          "
-                      >
-                        <img
-                          src={candidate.url}
-                          alt={`Cover ${index}`}
-                          className="
-                              w-[120px]
-                              h-[180px]
-                              object-cover
-                              rounded-lg
-                              border border-gray-700
-                              bg-black/30
-                            "
-                        />
-
-                        <div
-                          className="
-                              text-xs
-                              text-center
-                              text-gray-400
-                            "
-                        >
-                          {candidate.label}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* METADATA */}
 
@@ -282,24 +183,24 @@ export function MetadataComparisonPanel({ bookId }: Props) {
                 <div>
                   <p
                     className="
-                      text-xs
-                      text-gray-500
-                      mb-1
-                    "
+                        text-xs
+                        text-gray-500
+                        mb-1
+                      "
                   >
                     Description
                   </p>
 
                   <div
                     className="
-                      text-sm
-                      text-gray-300
-                      max-h-48
-                      overflow-y-auto
-                      rounded-lg
-                      bg-black/20
-                      p-3
-                    "
+                        text-sm
+                        text-gray-300
+                        max-h-48
+                        overflow-y-auto
+                        rounded-lg
+                        bg-black/20
+                        p-3
+                      "
                   >
                     {data.description || "—"}
                   </div>
