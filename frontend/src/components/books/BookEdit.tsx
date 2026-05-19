@@ -416,7 +416,16 @@ export function BookEdit({
               pt-6
             "
           >
-            <MetadataComparisonPanel bookId={editData.id} />
+            <MetadataComparisonPanel
+              bookId={editData.id}
+              currentData={editData || {}}
+              onAdoptField={(field, value) => {
+                setEditData({
+                  ...editData!,
+                  [field]: value,
+                });
+              }}
+            />
           </div>
         )}
       </div>
@@ -430,6 +439,15 @@ export function BookEdit({
         onClose={() => setCoverModalOpen(false)}
         title={editData?.title || "Book Covers"}
         covers={allCoverCandidates}
+        selectedCoverUrl={editData?.cover_url}
+        onSelectCover={(cover) => {
+          setEditData({
+            ...editData!,
+            cover_url: cover.url,
+          });
+
+          setCoverModalOpen(false);
+        }}
       />
     </>
   );

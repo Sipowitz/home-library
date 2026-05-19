@@ -14,9 +14,20 @@ type Props = {
   title?: string;
 
   covers: CoverCandidate[];
+
+  onSelectCover?: (cover: CoverCandidate) => void;
+
+  selectedCoverUrl?: string;
 };
 
-export function CoverBrowserModal({ open, onClose, title, covers }: Props) {
+export function CoverBrowserModal({
+  open,
+  onClose,
+  title,
+  covers,
+  onSelectCover,
+  selectedCoverUrl,
+}: Props) {
   if (!open) return null;
 
   return (
@@ -98,55 +109,83 @@ export function CoverBrowserModal({ open, onClose, title, covers }: Props) {
                 gap-6
               "
             >
-              {covers.map((cover, index) => (
-                <div
-                  key={`${cover.url}-${index}`}
-                  className="
-                      space-y-3
-                    "
-                >
-                  <div
+              {covers.map((cover, index) => {
+                const selected = selectedCoverUrl === cover.url;
+
+                return (
+                  <button
+                    key={`${cover.url}-${index}`}
+                    type="button"
+                    onClick={() => onSelectCover?.(cover)}
                     className="
-                        aspect-[2/3]
-                        rounded-xl
-                        overflow-hidden
-                        bg-black/30
-                        border border-gray-800
+                        text-left
+                        space-y-3
+                        group
                       "
                   >
-                    <img
-                      src={cover.url}
-                      alt={`Cover ${index}`}
-                      className="
-                          w-full
-                          h-full
-                          object-cover
-                        "
-                    />
-                  </div>
-
-                  <div className="space-y-1">
                     <div
-                      className="
-                          text-sm
-                          font-medium
-                          capitalize
-                        "
+                      className={`
+                          aspect-[2/3]
+                          rounded-xl
+                          overflow-hidden
+                          bg-black/30
+                          border
+                          transition
+                          ${
+                            selected
+                              ? "border-blue-500 ring-2 ring-blue-500/40"
+                              : "border-gray-800 group-hover:border-gray-600"
+                          }
+                        `}
                     >
-                      {cover.provider.replace("_", " ")}
+                      <img
+                        src={cover.url}
+                        alt={`Cover ${index}`}
+                        className="
+                            w-full
+                            h-full
+                            object-cover
+                            transition
+                            group-hover:scale-[1.02]
+                          "
+                      />
                     </div>
 
-                    <div
-                      className="
-                          text-xs
-                          text-gray-400
-                        "
-                    >
-                      {cover.label}
+                    <div className="space-y-1">
+                      <div
+                        className="
+                            text-sm
+                            font-medium
+                            capitalize
+                          "
+                      >
+                        {cover.provider.replace("_", " ")}
+                      </div>
+
+                      <div
+                        className="
+                            text-xs
+                            text-gray-400
+                          "
+                      >
+                        {cover.label}
+                      </div>
+
+                      {selected && (
+                        <div
+                          className="
+                              text-xs
+                              text-blue-400
+                              font-medium
+                            "
+                        >
+                          Selected
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
