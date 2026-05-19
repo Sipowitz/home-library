@@ -78,20 +78,88 @@ class OpenLibraryProvider(BookProvider):
             [],
         )
 
-        cover_url = (
-            f"{OPENLIBRARY_COVER_URL}/"
-            f"{isbn}-L.jpg"
+        publishers = book.get(
+            "publisher",
+            [],
+        )
+
+        languages = book.get(
+            "language",
+            [],
+        )
+
+        subtitle = book.get(
+            "subtitle",
+        )
+
+        cover_candidates = []
+
+        for size in [
+            "L",
+            "M",
+            "S",
+        ]:
+            cover_url = (
+                f"{OPENLIBRARY_COVER_URL}/"
+                f"{isbn}-{size}.jpg"
+            )
+
+            cover_candidates.append(
+                {
+                    "provider": self.provider_name,
+                    "label": size,
+                    "url": cover_url,
+                }
+            )
+
+        primary_cover = (
+            cover_candidates[0]["url"]
+            if cover_candidates
+            else None
         )
 
         return {
             "title": title,
-            "author": ", ".join(authors)
-            if authors
-            else "Unknown Author",
+
+            "subtitle": subtitle,
+
+            "author": (
+                ", ".join(authors)
+                if authors
+                else "Unknown Author"
+            ),
+
+            "publisher": (
+                publishers[0]
+                if publishers
+                else None
+            ),
+
+            "page_count": (
+                book.get(
+                    "number_of_pages_median"
+                )
+            ),
+
+            "language": (
+                languages[0]
+                if languages
+                else None
+            ),
+
             "year": year,
+
             "description": None,
+
             "isbn": isbn,
-            "cover_url": cover_url,
+
+            "cover_url": primary_cover,
+
+            "cover_candidates": (
+                cover_candidates
+            ),
+
             "read": False,
+
             "provider": self.provider_name,
         }

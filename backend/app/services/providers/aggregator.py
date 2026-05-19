@@ -7,10 +7,13 @@ from app.services.providers.types import (
 )
 
 # --------------------------------------------------
-# Aggregation Rules (v2)
+# Aggregation Rules (v3)
 # --------------------------------------------------
 #
 # title:
+#   → first non-empty value
+#
+# subtitle:
 #   → first non-empty value
 #
 # author:
@@ -19,8 +22,20 @@ from app.services.providers.types import (
 # description:
 #   → longest non-empty string
 #
+# publisher:
+#   → first non-empty value
+#
+# page_count:
+#   → most common valid value
+#
+# language:
+#   → first non-empty value
+#
 # cover_url:
 #   → first VALID non-placeholder cover
+#
+# cover_candidates:
+#   → merged provider candidates
 #
 # year:
 #   → most common valid year
@@ -44,28 +59,6 @@ from app.services.providers.types import (
 # providers with real artwork.
 #
 # --------------------------------------------------
-# Notes
-# --------------------------------------------------
-#
-# These rules are intentionally deterministic
-# and simple for v2.
-#
-# Future versions may introduce:
-#
-# - provider weighting
-# - confidence scoring
-# - image dimension comparison
-# - provider trust ranking
-# - metadata provenance
-# - user-selectable merge strategies
-#
-# This file should ONLY contain metadata
-# aggregation logic.
-#
-# Providers themselves should NEVER decide
-# which metadata is "best".
-#
-# --------------------------------------------------
 
 
 INVALID_COVER_PATTERNS = [
@@ -86,7 +79,8 @@ def first_non_empty(values):
 
 def longest_string(values):
     valid = [
-        v for v in values
+        v
+        for v in values
         if isinstance(v, str)
         and v.strip()
     ]
@@ -102,7 +96,8 @@ def longest_string(values):
 
 def most_common(values):
     valid = [
-        v for v in values
+        v
+        for v in values
         if v is not None
     ]
 
@@ -122,7 +117,9 @@ def is_valid_cover_url(
 
     lowered = url.lower()
 
-    for pattern in INVALID_COVER_PATTERNS:
+    for pattern in (
+        INVALID_COVER_PATTERNS
+    ):
         if pattern.lower() in lowered:
             return False
 
@@ -140,11 +137,60 @@ def first_valid_cover(
         )
     ]
 
-    return first_non_empty(valid)
+    return first_non_empty(
+        valid
+    )
+
+
+def merge_cover_candidates(
+    provider_results: list[
+        ProviderResult
+    ],
+):
+    merged = []
+
+    seen = set()
+
+    for result in provider_results:
+        if (
+            not result.success
+            or not result.data
+        ):
+            continue
+
+        candidates = (
+            result.data.get(
+                "cover_candidates",
+                [],
+            )
+            or []
+        )
+
+        for candidate in candidates:
+            url = candidate.get("url")
+
+            if (
+                not url
+                or not is_valid_cover_url(
+                    url
+                )
+            ):
+                continue
+
+            if url in seen:
+                continue
+
+            seen.add(url)
+
+            merged.append(candidate)
+
+    return merged
 
 
 def find_source(
-    provider_results: list[ProviderResult],
+    provider_results: list[
+        ProviderResult
+    ],
     field: str,
     selected_value,
 ):
@@ -161,7 +207,9 @@ def find_source(
 
 
 def aggregate_metadata(
-    provider_results: list[ProviderResult],
+    provider_results: list[
+        ProviderResult
+    ],
 ) -> dict | None:
     successful = [
         r.data
@@ -171,13 +219,19 @@ def aggregate_metadata(
 
     if not successful:
         logger.warning(
-            "Aggregation failed: no successful providers"
+            "Aggregation failed: "
+            "no successful providers"
         )
 
         return None
 
     titles = [
         r.get("title")
+        for r in successful
+    ]
+
+    subtitles = [
+        r.get("subtitle")
         for r in successful
     ]
 
@@ -188,6 +242,21 @@ def aggregate_metadata(
 
     descriptions = [
         r.get("description")
+        for r in successful
+    ]
+
+    publishers = [
+        r.get("publisher")
+        for r in successful
+    ]
+
+    page_counts = [
+        r.get("page_count")
+        for r in successful
+    ]
+
+    languages = [
+        r.get("language")
         for r in successful
     ]
 
@@ -211,16 +280,52 @@ def aggregate_metadata(
             titles
         ),
 
-        "author": longest_string(
-            authors
+        "subtitle": (
+            first_non_empty(
+                subtitles
+            )
         ),
 
-        "description": longest_string(
-            descriptions
+        "author": (
+            longest_string(
+                authors
+            )
         ),
 
-        "cover_url": first_valid_cover(
-            covers
+        "description": (
+            longest_string(
+                descriptions
+            )
+        ),
+
+        "publisher": (
+            first_non_empty(
+                publishers
+            )
+        ),
+
+        "page_count": (
+            most_common(
+                page_counts
+            )
+        ),
+
+        "language": (
+            first_non_empty(
+                languages
+            )
+        ),
+
+        "cover_url": (
+            first_valid_cover(
+                covers
+            )
+        ),
+
+        "cover_candidates": (
+            merge_cover_candidates(
+                provider_results
+            )
         ),
 
         "year": most_common(
@@ -236,7 +341,15 @@ def aggregate_metadata(
         "Aggregation decisions:"
     )
 
-    for field, value in aggregated.items():
+    for (
+        field,
+        value,
+    ) in aggregated.items():
+        if field == (
+            "cover_candidates"
+        ):
+            continue
+
         source = find_source(
             provider_results,
             field,
@@ -244,9 +357,19 @@ def aggregate_metadata(
         )
 
         logger.info(
-            "Field '%s' selected from provider '%s'",
+            "Field '%s' selected "
+            "from provider '%s'",
             field,
             source,
         )
+
+    logger.info(
+        "Merged %s cover candidates",
+        len(
+            aggregated[
+                "cover_candidates"
+            ]
+        ),
+    )
 
     return aggregated
