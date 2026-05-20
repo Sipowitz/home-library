@@ -1,5 +1,5 @@
-import { X } from "lucide-react";
-import { useRef, useState } from "react";
+import { Pencil, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { useLocations } from "../../context/LocationContext";
 import { useCategories } from "../../context/CategoryContext";
@@ -37,11 +37,19 @@ export function BookPanel({
 
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  useEffect(() => {
+    setConfirmDelete(false);
+  }, [book, editing]);
+
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // -------------------
-  // ❌ CANCEL
-  // -------------------
+  function handleEdit() {
+    if (!book) return;
+
+    setEditing(true);
+
+    setEditData(book);
+  }
 
   function handleCancel() {
     if (!book?.id) {
@@ -59,7 +67,7 @@ export function BookPanel({
     <>
       {/* BACKDROP */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
@@ -69,19 +77,49 @@ export function BookPanel({
         sm:left-auto sm:right-4
         sm:w-[720px] lg:w-[800px]
         max-h-[95vh]
-        bg-gray-900/95 backdrop-blur
-        p-5 shadow-2xl rounded-2xl border border-gray-800
-        z-50 flex flex-col overflow-hidden"
+        overflow-hidden
+        rounded-2xl border border-gray-800
+        bg-gray-900/95
+        p-5
+        shadow-2xl
+        backdrop-blur
+        z-50 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER */}
-        <div className="flex items-center justify-between mb-3 pr-2">
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition"
-          >
-            <X />
-          </button>
+        <div className="mb-3 flex items-center justify-between pr-2">
+          <div />
+
+          <div className="flex items-center gap-2">
+            {!editing && (
+              <button
+                onClick={handleEdit}
+                className="group flex h-10 w-10 items-center justify-center
+                rounded-xl border border-white/10
+                bg-white/5 text-gray-300
+                backdrop-blur-md
+                transition-all duration-200
+                hover:border-yellow-500/30
+                hover:bg-yellow-500/10
+                hover:text-yellow-300"
+                aria-label="Edit book"
+                title="Edit book"
+              >
+                <Pencil
+                  size={18}
+                  className="transition-transform duration-200 group-hover:scale-110"
+                />
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="text-gray-400 transition hover:text-white"
+              aria-label="Close panel"
+            >
+              <X />
+            </button>
+          </div>
         </div>
 
         {/* CONTENT */}
@@ -108,45 +146,41 @@ export function BookPanel({
           )}
 
           {/* ACTIONS */}
-          <div className="mt-5 space-y-2 pb-2">
-            {!editing ? (
-              <>
-                <button
-                  onClick={() => {
-                    setEditing(true);
+          {editing && (
+            <div className="mt-6 space-y-3 border-t border-gray-800 pt-4 pb-2">
+              <button
+                onClick={onSave}
+                className="w-full rounded-xl bg-green-600 py-2.5 font-medium
+                transition hover:bg-green-700"
+              >
+                Save
+              </button>
 
-                    setEditData(book);
-                  }}
-                  className="bg-yellow-600 hover:bg-yellow-700 transition w-full py-2 rounded"
-                >
-                  Edit
-                </button>
+              <button
+                onClick={handleCancel}
+                className="w-full rounded-xl bg-gray-700 py-2.5 font-medium
+                transition hover:bg-gray-600"
+              >
+                Cancel
+              </button>
 
+              <div className="pt-2">
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="bg-red-600 hover:bg-red-700 transition w-full py-2 rounded"
+                  className="flex w-full items-center justify-center gap-2
+                  rounded-xl border border-red-500/30
+                  bg-red-500/10 py-2.5 font-medium text-red-300
+                  transition-all duration-200
+                  hover:border-red-500/50
+                  hover:bg-red-500/20
+                  hover:text-red-200"
                 >
-                  Delete
+                  <Trash2 size={16} />
+                  Delete Book
                 </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={onSave}
-                  className="bg-green-600 hover:bg-green-700 transition w-full py-2 rounded"
-                >
-                  Save
-                </button>
-
-                <button
-                  onClick={handleCancel}
-                  className="bg-gray-600 hover:bg-gray-500 transition w-full py-2 rounded"
-                >
-                  Cancel
-                </button>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
