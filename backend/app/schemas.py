@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from typing import Optional, List
+from typing import Optional, List, Any
 
 from datetime import datetime
 
@@ -91,7 +91,9 @@ class ProviderSettingUpdate(BaseModel):
     max_retries: Optional[int] = None
 
 
-class ProviderSettingResponse(ProviderSettingBase):
+class ProviderSettingResponse(
+    ProviderSettingBase
+):
     id: int
 
     created_at: datetime
@@ -141,8 +143,8 @@ class CategoryResponse(BaseModel):
         default_factory=CategoryStats
     )
 
-    children: List["CategoryResponse"] = Field(
-        default_factory=list
+    children: List["CategoryResponse"] = (
+        Field(default_factory=list)
     )
 
     class Config:
@@ -232,6 +234,88 @@ class BookResponse(BookBase):
 
 
 # -------------------
+# 📦 METADATA SNAPSHOTS
+# -------------------
+
+class NormalizedMetadataRecordResponse(
+    BaseModel
+):
+    id: int
+
+    snapshot_id: int
+
+    provider: str
+
+    title: Optional[str] = None
+
+    subtitle: Optional[str] = None
+
+    authors_json: Optional[
+        List[Any]
+    ] = None
+
+    publisher: Optional[str] = None
+
+    language: Optional[str] = None
+
+    page_count: Optional[int] = None
+
+    description: Optional[str] = None
+
+    published_year: Optional[int] = None
+
+    subjects_json: Optional[
+        List[Any]
+    ] = None
+
+    cover_candidates_json: Optional[
+        List[Any]
+    ] = None
+
+    normalizer_version: str
+
+    normalized_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProviderMetadataSnapshotResponse(
+    BaseModel
+):
+    id: int
+
+    book_id: int
+
+    provider: str
+
+    provider_book_id: Optional[
+        str
+    ] = None
+
+    isbn_query: Optional[str] = None
+
+    raw_json: dict
+
+    http_status: Optional[int] = None
+
+    http_etag: Optional[str] = None
+
+    normalizer_version: str
+
+    fetched_at: datetime
+
+    created_at: datetime
+
+    normalized_records: List[
+        NormalizedMetadataRecordResponse
+    ] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+# -------------------
 # 📦 PAGINATION
 # -------------------
 
@@ -271,9 +355,9 @@ class LocationResponse(BaseModel):
 
     parent_id: Optional[int]
 
-    children: List["LocationResponse"] = Field(
-        default_factory=list
-    )
+    children: List[
+        "LocationResponse"
+    ] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

@@ -7,6 +7,8 @@ from sqlalchemy import (
     DateTime,
 )
 
+from sqlalchemy.dialects.postgresql import JSONB
+
 from sqlalchemy.orm import relationship, backref
 
 from sqlalchemy.sql import func
@@ -348,6 +350,201 @@ class Book(Base):
     owner = relationship(
         "User",
         back_populates="books",
+    )
+
+    # -------------------
+    # 📦 METADATA SNAPSHOTS
+    # -------------------
+
+    metadata_snapshots = relationship(
+        "ProviderMetadataSnapshot",
+        back_populates="book",
+        cascade="all, delete-orphan",
+    )
+
+
+# -------------------
+# 📦 PROVIDER METADATA SNAPSHOTS
+# -------------------
+
+class ProviderMetadataSnapshot(Base):
+    __tablename__ = "provider_metadata_snapshots"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    book_id = Column(
+        Integer,
+        ForeignKey(
+            "books.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    provider = Column(
+        String,
+        nullable=False,
+        index=True,
+    )
+
+    provider_book_id = Column(
+        String,
+        nullable=True,
+        index=True,
+    )
+
+    isbn_query = Column(
+        String,
+        nullable=True,
+        index=True,
+    )
+
+    raw_json = Column(
+        JSONB,
+        nullable=False,
+    )
+
+    http_status = Column(
+        Integer,
+        nullable=True,
+    )
+
+    http_etag = Column(
+        String,
+        nullable=True,
+    )
+
+    normalizer_version = Column(
+        String,
+        nullable=False,
+        default="v1",
+    )
+
+    fetched_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        index=True,
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    book = relationship(
+        "Book",
+        back_populates="metadata_snapshots",
+    )
+
+    normalized_records = relationship(
+        "NormalizedMetadataRecord",
+        back_populates="snapshot",
+        cascade="all, delete-orphan",
+    )
+
+
+# -------------------
+# 🧠 NORMALIZED METADATA RECORDS
+# -------------------
+
+class NormalizedMetadataRecord(Base):
+    __tablename__ = "normalized_metadata_records"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    snapshot_id = Column(
+        Integer,
+        ForeignKey(
+            "provider_metadata_snapshots.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    provider = Column(
+        String,
+        nullable=False,
+        index=True,
+    )
+
+    title = Column(
+        String,
+        nullable=True,
+    )
+
+    subtitle = Column(
+        String,
+        nullable=True,
+    )
+
+    authors_json = Column(
+        JSONB,
+        nullable=True,
+    )
+
+    publisher = Column(
+        String,
+        nullable=True,
+    )
+
+    language = Column(
+        String,
+        nullable=True,
+    )
+
+    page_count = Column(
+        Integer,
+        nullable=True,
+    )
+
+    description = Column(
+        String,
+        nullable=True,
+    )
+
+    published_year = Column(
+        Integer,
+        nullable=True,
+    )
+
+    subjects_json = Column(
+        JSONB,
+        nullable=True,
+    )
+
+    cover_candidates_json = Column(
+        JSONB,
+        nullable=True,
+    )
+
+    normalizer_version = Column(
+        String,
+        nullable=False,
+        default="v1",
+    )
+
+    normalized_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        index=True,
+    )
+
+    snapshot = relationship(
+        "ProviderMetadataSnapshot",
+        back_populates="normalized_records",
     )
 
 

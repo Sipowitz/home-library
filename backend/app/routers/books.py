@@ -1,13 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+
 from sqlalchemy.orm import Session
+
 from pydantic import BaseModel
 
 import re
 
 from ..database import SessionLocal
+
 from .. import models, schemas
 
-from ..auth.dependencies import get_current_user
+from ..auth.dependencies import (
+    get_current_user,
+)
 
 from ..services import book_service
 
@@ -188,6 +193,96 @@ async def get_metadata_candidates(
         db,
         book.isbn,
     )
+
+
+# -------------------
+# 📦 BOOK SNAPSHOTS
+# -------------------
+
+@router.get(
+    "/{book_id}/metadata-snapshots",
+    response_model=list[
+        schemas.ProviderMetadataSnapshotResponse
+    ],
+)
+def get_book_metadata_snapshots(
+    book_id: int,
+
+    db: Session = Depends(get_db),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
+):
+    book = book_service.get_book(
+        db,
+        current_user.id,
+        book_id,
+    )
+
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found",
+        )
+
+    snapshots = (
+        db.query(
+            models.ProviderMetadataSnapshot
+        )
+        .filter(
+            models.ProviderMetadataSnapshot.book_id
+            == book.id
+        )
+        .order_by(
+            models.ProviderMetadataSnapshot.fetched_at.desc()
+        )
+        .all()
+    )
+
+    return snapshots
+
+
+# -------------------
+# 📦 SNAPSHOT DETAIL
+# -------------------
+
+@router.get(
+    "/metadata-snapshots/{snapshot_id}",
+    response_model=schemas.ProviderMetadataSnapshotResponse,
+)
+def get_metadata_snapshot(
+    snapshot_id: int,
+
+    db: Session = Depends(get_db),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
+):
+    snapshot = (
+        db.query(
+            models.ProviderMetadataSnapshot
+        )
+        .join(models.Book)
+        .filter(
+            models.ProviderMetadataSnapshot.id
+            == snapshot_id
+        )
+        .filter(
+            models.Book.owner_id
+            == current_user.id
+        )
+        .first()
+    )
+
+    if not snapshot:
+        raise HTTPException(
+            status_code=404,
+            detail="Snapshot not found",
+        )
+
+    return snapshot
 
 
 # -------------------
