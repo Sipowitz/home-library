@@ -2,6 +2,8 @@ import client from "./client";
 
 import type { Book } from "../types/book";
 
+import type { ProviderResult } from "../types/provider";
+
 type PaginatedBooksResponse = {
   items: Book[];
   total: number;
@@ -65,6 +67,12 @@ type BookUpdateInput = {
   category_id?: number | null;
 };
 
+type CreateBookFromISBNPayload = {
+  book: BookCreateInput;
+
+  provider_results: ProviderResult[];
+};
+
 export async function getBooks(
   skip: number,
   limit: number,
@@ -106,8 +114,10 @@ export async function createBook(book: BookCreateInput): Promise<Book> {
   return res.data;
 }
 
-export async function createBookFromISBN(book: BookCreateInput): Promise<Book> {
-  const res = await client.post("/books/from-isbn", book);
+export async function createBookFromISBN(
+  payload: CreateBookFromISBNPayload,
+): Promise<Book> {
+  const res = await client.post("/books/from-isbn", payload);
 
   return res.data;
 }

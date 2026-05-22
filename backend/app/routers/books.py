@@ -16,10 +16,6 @@ from ..auth.dependencies import (
 
 from ..services import book_service
 
-from ..services.isbn_service import (
-    create_book_from_isbn,
-)
-
 from ..services.providers.manager import (
     fetch_book_by_isbn,
     fetch_all_provider_results,
@@ -27,16 +23,19 @@ from ..services.providers.manager import (
 
 from ..services.providers.types import (
     ProviderResult,
+    CreateBookWithMetadataRequest,
 )
+
+from ..services.providers.metadata_snapshot_service import (
+    persist_provider_result,
+)
+
+from ..core.logging import logger
 
 router = APIRouter(
     prefix="/books",
     tags=["Books"],
 )
-
-
-class ISBNRequest(BaseModel):
-    isbn: str
 
 
 class DeleteResponse(BaseModel):
@@ -152,6 +151,20 @@ async def preview_book_by_isbn(
         )
 
     return result
+
+@router.get(
+    "/provider-results/{isbn}",
+    response_model=list[ProviderResult],
+)
+async def get_provider_results_by_isbn(
+    isbn: str,
+
+    db: Session = Depends(get_db),
+):
+    return await fetch_all_provider_results(
+        db,
+        isbn,
+    )
 
 
 # -------------------
@@ -366,7 +379,7 @@ def create_book(
     response_model=schemas.BookResponse,
 )
 async def create_book_from_isbn_endpoint(
-    payload: ISBNRequest,
+    payload: CreateBookWithMetadataRequest,
 
     db: Session = Depends(get_db),
 
@@ -374,7 +387,14 @@ async def create_book_from_isbn_endpoint(
         get_current_user
     ),
 ):
-    isbn = payload.isbn.strip()
+    book_data = clean_input(
+        payload.book
+    )
+
+    isbn = (
+        book_data.get("isbn", "")
+        .strip()
+    )
 
     if not isbn:
         raise HTTPException(
@@ -382,11 +402,57 @@ async def create_book_from_isbn_endpoint(
             detail="ISBN is required",
         )
 
-    return await create_book_from_isbn(
-        db,
-        current_user.id,
-        isbn,
+    # -------------------
+    # 📚 CREATE BOOK
+    # -------------------
+
+    created_book = (
+        book_service.create_book(
+            db,
+            current_user.id,
+            book_data,
+        )
     )
+
+    # -------------------
+    # 📦 PERSIST SNAPSHOTS
+    # -------------------
+
+    for result_payload in (
+        payload.provider_results
+    ):
+        try:
+            provider_result = (
+                ProviderResult(
+                    provider=result_payload.provider,
+
+                    success=result_payload.success,
+
+                    isbn=result_payload.isbn,
+
+                    duration_ms=result_payload.duration_ms,
+
+                    data=result_payload.data,
+
+                    error=result_payload.error,
+                )
+            )
+
+            persist_provider_result(
+                db=db,
+                book_id=created_book.id,
+                provider_result=provider_result,
+            )
+
+        except Exception as exc:
+            logger.exception(
+                "Failed to persist provider result during book creation: %s",
+                exc,
+            )
+
+    db.commit()
+
+    return created_book
 
 
 # -------------------

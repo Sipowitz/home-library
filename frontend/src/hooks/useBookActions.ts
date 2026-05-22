@@ -4,9 +4,13 @@ import toast from "react-hot-toast";
 
 import { previewBookByISBN } from "../api/books";
 
+import { fetchProviderResultsByISBN } from "../api/providerResults";
+
 import { useCategories } from "../context/CategoryContext";
 
 import type { Book, BookDraft } from "../types/book";
+
+import type { ProviderResult } from "../types/provider";
 
 type Params = {
   newBook: BookDraft;
@@ -15,7 +19,11 @@ type Params = {
 
   addBook: (b: any) => Promise<Book>;
 
-  addBookFromISBN: (b: any) => Promise<Book>;
+  addBookFromISBN: (payload: {
+    book: any;
+
+    provider_results: ProviderResult[];
+  }) => Promise<Book>;
 
   removeBook: (id: number) => Promise<void>;
 
@@ -44,6 +52,12 @@ export function useBookActions({
 }: Params) {
   const [isFetching, setIsFetching] = useState(false);
 
+  // -------------------
+  // 📦 TRANSIENT PROVIDER EVIDENCE
+  // -------------------
+
+  const [providerResults, setProviderResults] = useState<ProviderResult[]>([]);
+
   const { reloadCategories } = useCategories();
 
   // -------------------
@@ -58,7 +72,25 @@ export function useBookActions({
     try {
       setIsFetching(true);
 
+      // -------------------
+      // 📚 PREVIEW DATA
+      // -------------------
+
       const data = await previewBookByISBN(isbn);
+
+      // -------------------
+      // 📦 PROVIDER RESULTS
+      // -------------------
+
+      try {
+        const providerData = await fetchProviderResultsByISBN(isbn);
+
+        setProviderResults(providerData);
+      } catch (err) {
+        console.error("Failed to load provider results:", err);
+
+        setProviderResults([]);
+      }
 
       setNewBook((prev: any) => ({
         ...data,
@@ -89,10 +121,21 @@ export function useBookActions({
       id: 0,
 
       title: newBook.title,
+
       author: newBook.author,
 
+      subtitle: newBook.subtitle ?? undefined,
+
+      publisher: newBook.publisher ?? undefined,
+
+      language: newBook.language ?? undefined,
+
+      page_count: newBook.page_count ?? undefined,
+
       year: newBook.year ?? undefined,
+
       isbn: newBook.isbn ?? "",
+
       description: newBook.description ?? "",
 
       read: newBook.read ?? false,
@@ -101,15 +144,17 @@ export function useBookActions({
 
       cover_url: newBook.cover_url ?? "",
 
-      // ✅ single category
       category_id: null,
 
       date_added: new Date().toISOString(),
     };
 
     setSelectedBook(draftBook);
+
     setEditData(draftBook);
+
     setEditing(true);
+
     setNewBook({});
   }
 
@@ -134,9 +179,11 @@ export function useBookActions({
   async function handleSave() {
     if (!editData) return;
 
-    const payload: Book = {
+    const payload = {
       ...editData,
     };
+
+    delete (payload as any).warning;
 
     // -------------------
     // 🆕 CREATE NEW BOOK
@@ -144,8 +191,14 @@ export function useBookActions({
 
     if (!payload.id) {
       try {
+        delete (payload as any).id;
+
         const created = payload.isbn
-          ? await addBookFromISBN(payload)
+          ? await addBookFromISBN({
+              book: payload,
+
+              provider_results: providerResults,
+            })
           : await addBook(payload);
 
         await reloadCategories();
@@ -157,8 +210,16 @@ export function useBookActions({
         }
 
         setSelectedBook(created);
+
         setEditData(created);
+
         setEditing(false);
+
+        // -------------------
+        // 🧹 RESET EVIDENCE
+        // -------------------
+
+        setProviderResults([]);
 
         return;
       } catch (err) {
@@ -174,12 +235,14 @@ export function useBookActions({
     // ✏️ UPDATE EXISTING
     // -------------------
 
-    const updated = await saveBook(payload);
+    const updated = await saveBook(payload as Book);
 
     await reloadCategories();
 
     setSelectedBook(updated);
+
     setEditData(updated);
+
     setEditing(false);
 
     toast.success("Book updated");
