@@ -161,6 +161,14 @@ class BookBase(BaseModel):
 
     author: str
 
+    subtitle: Optional[str] = None
+
+    publisher: Optional[str] = None
+
+    language: Optional[str] = None
+
+    page_count: Optional[int] = None
+
     year: Optional[int] = None
 
     isbn: Optional[str] = None
@@ -189,6 +197,14 @@ class BookUpdate(BaseModel):
 
     author: Optional[str] = None
 
+    subtitle: Optional[str] = None
+
+    publisher: Optional[str] = None
+
+    language: Optional[str] = None
+
+    page_count: Optional[int] = None
+
     year: Optional[int] = None
 
     isbn: Optional[str] = None
@@ -196,6 +212,8 @@ class BookUpdate(BaseModel):
     description: Optional[str] = None
 
     read: Optional[bool] = None
+
+    read_at: Optional[datetime] = None
 
     location_id: Optional[int] = None
 

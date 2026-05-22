@@ -257,6 +257,26 @@ class Book(Base):
         nullable=False,
     )
 
+    subtitle = Column(
+        String,
+        nullable=True,
+    )
+
+    publisher = Column(
+        String,
+        nullable=True,
+    )
+
+    language = Column(
+        String,
+        nullable=True,
+    )
+
+    page_count = Column(
+        Integer,
+        nullable=True,
+    )
+
     year = Column(
         Integer,
         nullable=True,

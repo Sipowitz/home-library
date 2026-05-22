@@ -1,4 +1,4 @@
-import { Pencil, Trash2, X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useLocations } from "../../context/LocationContext";
@@ -14,10 +14,15 @@ type Props = {
   book: Book | null;
   editing: boolean;
   editData: Book | null;
+
   setEditing: (value: boolean) => void;
+
   setEditData: (book: Book) => void;
+
   onClose: () => void;
+
   onSave: () => void;
+
   onDelete: (id: number) => void;
 };
 
@@ -37,11 +42,11 @@ export function BookPanel({
 
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
   useEffect(() => {
     setConfirmDelete(false);
   }, [book, editing]);
-
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   function handleEdit() {
     if (!book) return;
@@ -59,6 +64,8 @@ export function BookPanel({
     }
 
     setEditing(false);
+
+    setEditData(book);
   }
 
   if (!book) return null;
@@ -66,68 +73,126 @@ export function BookPanel({
   return (
     <>
       {/* BACKDROP */}
+
       <div
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+        className="
+          fixed inset-0 z-40
+          bg-black/50
+          backdrop-blur-sm
+        "
         onClick={onClose}
       />
 
       {/* PANEL */}
+
       <div
-        className="fixed top-2 right-2 left-2
-        sm:left-auto sm:right-4
-        sm:w-[720px] lg:w-[800px]
-        max-h-[95vh]
-        overflow-hidden
-        rounded-2xl border border-gray-800
-        bg-gray-900/95
-        p-5
-        shadow-2xl
-        backdrop-blur
-        z-50 flex flex-col"
+        className="
+          fixed top-4 right-4 z-50
+
+          h-[calc(100vh-2rem)]
+          w-[900px]
+          max-w-[calc(100vw-2rem)]
+
+          rounded-3xl
+          border border-white/10
+
+          bg-[#07111f]/95
+
+          shadow-[0_0_80px_rgba(0,0,0,0.45)]
+
+          backdrop-blur-xl
+
+          flex flex-col
+          overflow-hidden
+        "
         onClick={(e) => e.stopPropagation()}
       >
         {/* HEADER */}
-        <div className="mb-3 flex items-center justify-between pr-2">
+
+        <div
+          className="
+            flex items-center justify-between
+
+            px-6 py-5
+
+            border-b border-white/5
+          "
+        >
           <div />
 
           <div className="flex items-center gap-2">
             {!editing && (
               <button
                 onClick={handleEdit}
-                className="group flex h-10 w-10 items-center justify-center
-                rounded-xl border border-white/10
-                bg-white/5 text-gray-300
-                backdrop-blur-md
-                transition-all duration-200
-                hover:border-yellow-500/30
-                hover:bg-yellow-500/10
-                hover:text-yellow-300"
-                aria-label="Edit book"
-                title="Edit book"
+                className="
+                  group
+
+                  flex items-center justify-center
+
+                  w-10 h-10
+
+                  rounded-xl
+
+                  border border-white/10
+
+                  bg-white/5
+
+                  text-gray-300
+
+                  transition-all duration-200
+
+                  hover:bg-blue-500/10
+                  hover:border-blue-400/30
+                  hover:text-blue-300
+                "
+                title="Edit Book"
               >
                 <Pencil
                   size={18}
-                  className="transition-transform duration-200 group-hover:scale-110"
+                  className="
+                    transition-transform
+                    duration-200
+                    group-hover:scale-110
+                  "
                 />
               </button>
             )}
 
             <button
               onClick={onClose}
-              className="text-gray-400 transition hover:text-white"
-              aria-label="Close panel"
+              className="
+                flex items-center justify-center
+
+                w-10 h-10
+
+                rounded-xl
+
+                text-gray-400
+
+                transition
+
+                hover:bg-white/5
+                hover:text-white
+              "
             >
-              <X />
+              <X size={20} />
             </button>
           </div>
         </div>
 
         {/* CONTENT */}
+
         <div
-          className="flex-1 overflow-y-auto pr-3 min-h-0
-          scrollbar-thin
-          scrollbar-thumb-gray-700
-          scrollbar-track-transparent"
+          className="
+            flex-1
+            overflow-y-auto
+
+            px-6 py-6
+
+            scrollbar-thin
+            scrollbar-thumb-gray-700
+            scrollbar-track-transparent
+          "
         >
           {!editing ? (
             <BookView
@@ -142,47 +207,15 @@ export function BookPanel({
               categories={categories}
               locations={locations}
               textareaRef={textareaRef}
+              onSave={onSave}
+              onCancel={handleCancel}
+              onDelete={() => setConfirmDelete(true)}
             />
-          )}
-
-          {/* ACTIONS */}
-          {editing && (
-            <div className="mt-6 space-y-3 border-t border-gray-800 pt-4 pb-2">
-              <button
-                onClick={onSave}
-                className="w-full rounded-xl bg-green-600 py-2.5 font-medium
-                transition hover:bg-green-700"
-              >
-                Save
-              </button>
-
-              <button
-                onClick={handleCancel}
-                className="w-full rounded-xl bg-gray-700 py-2.5 font-medium
-                transition hover:bg-gray-600"
-              >
-                Cancel
-              </button>
-
-              <div className="pt-2">
-                <button
-                  onClick={() => setConfirmDelete(true)}
-                  className="flex w-full items-center justify-center gap-2
-                  rounded-xl border border-red-500/30
-                  bg-red-500/10 py-2.5 font-medium text-red-300
-                  transition-all duration-200
-                  hover:border-red-500/50
-                  hover:bg-red-500/20
-                  hover:text-red-200"
-                >
-                  <Trash2 size={16} />
-                  Delete Book
-                </button>
-              </div>
-            </div>
           )}
         </div>
       </div>
+
+      {/* DELETE MODAL */}
 
       <DeleteModal
         open={confirmDelete}

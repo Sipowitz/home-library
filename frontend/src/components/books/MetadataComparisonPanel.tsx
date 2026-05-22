@@ -10,54 +10,30 @@ type Props = {
   currentData?: Record<string, any>;
 
   onAdoptField?: (field: string, value: any) => void;
+
+  onClose?: () => void;
 };
 
 const FIELDS = [
-  {
-    key: "title",
-    label: "Title",
-  },
-
-  {
-    key: "subtitle",
-    label: "Subtitle",
-  },
-
-  {
-    key: "author",
-    label: "Author",
-  },
-
-  {
-    key: "publisher",
-    label: "Publisher",
-  },
-
-  {
-    key: "page_count",
-    label: "Page Count",
-  },
-
-  {
-    key: "language",
-    label: "Language",
-  },
-
-  {
-    key: "year",
-    label: "Year",
-  },
-
-  {
-    key: "description",
-    label: "Description",
-  },
+  { key: "title", label: "Title" },
+  { key: "subtitle", label: "Subtitle" },
+  { key: "author", label: "Author" },
+  { key: "publisher", label: "Publisher" },
+  { key: "page_count", label: "Page Count" },
+  { key: "language", label: "Language" },
+  { key: "year", label: "Year" },
+  { key: "description", label: "Description" },
 ];
+
+function formatProviderName(name: string) {
+  return name.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export function MetadataComparisonPanel({
   bookId,
   currentData,
   onAdoptField,
+  onClose,
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
@@ -104,189 +80,200 @@ export function MetadataComparisonPanel({
 
   if (loading) {
     return (
-      <div className="text-sm text-gray-400">
+      <div className="p-6 text-sm text-gray-400">
         Loading metadata candidates...
       </div>
     );
   }
 
   if (error) {
-    return <div className="text-sm text-red-400">{error}</div>;
+    return <div className="p-6 text-sm text-red-400">{error}</div>;
   }
 
   if (!successfulProviders.length) {
     return (
-      <div className="text-sm text-gray-400">No provider metadata found.</div>
+      <div className="p-6 text-sm text-gray-400">
+        No provider metadata found.
+      </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* HEADER */}
+    <div
+      className="
+        fixed inset-0 z-[60]
+        flex items-center justify-center
+        bg-black/60 backdrop-blur-sm
+      "
+    >
+      <div
+        className="
+          w-[900px]
+          max-w-[95vw]
+          max-h-[90vh]
+          overflow-y-auto
+          rounded-3xl
+          border border-gray-800
+          bg-gray-950
+          shadow-2xl
+        "
+      >
+        {/* HEADER */}
 
-      <div>
-        <h3 className="text-lg font-semibold">Metadata Comparison</h3>
+        <div
+          className="
+            sticky top-0 z-10
+            flex items-center justify-between
+            border-b border-gray-800
+            bg-gray-950/95
+            px-6 py-5
+            backdrop-blur
+          "
+        >
+          <div>
+            <h2 className="text-2xl font-semibold text-white">
+              Metadata Comparison
+            </h2>
 
-        <p className="text-sm text-gray-400 mt-1">
-          Compare and adopt metadata values from providers.
-        </p>
-      </div>
+            <p className="mt-1 text-sm text-gray-400">
+              Compare provider metadata and adopt values.
+            </p>
+          </div>
 
-      {/* FIELD MATRIX */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="
+              rounded-xl
+              border border-gray-700
+              px-3 py-2
+              text-sm text-gray-300
+              transition
+              hover:border-gray-500
+              hover:bg-gray-800
+              hover:text-white
+            "
+          >
+            Close
+          </button>
+        </div>
 
-      <div className="space-y-8">
-        {FIELDS.map((field) => {
-          const values = successfulProviders.map((provider) => ({
-            provider: provider.provider,
+        {/* CONTENT */}
 
-            value: provider.data?.[field.key],
-          }));
+        <div className="space-y-10 p-6">
+          {FIELDS.map((field) => {
+            const values = successfulProviders.map((provider) => ({
+              provider: provider.provider,
 
-          const uniqueValues = new Set(
-            values.map((v) => String(v.value ?? "")),
-          );
+              value: provider.data?.[field.key],
+            }));
 
-          const hasConflict = uniqueValues.size > 1;
+            return (
+              <div key={field.key}>
+                {/* FIELD TITLE */}
 
-          return (
-            <div
-              key={field.key}
-              className="
-                border border-gray-800
-                rounded-2xl
-                overflow-hidden
-              "
-            >
-              {/* FIELD HEADER */}
-
-              <div
-                className={`
-                  px-4 py-3
-                  border-b border-gray-800
-                  flex
-                  items-center
-                  justify-between
-                  ${hasConflict ? "bg-amber-500/10" : "bg-gray-900/40"}
-                `}
-              >
-                <div>
-                  <div className="font-medium">{field.label}</div>
-
-                  <div
-                    className="
-                      text-xs
-                      text-gray-400
-                      mt-1
-                    "
-                  >
-                    {hasConflict
-                      ? "Provider values differ"
-                      : "All providers agree"}
-                  </div>
+                <div className="mb-3">
+                  <h3 className="text-lg font-semibold text-white">
+                    {field.label}
+                  </h3>
                 </div>
 
-                {currentData?.[field.key] && (
-                  <div
-                    className="
-                      text-xs
-                      text-blue-400
-                    "
-                  >
-                    Current value set
-                  </div>
-                )}
-              </div>
+                {/* ROWS */}
 
-              {/* VALUES */}
+                <div
+                  className="
+                    overflow-hidden
+                    rounded-2xl
+                    border border-gray-800
+                  "
+                >
+                  {values.map((entry, index) => {
+                    const selected = currentData?.[field.key] === entry.value;
 
-              <div
-                className="
-                  divide-y divide-gray-800
-                "
-              >
-                {values.map((entry, index) => {
-                  const selected = currentData?.[field.key] === entry.value;
-
-                  return (
-                    <button
-                      key={`${field.key}-${entry.provider}-${index}`}
-                      type="button"
-                      onClick={() => onAdoptField?.(field.key, entry.value)}
-                      className={`
-                          w-full
-                          text-left
-                          px-4 py-4
-                          transition
-                          hover:bg-gray-800/40
-                          ${selected ? "bg-blue-500/10" : ""}
-                        `}
-                    >
+                    return (
                       <div
-                        className="
-                            flex
-                            items-start
-                            justify-between
-                            gap-4
-                          "
+                        key={`${field.key}-${entry.provider}-${index}`}
+                        className={`
+                          grid
+                          grid-cols-[180px_1fr_120px]
+                          items-start
+                          gap-4
+                          border-b border-gray-800
+                          px-5 py-4
+                          transition
+                          last:border-b-0
+                          ${selected ? "bg-blue-500/10" : "bg-transparent"}
+                        `}
                       >
-                        <div
-                          className="
-                              min-w-[120px]
-                              text-sm
-                              font-medium
-                              capitalize
-                              text-gray-300
-                            "
-                        >
-                          {entry.provider.replace("_", " ")}
-                        </div>
+                        {/* PROVIDER */}
 
                         <div
                           className="
-                              flex-1
-                              text-sm
-                              text-gray-200
-                              whitespace-pre-wrap
-                              break-words
-                            "
+                            text-sm
+                            font-medium
+                            text-gray-300
+                          "
                         >
-                          {entry.value || "—"}
+                          {formatProviderName(entry.provider)}
                         </div>
+
+                        {/* VALUE */}
 
                         <div
                           className="
-                              flex-shrink-0
-                            "
+                            text-sm
+                            text-gray-100
+                            whitespace-pre-wrap
+                            break-words
+                          "
                         >
-                          {selected ? (
-                            <div
-                              className="
-                                  text-xs
-                                  text-blue-400
-                                  font-medium
-                                "
-                            >
-                              Selected
-                            </div>
-                          ) : (
-                            <div
-                              className="
-                                  text-xs
-                                  text-gray-500
-                                "
-                            >
-                              Click to adopt
-                            </div>
+                          {entry.value || (
+                            <span className="text-gray-500">—</span>
                           )}
                         </div>
+
+                        {/* ACTION */}
+
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onAdoptField?.(field.key, entry.value)
+                            }
+                            className={`
+                              rounded-xl
+                              px-3 py-2
+                              text-sm
+                              font-medium
+                              transition
+                              ${
+                                selected
+                                  ? `
+                                    bg-blue-500/20
+                                    text-blue-300
+                                    border border-blue-500/30
+                                  `
+                                  : `
+                                    border border-gray-700
+                                    text-gray-400
+                                    hover:border-blue-500/30
+                                    hover:bg-blue-500/10
+                                    hover:text-blue-300
+                                  `
+                              }
+                            `}
+                          >
+                            {selected ? "Selected" : "Select"}
+                          </button>
+                        </div>
                       </div>
-                    </button>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );

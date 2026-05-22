@@ -2,8 +2,18 @@ import type { Category } from "./category";
 
 export type Book = {
   id: number;
+
   title: string;
+
   author: string;
+
+  subtitle?: string;
+
+  publisher?: string;
+
+  language?: string;
+
+  page_count?: number;
 
   year?: number;
 

@@ -22,7 +22,11 @@ export function ViewModeSwitcher({ value, onChange }: Props) {
     >
       <button
         type="button"
-        onClick={() => onChange("grid")}
+        onClick={() => {
+          console.log("SWITCHING TO GRID");
+
+          onChange("grid");
+        }}
         className={`
           px-4 py-2
           rounded-xl
@@ -40,7 +44,11 @@ export function ViewModeSwitcher({ value, onChange }: Props) {
 
       <button
         type="button"
-        onClick={() => onChange("list")}
+        onClick={() => {
+          console.log("SWITCHING TO LIST");
+
+          onChange("list");
+        }}
         className={`
           px-4 py-2
           rounded-xl

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+import { BookOpen, Save, Sparkles, Trash2 } from "lucide-react";
+
 import type { Book } from "../../types/book";
 import type { Category } from "../../types/category";
 import type { Location } from "../../types/location";
@@ -25,6 +27,12 @@ type Props = {
   locations: Location[];
 
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+
+  onSave: () => void;
+
+  onCancel: () => void;
+
+  onDelete: () => void;
 };
 
 type CoverCandidate = {
@@ -41,12 +49,15 @@ export function BookEdit({
   categories,
   locations,
   textareaRef,
+  onSave,
+  onCancel,
+  onDelete,
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
   const [coverModalOpen, setCoverModalOpen] = useState(false);
 
-  // ✅ single category
+  const [showMetadataPanel, setShowMetadataPanel] = useState(false);
 
   const selectedCategoryId = editData?.category_id ?? null;
 
@@ -63,7 +74,7 @@ export function BookEdit({
   }, [editData?.description, textareaRef]);
 
   // -------------------
-  // 📥 LOAD PROVIDER DATA
+  // 📥 PROVIDERS
   // -------------------
 
   useEffect(() => {
@@ -83,7 +94,7 @@ export function BookEdit({
   }, [editData?.id]);
 
   // -------------------
-  // 🖼️ MERGED COVERS
+  // 🖼️ COVERS
   // -------------------
 
   const allCoverCandidates = useMemo(() => {
@@ -110,16 +121,8 @@ export function BookEdit({
     return merged;
   }, [providers]);
 
-  const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-
-    if (!img.src.includes("fallback-cover.png")) {
-      img.src = "/fallback-cover.png";
-    }
-  };
-
   // -------------------
-  // 🏷️ CATEGORY HANDLERS
+  // 🏷️ CATEGORY
   // -------------------
 
   function handleCategorySelect(id: number | null) {
@@ -131,304 +134,495 @@ export function BookEdit({
     });
   }
 
+  // -------------------
+  // 🖼️ FALLBACK
+  // -------------------
+
+  function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
+    const img = e.currentTarget;
+
+    if (!img.src.includes("fallback-cover.png")) {
+      img.src = "/fallback-cover.png";
+    }
+  }
+
+  const inputClass = `
+    w-full
+    h-12
+
+    rounded-2xl
+
+    bg-[#0b1727]
+
+    border border-white/10
+
+    px-4
+
+    text-white
+
+    transition-all duration-200
+
+    focus:outline-none
+    focus:border-blue-500/40
+    focus:bg-[#0e1d31]
+  `;
+
   return (
     <>
-      <div className="space-y-8">
+      <div className="flex gap-8 h-full">
         {/* ===================================== */}
-        {/* MAIN EDIT FORM */}
+        {/* LEFT */}
         {/* ===================================== */}
 
-        <div>
+        <div className="w-[150px] flex-shrink-0">
           {/* HEADER */}
 
-          <div className="flex gap-5 mb-5">
-            {/* COVER */}
-
-            <button
-              type="button"
-              onClick={() => setCoverModalOpen(true)}
+          <div className="flex items-center gap-3 mb-4">
+            <div
               className="
-                relative
-                group
-                rounded-xl
-                overflow-hidden
-                flex-shrink-0
+                w-12 h-12
+                rounded-2xl
+
+                bg-blue-500/10
+                border border-blue-500/20
+
+                flex items-center justify-center
               "
             >
-              <img
-                src={
-                  editData?.cover_url ||
-                  "https://dummyimage.com/300x400/1f2937/ffffff&text=No+Cover"
-                }
-                onError={handleImgError}
-                className="
-                  w-32
-                  rounded-xl
-                  shadow
-                  transition
-                  group-hover:scale-[1.02]
-                "
-              />
+              <BookOpen size={22} className="text-blue-400" />
+            </div>
 
-              {/* OVERLAY */}
+            <div>
+              <h2 className="text-3xl font-bold text-white">Edit Book</h2>
 
-              <div
+              <p
                 className="
-                  absolute inset-0
-                  bg-black/60
-                  opacity-0
-                  group-hover:opacity-100
-                  transition
-                  flex
-                  items-center
-                  justify-center
-                  text-center
-                  p-2
+                  text-sm
+                  text-gray-400
+                  mt-0.5
+                  leading-relaxed
                 "
               >
-                <div
-                  className="
-                    text-xs
-                    text-white
-                    font-medium
-                  "
-                >
-                  Browse Covers
-                </div>
-              </div>
-            </button>
-
-            {/* FORM */}
-
-            <div className="flex-1 space-y-3">
-              {/* TITLE */}
-
-              <div>
-                <FieldLabel>Title</FieldLabel>
-
-                <input
-                  className="
-                    w-full p-2
-                    bg-gray-700
-                    rounded
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-blue-500
-                  "
-                  value={editData?.title || ""}
-                  onChange={(e) =>
-                    setEditData({
-                      ...editData!,
-                      title: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* AUTHOR */}
-
-              <div>
-                <FieldLabel>Author</FieldLabel>
-
-                <input
-                  className="
-                    w-full p-2
-                    bg-gray-700
-                    rounded
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-blue-500
-                  "
-                  value={editData?.author || ""}
-                  onChange={(e) =>
-                    setEditData({
-                      ...editData!,
-                      author: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              {/* STATUS */}
-
-              <div>
-                <FieldLabel>Status</FieldLabel>
-
-                <div
-                  onClick={() => {
-                    const newRead = !editData?.read;
-
-                    setEditData({
-                      ...editData!,
-                      read: newRead,
-
-                      read_at: newRead ? new Date().toISOString() : null,
-                    });
-                  }}
-                  className="
-                    flex items-center
-                    gap-2
-                    cursor-pointer
-                  "
-                >
-                  <div
-                    className={`
-                      w-10 h-5
-                      flex items-center
-                      rounded-full
-                      p-1
-                      transition
-                      ${editData?.read ? "bg-green-600" : "bg-gray-600"}
-                    `}
-                  >
-                    <div
-                      className={`
-                        bg-white
-                        w-4 h-4
-                        rounded-full
-                        shadow
-                        transform
-                        transition
-                        ${editData?.read ? "translate-x-5" : ""}
-                      `}
-                    />
-                  </div>
-
-                  <span className="text-sm">
-                    {editData?.read ? "Read" : "Unread"}
-                  </span>
-                </div>
-              </div>
+                Update metadata and details.
+              </p>
             </div>
           </div>
 
-          {/* METADATA */}
+          {/* COVER */}
 
-          <div className="space-y-4 mb-3">
-            {/* LOCATION */}
-
-            <div>
-              <LocationTreeSelector
-                locations={locations}
-                selectedLocationId={editData?.location_id ?? null}
-                onSelect={(id) =>
-                  setEditData({
-                    ...editData!,
-                    location_id: id,
-                  })
-                }
-              />
-            </div>
-
-            {/* CATEGORY */}
-
-            <div>
-              <CategoryTreeSelector
-                categories={categories}
-                selectedCategoryId={selectedCategoryId}
-                onSelect={handleCategorySelect}
-                showSpecialOptions={false}
-              />
-            </div>
-
-            {/* ISBN + YEAR */}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <FieldLabel>ISBN</FieldLabel>
-
-                <input
-                  className="
-                    w-full p-2
-                    bg-gray-700
-                    rounded
-                  "
-                  value={editData?.isbn || ""}
-                  onChange={(e) =>
-                    setEditData({
-                      ...editData!,
-                      isbn: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              <div>
-                <FieldLabel>Year</FieldLabel>
-
-                <input
-                  className="
-                    w-full p-2
-                    bg-gray-700
-                    rounded
-                  "
-                  value={editData?.year || ""}
-                  onChange={(e) =>
-                    setEditData({
-                      ...editData!,
-                      year: Number(e.target.value),
-                    })
-                  }
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* DESCRIPTION */}
-
-          <div>
-            <FieldLabel>Description</FieldLabel>
-
-            <textarea
-              ref={textareaRef}
-              rows={3}
+          <button
+            type="button"
+            onClick={() => setCoverModalOpen(true)}
+            className="
+              relative
+              group
+              rounded-3xl
+              overflow-hidden
+              shadow-2xl
+              w-full
+            "
+          >
+            <img
+              src={
+                editData?.cover_url ||
+                "https://dummyimage.com/300x400/1f2937/ffffff&text=No+Cover"
+              }
+              onError={handleImgError}
               className="
-                w-full p-3
-                bg-gray-700
-                rounded
-                resize-none
+                w-full
+                object-cover
               "
-              value={editData?.description || ""}
-              onChange={(e) => {
-                const el = e.target;
-
-                el.style.height = "auto";
-
-                el.style.height = el.scrollHeight + "px";
-
-                setEditData({
-                  ...editData!,
-                  description: e.target.value,
-                });
-              }}
             />
-          </div>
+
+            {/* OVERLAY */}
+
+            <div
+              className="
+                absolute inset-0
+
+                bg-black/60
+
+                opacity-0
+                group-hover:opacity-100
+
+                transition
+
+                flex items-center justify-center
+              "
+            >
+              <div
+                className="
+                  px-4 py-2
+
+                  rounded-xl
+
+                  bg-white/10
+
+                  backdrop-blur
+
+                  border border-white/10
+
+                  text-sm
+                  text-white
+                  font-medium
+                "
+              >
+                Change Cover
+              </div>
+            </div>
+          </button>
         </div>
 
         {/* ===================================== */}
-        {/* METADATA COMPARISON */}
+        {/* RIGHT */}
         {/* ===================================== */}
 
-        {editData?.id && (
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* FORM */}
+
+          <div className="flex-1 overflow-y-auto pr-2">
+            <div className="space-y-5">
+              {/* TITLE + AUTHOR */}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel>Title</FieldLabel>
+
+                  <input
+                    value={editData?.title || ""}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData!,
+                        title: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Author</FieldLabel>
+
+                  <input
+                    value={editData?.author || ""}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData!,
+                        author: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {/* SUBTITLE + ISBN */}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel>Subtitle</FieldLabel>
+
+                  <input
+                    value={editData?.subtitle || ""}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData!,
+                        subtitle: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>ISBN</FieldLabel>
+
+                  <input
+                    value={editData?.isbn || ""}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData!,
+                        isbn: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {/* PUBLISHER + LANGUAGE */}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel>Publisher</FieldLabel>
+
+                  <input
+                    value={editData?.publisher || ""}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData!,
+                        publisher: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Language</FieldLabel>
+
+                  <input
+                    value={editData?.language || ""}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData!,
+                        language: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {/* YEAR + PAGE COUNT */}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel>Year</FieldLabel>
+
+                  <input
+                    value={editData?.year || ""}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData!,
+                        year: Number(e.target.value),
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Page Count</FieldLabel>
+
+                  <input
+                    value={editData?.page_count || ""}
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData!,
+                        page_count: Number(e.target.value),
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {/* CATEGORY + LOCATION */}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <CategoryTreeSelector
+                    categories={categories}
+                    selectedCategoryId={selectedCategoryId}
+                    onSelect={handleCategorySelect}
+                    showSpecialOptions={false}
+                  />
+                </div>
+
+                <div>
+                  <LocationTreeSelector
+                    locations={locations}
+                    selectedLocationId={editData?.location_id ?? null}
+                    onSelect={(id) =>
+                      setEditData({
+                        ...editData!,
+                        location_id: id,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* DESCRIPTION */}
+
+              <div>
+                <FieldLabel>Description</FieldLabel>
+
+                <textarea
+                  ref={textareaRef}
+                  rows={8}
+                  value={editData?.description || ""}
+                  onChange={(e) =>
+                    setEditData({
+                      ...editData!,
+                      description: e.target.value,
+                    })
+                  }
+                  className="
+                    w-full
+
+                    min-h-[180px]
+
+                    rounded-2xl
+
+                    bg-[#0b1727]
+
+                    border border-white/10
+
+                    p-4
+
+                    text-white
+
+                    resize-none
+
+                    transition-all duration-200
+
+                    focus:outline-none
+                    focus:border-blue-500/40
+                    focus:bg-[#0e1d31]
+                  "
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ===================================== */}
+          {/* FOOTER */}
+          {/* ===================================== */}
+
           <div
             className="
-              border-t border-gray-800
-              pt-6
+              sticky bottom-0
+
+              mt-6
+              pt-5
+
+              border-t border-white/5
+
+              bg-[#08111d]
+
+              flex items-center gap-4
             "
           >
-            <MetadataComparisonPanel
-              bookId={editData.id}
-              currentData={editData || {}}
-              onAdoptField={(field, value) => {
-                setEditData({
-                  ...editData!,
-                  [field]: value,
-                });
-              }}
-            />
+            {/* DELETE */}
+
+            <button
+              onClick={onDelete}
+              className="
+                h-12
+                px-5
+
+                rounded-2xl
+
+                border border-red-500/20
+
+                bg-red-500/10
+
+                text-red-300
+
+                flex items-center justify-center gap-2
+
+                transition-all duration-200
+
+                hover:bg-red-500/20
+              "
+            >
+              <Trash2 size={16} />
+              Delete
+            </button>
+
+            {/* RIGHT ACTIONS */}
+
+            <div className="grid grid-cols-3 gap-3 flex-1">
+              <button
+                onClick={onCancel}
+                className="
+                  h-12
+
+                  rounded-2xl
+
+                  bg-white/5
+
+                  border border-white/10
+
+                  text-gray-300
+
+                  transition-all duration-200
+
+                  hover:bg-white/10
+                "
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => setShowMetadataPanel(true)}
+                className="
+                  h-12
+
+                  rounded-2xl
+
+                  bg-blue-500/10
+
+                  border border-blue-500/20
+
+                  text-blue-300
+
+                  flex items-center justify-center gap-2
+
+                  transition-all duration-200
+
+                  hover:bg-blue-500/20
+                "
+              >
+                <Sparkles size={16} />
+                Compare Metadata
+              </button>
+
+              <button
+                onClick={onSave}
+                className="
+                  h-12
+
+                  rounded-2xl
+
+                  bg-blue-600
+
+                  text-white
+
+                  flex items-center justify-center gap-2
+
+                  transition-all duration-200
+
+                  hover:bg-blue-500
+                "
+              >
+                <Save size={16} />
+                Save Changes
+              </button>
+            </div>
           </div>
-        )}
+        </div>
       </div>
+
+      {/* ===================================== */}
+      {/* METADATA PANEL */}
+      {/* ===================================== */}
+
+      {showMetadataPanel && editData?.id && (
+        <MetadataComparisonPanel
+          bookId={editData.id}
+          currentData={editData || {}}
+          onClose={() => setShowMetadataPanel(false)}
+          onAdoptField={(field, value) => {
+            setEditData({
+              ...editData!,
+              [field]: value,
+            });
+          }}
+        />
+      )}
 
       {/* ===================================== */}
       {/* COVER MODAL */}

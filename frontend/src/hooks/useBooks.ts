@@ -14,14 +14,27 @@ import type { Book } from "../types/book";
 
 type BookCreateInput = {
   title: string;
+
   author: string;
 
+  subtitle?: string;
+
+  publisher?: string;
+
+  language?: string;
+
+  page_count?: number;
+
   year?: number;
+
   isbn?: string;
+
   description?: string;
+
   read?: boolean;
 
   location_id?: number | null;
+
   cover_url?: string;
 
   // ✅ single category
@@ -30,7 +43,9 @@ type BookCreateInput = {
 
 type Filters = {
   search?: string;
+
   locationId?: number | null;
+
   categoryId?: number | null;
 };
 
@@ -38,8 +53,11 @@ const LIMIT = 20;
 
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>([]);
+
   const [skip, setSkip] = useState(0);
+
   const [hasMore, setHasMore] = useState(true);
+
   const [isLoading, setIsLoading] = useState(false);
 
   const [filters, setFilters] = useState<Filters>({
@@ -62,6 +80,7 @@ export function useBooks() {
 
   async function loadBooks(reset = true) {
     const requestId = ++requestIdRef.current;
+
     const newSkip = reset ? 0 : skip;
 
     setIsLoading(true);
@@ -78,11 +97,14 @@ export function useBooks() {
 
     if (reset) {
       setBooks(data.items);
+
       setSkip(LIMIT);
     } else {
       setBooks((prev) => {
         const existingIds = new Set(prev.map((b) => b.id));
+
         const newItems = data.items.filter((b) => !existingIds.has(b.id));
+
         return [...prev, ...newItems];
       });
 
@@ -90,11 +112,13 @@ export function useBooks() {
     }
 
     setHasMore(newSkip + LIMIT < data.total);
+
     setIsLoading(false);
   }
 
   async function loadMoreBooks() {
     if (!hasMore || isLoading) return;
+
     await loadBooks(false);
   }
 
@@ -115,7 +139,9 @@ export function useBooks() {
 
   useEffect(() => {
     if (!ready || !token) return;
+
     loadBooks(true);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, ready, token]);
 
@@ -126,11 +152,14 @@ export function useBooks() {
   async function addBook(book: BookCreateInput) {
     const data = await createBook({
       ...book,
+
       location_id: book.location_id ?? null,
+
       category_id: book.category_id ?? null,
     });
 
     await loadBooks(true);
+
     notifyStatsUpdate();
 
     return data;
@@ -139,11 +168,14 @@ export function useBooks() {
   async function addBookFromISBN(book: BookCreateInput) {
     const data = await createBookFromISBN({
       ...book,
+
       location_id: book.location_id ?? null,
+
       category_id: book.category_id ?? null,
     });
 
     await loadBooks(true);
+
     notifyStatsUpdate();
 
     if ((data as any)._warning) {
@@ -172,17 +204,34 @@ export function useBooks() {
   async function saveBook(book: Book) {
     const updated = await updateBook(book.id, {
       title: book.title,
+
       author: book.author,
+
+      subtitle: book.subtitle,
+
+      publisher: book.publisher,
+
+      language: book.language,
+
+      page_count: book.page_count,
+
       year: book.year,
+
       isbn: book.isbn,
+
       description: book.description,
+
       read: book.read,
+
       location_id: book.location_id,
+
       cover_url: book.cover_url,
+
       category_id: book.category_id ?? null,
     });
 
     await loadBooks(true);
+
     notifyStatsUpdate();
 
     return updated;

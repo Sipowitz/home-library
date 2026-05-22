@@ -9,15 +9,27 @@ type PaginatedBooksResponse = {
 
 type BookCreateInput = {
   title: string;
+
   author: string;
 
+  subtitle?: string;
+
+  publisher?: string;
+
+  language?: string;
+
+  page_count?: number;
+
   year?: number;
+
   isbn?: string;
+
   description?: string;
 
   read?: boolean;
 
   location_id?: number | null;
+
   cover_url?: string;
 
   // ✅ single category
@@ -26,14 +38,27 @@ type BookCreateInput = {
 
 type BookUpdateInput = {
   title?: string;
+
   author?: string;
+
+  subtitle?: string;
+
+  publisher?: string;
+
+  language?: string;
+
+  page_count?: number;
+
   year?: number;
+
   isbn?: string;
+
   description?: string;
 
   read?: boolean;
 
   location_id?: number | null;
+
   cover_url?: string;
 
   // ✅ single category
@@ -44,13 +69,14 @@ export async function getBooks(
   skip: number,
   limit: number,
   search?: string,
-  locationId?: number | null, // supports -1 (no location)
+  locationId?: number | null,
   categoryId?: number | null,
   read?: boolean,
 ): Promise<PaginatedBooksResponse> {
   const params = new URLSearchParams();
 
   params.append("skip", String(skip));
+
   params.append("limit", String(limit));
 
   if (search) {
