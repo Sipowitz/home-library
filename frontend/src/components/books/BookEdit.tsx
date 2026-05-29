@@ -517,6 +517,36 @@ export function BookEdit({
                 </button>
               </div>
 
+              {/* METADATA STATUS */}
+
+              <div>
+                <FieldLabel>Metadata</FieldLabel>
+
+                <div
+                  className="
+      rounded-2xl
+
+      bg-[#0b1727]
+
+      border border-white/10
+
+      px-4 py-3
+
+      text-sm
+    "
+                >
+                  <div className="text-gray-400">Last refresh</div>
+
+                  <div className="text-white mt-1">
+                    {editData?.last_metadata_refresh_at
+                      ? new Date(
+                          editData.last_metadata_refresh_at,
+                        ).toLocaleString()
+                      : "Never"}
+                  </div>
+                </div>
+              </div>
+
               {/* DESCRIPTION */}
 
               <div>

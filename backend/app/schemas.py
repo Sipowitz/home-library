@@ -189,6 +189,10 @@ class BookBase(BaseModel):
 
     date_added: Optional[datetime] = None
 
+    last_metadata_refresh_at: Optional[
+        datetime
+    ] = None
+
 
 class BookCreate(BookBase):
     pass

@@ -1,3 +1,5 @@
+from datetime import datetime, UTC
+
 from sqlalchemy.orm import Session
 
 from app.models import Book
@@ -24,7 +26,8 @@ async def refresh_book_metadata(
 
     1. Fetch live provider data.
     2. Persist new snapshots.
-    3. Return provider results.
+    3. Update refresh timestamp.
+    4. Return provider results.
     """
 
     book = (
@@ -60,6 +63,10 @@ async def refresh_book_metadata(
             book_id=book.id,
             provider_result=provider_result,
         )
+
+    book.last_metadata_refresh_at = (
+        datetime.now(UTC)
+    )
 
     db.commit()
 

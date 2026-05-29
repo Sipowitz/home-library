@@ -341,6 +341,12 @@ class Book(Base):
         index=True,
     )
 
+    last_metadata_refresh_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+
     owner_id = Column(
         Integer,
         ForeignKey("users.id"),

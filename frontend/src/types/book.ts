@@ -37,6 +37,8 @@ export type Book = {
 
   date_added?: string;
 
+  last_metadata_refresh_at?: string | null;
+
   warning?: string;
 };
 
