@@ -32,6 +32,10 @@ from ..services.providers.metadata_snapshot_service import (
 
 from ..core.logging import logger
 
+from ..services.providers.snapshot_query_service import (
+    get_provider_results_for_book,
+)
+
 router = APIRouter(
     prefix="/books",
     tags=["Books"],
@@ -196,15 +200,9 @@ async def get_metadata_candidates(
             detail="Book not found",
         )
 
-    if not book.isbn:
-        raise HTTPException(
-            status_code=400,
-            detail="Book has no ISBN",
-        )
-
-    return await fetch_all_provider_results(
+    return get_provider_results_for_book(
         db,
-        book.isbn,
+        book.id,
     )
 
 

@@ -444,6 +444,33 @@ export function BookEdit({
                 </div>
               </div>
 
+              {/* READ STATUS */}
+
+              <div>
+                <FieldLabel>Status</FieldLabel>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditData({
+                      ...editData!,
+                      read: !editData?.read,
+                    })
+                  }
+                  className={`
+      h-12 px-4 rounded-2xl border
+      transition-all duration-200
+      ${
+        editData?.read
+          ? "bg-green-500/10 border-green-500/20 text-green-300"
+          : "bg-white/5 border-white/10 text-gray-300"
+      }
+    `}
+                >
+                  {editData?.read ? "Read" : "Unread"}
+                </button>
+              </div>
+
               {/* DESCRIPTION */}
 
               <div>
