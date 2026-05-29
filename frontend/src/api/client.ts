@@ -25,8 +25,8 @@ client.interceptors.request.use(
     }
 
     if (token) {
-      // ✅ SAFE way (works with Axios v1+)
       config.headers = config.headers || {};
+
       (config.headers as any)["Authorization"] = `Bearer ${token}`;
     }
 
@@ -52,7 +52,13 @@ client.interceptors.response.use(
     }
 
     if (err.response?.status === 401) {
-      console.warn("Unauthorized request");
+      console.warn("Session expired. Logging out.");
+
+      localStorage.removeItem("token");
+
+      window.location.href = "/login";
+
+      return Promise.reject(err);
     }
 
     return Promise.reject(err);
@@ -68,10 +74,20 @@ export function getGoogleApiKey() {
 
 export function getAuthHeaders() {
   const token = localStorage.getItem("token");
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
+
+  if (!token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
 }
 
 export function setToken(token: string) {
   localStorage.setItem("token", token);
+}
+
+export function clearToken() {
+  localStorage.removeItem("token");
 }
