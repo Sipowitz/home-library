@@ -19,6 +19,8 @@ import { fetchMetadataCandidates } from "../../api/metadataCandidates";
 
 import { refreshMetadata } from "../../api/books";
 
+import toast from "react-hot-toast";
+
 type Props = {
   editData: Book | null;
 
@@ -60,6 +62,8 @@ export function BookEdit({
   const [coverModalOpen, setCoverModalOpen] = useState(false);
 
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const selectedCategoryId = editData?.category_id ?? null;
 
@@ -153,18 +157,38 @@ export function BookEdit({
   // -------------------
 
   async function handleRefreshMetadata() {
-    if (!editData?.id) {
+    if (!editData?.id || isRefreshing) {
       return;
     }
 
     try {
+      setIsRefreshing(true);
+
       const results = await refreshMetadata(editData.id);
 
       setProviders(results);
 
+      const successful = results.filter((r) => r.success).length;
+
+      const failed = results.length - successful;
+
+      if (failed === 0) {
+        toast.success(
+          `Metadata refreshed from ${successful} provider${successful === 1 ? "" : "s"}`,
+        );
+      } else {
+        toast(
+          `Refreshed from ${successful} provider${successful === 1 ? "" : "s"} • ${failed} failed`,
+        );
+      }
+
       setShowMetadataPanel(true);
     } catch (err) {
       console.error(err);
+
+      toast.error("Metadata refresh failed");
+    } finally {
+      setIsRefreshing(false);
     }
   }
 
@@ -631,6 +655,7 @@ export function BookEdit({
 
               <button
                 onClick={handleRefreshMetadata}
+                disabled={isRefreshing}
                 className="
                   h-12
 
@@ -647,10 +672,13 @@ export function BookEdit({
                   transition-all duration-200
 
                   hover:bg-purple-500/20
+
+                  disabled:opacity-50
+                  disabled:cursor-not-allowed
                 "
               >
                 <Sparkles size={16} />
-                Refresh
+                {isRefreshing ? "Refreshing..." : "Refresh"}
               </button>
 
               <button
