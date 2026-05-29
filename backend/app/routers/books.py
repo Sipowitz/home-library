@@ -30,6 +30,10 @@ from ..services.providers.metadata_snapshot_service import (
     persist_provider_result,
 )
 
+from ..services.providers.refresh_metadata_service import (
+    refresh_book_metadata,
+)
+
 from ..core.logging import logger
 
 from ..services.providers.snapshot_query_service import (
@@ -204,6 +208,48 @@ async def get_metadata_candidates(
         db,
         book.id,
     )
+
+
+# -------------------
+# 🔄 REFRESH METADATA
+# -------------------
+
+@router.post(
+    "/{book_id}/refresh-metadata",
+    response_model=list[ProviderResult],
+)
+async def refresh_metadata(
+    book_id: int,
+
+    db: Session = Depends(get_db),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
+):
+    book = book_service.get_book(
+        db,
+        current_user.id,
+        book_id,
+    )
+
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found",
+        )
+
+    try:
+        return await refresh_book_metadata(
+            db,
+            book.id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
 
 
 # -------------------

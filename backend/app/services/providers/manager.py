@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     ProviderSetting,
-    Book,
 )
 
 from app.core.logging import logger
@@ -23,10 +22,6 @@ from app.services.providers.types import (
 
 from app.services.providers.aggregator import (
     aggregate_metadata,
-)
-
-from app.services.providers.metadata_snapshot_service import (
-    persist_provider_result,
 )
 
 PROVIDER_MAP = {
@@ -94,44 +89,6 @@ async def fetch_all_provider_results(
                 "Provider result: %s",
                 provider_result,
             )
-
-            # -------------------
-            # 📦 PERSIST SNAPSHOT
-            # -------------------
-
-            try:
-                existing_book = (
-                    db.query(Book)
-                    .filter(
-                        Book.isbn == isbn
-                    )
-                    .first()
-                )
-
-                logger.info(
-                    "Existing book lookup result: %s",
-                    existing_book,
-                )
-
-                if existing_book:
-                    persist_provider_result(
-                        db=db,
-                        book_id=existing_book.id,
-                        provider_result=provider_result,
-                    )
-
-                    db.commit()
-
-                    logger.info(
-                        "Snapshot persisted for book %s",
-                        existing_book.id,
-                    )
-
-            except Exception as snapshot_exc:
-                logger.exception(
-                    "Snapshot persistence failed: %s",
-                    snapshot_exc,
-                )
 
             results.append(
                 provider_result

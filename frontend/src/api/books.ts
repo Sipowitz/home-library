@@ -34,7 +34,6 @@ type BookCreateInput = {
 
   cover_url?: string;
 
-  // ✅ single category
   category_id?: number | null;
 };
 
@@ -63,7 +62,6 @@ type BookUpdateInput = {
 
   cover_url?: string;
 
-  // ✅ single category
   category_id?: number | null;
 };
 
@@ -124,6 +122,14 @@ export async function createBookFromISBN(
 
 export async function previewBookByISBN(isbn: string): Promise<Partial<Book>> {
   const res = await client.get(`/books/preview-isbn/${isbn}`);
+
+  return res.data;
+}
+
+export async function refreshMetadata(
+  bookId: number,
+): Promise<ProviderResult[]> {
+  const res = await client.post(`/books/${bookId}/refresh-metadata`);
 
   return res.data;
 }

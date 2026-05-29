@@ -17,6 +17,8 @@ import { CoverBrowserModal } from "./CoverBrowserModal";
 
 import { fetchMetadataCandidates } from "../../api/metadataCandidates";
 
+import { refreshMetadata } from "../../api/books";
+
 type Props = {
   editData: Book | null;
 
@@ -143,6 +145,26 @@ export function BookEdit({
 
     if (!img.src.includes("fallback-cover.png")) {
       img.src = "/fallback-cover.png";
+    }
+  }
+
+  // -------------------
+  // 🔄 REFRESH METADATA
+  // -------------------
+
+  async function handleRefreshMetadata() {
+    if (!editData?.id) {
+      return;
+    }
+
+    try {
+      const results = await refreshMetadata(editData.id);
+
+      setProviders(results);
+
+      setShowMetadataPanel(true);
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -561,7 +583,7 @@ export function BookEdit({
 
             {/* RIGHT ACTIONS */}
 
-            <div className="grid grid-cols-3 gap-3 flex-1">
+            <div className="grid grid-cols-4 gap-3 flex-1">
               <button
                 onClick={onCancel}
                 className="
@@ -604,7 +626,31 @@ export function BookEdit({
                 "
               >
                 <Sparkles size={16} />
-                Compare Metadata
+                Compare
+              </button>
+
+              <button
+                onClick={handleRefreshMetadata}
+                className="
+                  h-12
+
+                  rounded-2xl
+
+                  bg-purple-500/10
+
+                  border border-purple-500/20
+
+                  text-purple-300
+
+                  flex items-center justify-center gap-2
+
+                  transition-all duration-200
+
+                  hover:bg-purple-500/20
+                "
+              >
+                <Sparkles size={16} />
+                Refresh
               </button>
 
               <button
