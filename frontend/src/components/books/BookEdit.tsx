@@ -168,6 +168,11 @@ export function BookEdit({
 
       setProviders(results);
 
+      setEditData({
+        ...editData!,
+        last_metadata_refresh_at: new Date().toISOString(),
+      });
+
       const successful = results.filter((r) => r.success).length;
 
       const failed = results.length - successful;
