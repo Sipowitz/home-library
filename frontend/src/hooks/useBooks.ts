@@ -12,6 +12,8 @@ import { useAuth } from "../context/AuthContext";
 
 import type { Book } from "../types/book";
 
+import type { ProviderResult } from "../types/provider";
+
 type BookCreateInput = {
   title: string;
 
@@ -165,13 +167,21 @@ export function useBooks() {
     return data;
   }
 
-  async function addBookFromISBN(book: BookCreateInput) {
+  async function addBookFromISBN(payload: {
+    book: BookCreateInput;
+
+    provider_results: ProviderResult[];
+  }) {
     const data = await createBookFromISBN({
-      ...book,
+      book: {
+        ...payload.book,
 
-      location_id: book.location_id ?? null,
+        location_id: payload.book.location_id ?? null,
 
-      category_id: book.category_id ?? null,
+        category_id: payload.book.category_id ?? null,
+      },
+
+      provider_results: payload.provider_results,
     });
 
     await loadBooks(true);
