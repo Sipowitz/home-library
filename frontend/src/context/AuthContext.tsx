@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 
 import client from "../api/client";
 
@@ -25,10 +25,18 @@ export function AuthProvider({ children }: Props) {
 
   const [ready, setReady] = useState(false);
 
+  const initializedRef = useRef(false);
+
   // -------------------
   // 🔥 INIT FROM STORAGE
   // -------------------
   useEffect(() => {
+    if (initializedRef.current) {
+      return;
+    }
+
+    initializedRef.current = true;
+
     async function initialize() {
       const stored = localStorage.getItem("token");
 
@@ -54,6 +62,21 @@ export function AuthProvider({ children }: Props) {
     }
 
     initialize();
+  }, []);
+
+  // -------------------
+  // 🔐 SESSION EXPIRED
+  // -------------------
+  useEffect(() => {
+    function handleAuthExpired() {
+      setTokenState(null);
+    }
+
+    window.addEventListener("auth-expired", handleAuthExpired);
+
+    return () => {
+      window.removeEventListener("auth-expired", handleAuthExpired);
+    };
   }, []);
 
   // -------------------

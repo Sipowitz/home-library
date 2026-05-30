@@ -44,6 +44,12 @@ client.interceptors.response.use(
       return Promise.reject(err);
     }
 
+    const isAuthValidationRequest = err.config?.url?.includes("/auth/me");
+
+    if (isAuthValidationRequest) {
+      return Promise.reject(err);
+    }
+
     if (err.response?.status === 401) {
       if (!handlingUnauthorized) {
         handlingUnauthorized = true;
@@ -53,6 +59,8 @@ client.interceptors.response.use(
         toast.error("Your session has expired. Please log in again.");
 
         localStorage.removeItem("token");
+
+        window.dispatchEvent(new Event("auth-expired"));
 
         setTimeout(() => {
           handlingUnauthorized = false;
