@@ -23,8 +23,6 @@ export function ViewModeSwitcher({ value, onChange }: Props) {
       <button
         type="button"
         onClick={() => {
-          console.log("SWITCHING TO GRID");
-
           onChange("grid");
         }}
         className={`
@@ -45,8 +43,6 @@ export function ViewModeSwitcher({ value, onChange }: Props) {
       <button
         type="button"
         onClick={() => {
-          console.log("SWITCHING TO LIST");
-
           onChange("list");
         }}
         className={`

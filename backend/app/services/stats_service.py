@@ -3,6 +3,7 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 
 from app.models import Book, Category, Location
+from app.core.logging import logger
 
 
 def get_stats(db: Session, user_id: int):
@@ -152,20 +153,17 @@ def get_stats(db: Session, user_id: int):
             "total_books": total_books,
             "read_books": read_books,
             "unread_books": unread_books,
-
             "recent_added_7_days": recent_added_7_days,
             "recent_added_30_days": recent_added_30_days,
-
             "by_category": by_category,
             "by_location": by_location,
-
             "recent_reads_7_days": recent_reads_7_days,
             "recent_reads_30_days": recent_reads_30_days,
             "monthly_reads": monthly_reads,
         }
 
-    except Exception as e:
-        print("STATS ERROR:", e)
+    except Exception:
+        logger.exception("Failed to generate stats")
 
         return {
             "total_books": 0,
