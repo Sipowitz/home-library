@@ -21,7 +21,7 @@ export function LocationTreeSelector({
 }: Props) {
   const map = buildTreeMap(locations);
 
-  const value = getTreePath(selectedLocationId, map, "No location");
+  const value = getTreePath(selectedLocationId, map, "All locations");
 
   return (
     <TreeSelectorField label="Location" value={value}>
@@ -29,7 +29,7 @@ export function LocationTreeSelector({
         nodes={locations}
         selectedId={selectedLocationId}
         onSelect={onSelect}
-        emptyLabel="No location"
+        emptyLabel="All locations"
         clearLabel="No location"
       />
     </TreeSelectorField>
