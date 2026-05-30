@@ -47,8 +47,6 @@ services:
 
       SECRET_KEY: super-secure-production-key-123
 
-      GOOGLE_API_KEY: AIzaSyCh-qjTfZQktxKVQAsbgtVN4hNCxaHHjSE
-
     volumes:
       - ./backend:/app
       - ./backend/covers:/app/covers

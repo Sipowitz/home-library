@@ -55,7 +55,9 @@ async def fetch_all_provider_results(
         if not provider_class:
             continue
 
-        provider = provider_class()
+        provider = provider_class(
+            setting
+        )
 
         start = time.perf_counter()
 

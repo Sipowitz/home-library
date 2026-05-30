@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+import { Eye, EyeOff } from "lucide-react";
 
 import { useProviderSettings } from "../../../hooks/useProviderSettings";
 
@@ -6,9 +8,23 @@ export function ProviderSettingsPanel() {
   const { providers, loading, refreshProviders, updateProvider } =
     useProviderSettings();
 
+  const [apiKeyValues, setApiKeyValues] = useState<Record<number, string>>({});
+
+  const [showApiKeys, setShowApiKeys] = useState<Record<number, boolean>>({});
+
   useEffect(() => {
     refreshProviders();
   }, []);
+
+  useEffect(() => {
+    const values: Record<number, string> = {};
+
+    providers.forEach((provider) => {
+      values[provider.id] = provider.api_key ?? "";
+    });
+
+    setApiKeyValues(values);
+  }, [providers]);
 
   if (loading) {
     return <div className="text-sm text-gray-400">Loading providers...</div>;
@@ -124,6 +140,62 @@ export function ProviderSettingsPanel() {
                   text-white
                 "
               />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">API Key</label>
+
+            <div className="relative">
+              <input
+                type={showApiKeys[provider.id] ? "text" : "password"}
+                value={apiKeyValues[provider.id] ?? ""}
+                onChange={(e) =>
+                  setApiKeyValues((prev) => ({
+                    ...prev,
+                    [provider.id]: e.target.value,
+                  }))
+                }
+                onBlur={() =>
+                  updateProvider(provider.id, {
+                    api_key: apiKeyValues[provider.id] ?? "",
+                  })
+                }
+                placeholder="Enter API key"
+                className="
+                  w-full
+                  rounded-lg
+                  bg-gray-950
+                  border border-gray-700
+                  px-3 py-2
+                  pr-10
+                  text-white
+                "
+              />
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowApiKeys((prev) => ({
+                    ...prev,
+                    [provider.id]: !prev[provider.id],
+                  }))
+                }
+                className="
+                  absolute
+                  right-3
+                  top-1/2
+                  -translate-y-1/2
+                  text-gray-400
+                  hover:text-white
+                "
+              >
+                {showApiKeys[provider.id] ? (
+                  <EyeOff size={18} />
+                ) : (
+                  <Eye size={18} />
+                )}
+              </button>
             </div>
           </div>
         </div>

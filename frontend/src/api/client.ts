@@ -77,9 +77,6 @@ client.interceptors.response.use(
 export default client;
 
 // 🔑 helpers
-export function getGoogleApiKey() {
-  return localStorage.getItem("google_api_key") || "";
-}
 
 export function getAuthHeaders() {
   const token = localStorage.getItem("token");

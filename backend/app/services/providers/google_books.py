@@ -4,7 +4,6 @@ from typing import Any, Dict
 
 import httpx
 
-from app.core.config import settings
 from app.services.providers.base import BookProvider
 
 cache: Dict[str, Any] = {}
@@ -12,9 +11,6 @@ cache: Dict[str, Any] = {}
 GOOGLE_BOOKS_URL = (
     "https://www.googleapis.com/books/v1/volumes"
 )
-
-TIMEOUT = 5.0
-MAX_RETRIES = 3
 
 
 def clean_isbn(isbn: str) -> str:
@@ -90,16 +86,38 @@ def normalize_cover_url(
 class GoogleBooksProvider(BookProvider):
     provider_name = "google_books"
 
+    def get_timeout(self) -> float:
+        if (
+            self.settings
+            and self.settings.timeout_seconds
+        ):
+            return float(
+                self.settings.timeout_seconds
+            )
+
+        return 5.0
+
+    def get_max_retries(self) -> int:
+        if (
+            self.settings
+            and self.settings.max_retries
+        ):
+            return int(
+                self.settings.max_retries
+            )
+
+        return 3
+
     async def safe_request(
         self,
         url: str,
     ) -> dict | None:
         for attempt in range(
-            MAX_RETRIES
+            self.get_max_retries()
         ):
             try:
                 async with httpx.AsyncClient(
-                    timeout=TIMEOUT
+                    timeout=self.get_timeout()
                 ) as client:
                     response = (
                         await client.get(url)
@@ -146,10 +164,13 @@ class GoogleBooksProvider(BookProvider):
             f"?q=isbn:{isbn}"
         )
 
-        if settings.GOOGLE_API_KEY:
+        if (
+            self.settings
+            and self.settings.api_key
+        ):
             url += (
                 f"&key="
-                f"{settings.GOOGLE_API_KEY}"
+                f"{self.settings.api_key}"
             )
 
         return await self.safe_request(
