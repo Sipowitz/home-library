@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
+import client from "../api/client";
+
 type AuthContextType = {
   token: string | null;
 
@@ -27,11 +29,31 @@ export function AuthProvider({ children }: Props) {
   // 🔥 INIT FROM STORAGE
   // -------------------
   useEffect(() => {
-    const stored = localStorage.getItem("token");
+    async function initialize() {
+      const stored = localStorage.getItem("token");
 
-    setTokenState(stored);
+      if (!stored) {
+        setReady(true);
 
-    setReady(true);
+        return;
+      }
+
+      try {
+        await client.get("/auth/me");
+
+        setTokenState(stored);
+      } catch {
+        console.warn("Stored token invalid. Logging out.");
+
+        localStorage.removeItem("token");
+
+        setTokenState(null);
+      }
+
+      setReady(true);
+    }
+
+    initialize();
   }, []);
 
   // -------------------

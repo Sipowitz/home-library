@@ -1,6 +1,10 @@
 import axios from "axios";
 
+import toast from "react-hot-toast";
+
 export const API = "/api";
+
+let handlingUnauthorized = false;
 
 const client = axios.create({
   baseURL: API,
@@ -8,9 +12,6 @@ const client = axios.create({
     "Content-Type": "application/json",
   },
 });
-
-// ✅ DEBUG
-console.log("AXIOS BASE URL =", client.defaults.baseURL);
 
 // 🔐 Attach token correctly
 client.interceptors.request.use(
@@ -30,14 +31,6 @@ client.interceptors.request.use(
       (config.headers as any)["Authorization"] = `Bearer ${token}`;
     }
 
-    // ✅ DEBUG
-    console.log("AXIOS REQUEST", {
-      baseURL: config.baseURL,
-      url: config.url,
-      fullURL: `${config.baseURL}${config.url}`,
-      headers: config.headers,
-    });
-
     return config;
   },
   (error) => Promise.reject(error),
@@ -52,11 +45,19 @@ client.interceptors.response.use(
     }
 
     if (err.response?.status === 401) {
-      console.warn("Session expired. Logging out.");
+      if (!handlingUnauthorized) {
+        handlingUnauthorized = true;
 
-      localStorage.removeItem("token");
+        console.warn("Session expired. Logging out.");
 
-      window.location.href = "/login";
+        toast.error("Your session has expired. Please log in again.");
+
+        localStorage.removeItem("token");
+
+        setTimeout(() => {
+          handlingUnauthorized = false;
+        }, 1000);
+      }
 
       return Promise.reject(err);
     }
