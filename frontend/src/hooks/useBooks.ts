@@ -247,6 +247,16 @@ export function useBooks() {
     return updated;
   }
 
+  // -------------------
+  // 🔄 UPDATE IN MEMORY
+  // -------------------
+
+  function updateBookInState(updatedBook: Book) {
+    setBooks((prev) =>
+      prev.map((book) => (book.id === updatedBook.id ? updatedBook : book)),
+    );
+  }
+
   return {
     books,
     loadBooks,
@@ -256,6 +266,7 @@ export function useBooks() {
     addBookFromISBN,
     removeBook,
     saveBook,
+    updateBookInState,
     updateFilters,
     filters,
     isLoading,

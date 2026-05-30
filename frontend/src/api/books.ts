@@ -106,6 +106,12 @@ export async function getBooks(
   return res.data;
 }
 
+export async function getBook(id: number): Promise<Book> {
+  const res = await client.get(`/books/${id}`);
+
+  return res.data;
+}
+
 export async function createBook(book: BookCreateInput): Promise<Book> {
   const res = await client.post("/books/", book);
 

@@ -17,9 +17,13 @@ import { CoverBrowserModal } from "./CoverBrowserModal";
 
 import { fetchMetadataCandidates } from "../../api/metadataCandidates";
 
-import { refreshMetadata } from "../../api/books";
+import { getBook, refreshMetadata } from "../../api/books";
 
 import toast from "react-hot-toast";
+
+import { usePreferencesContext } from "../../context/PreferencesContext";
+
+import { formatDateTime } from "../../utils/dateFormatters";
 
 type Props = {
   editData: Book | null;
@@ -37,6 +41,8 @@ type Props = {
   onCancel: () => void;
 
   onDelete: () => void;
+
+  onBookUpdated: (book: Book) => void;
 };
 
 type CoverCandidate = {
@@ -56,6 +62,7 @@ export function BookEdit({
   onSave,
   onCancel,
   onDelete,
+  onBookUpdated,
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
@@ -66,6 +73,8 @@ export function BookEdit({
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const selectedCategoryId = editData?.category_id ?? null;
+
+  const { preferences } = usePreferencesContext();
 
   // -------------------
   // 📏 AUTO RESIZE
@@ -168,10 +177,11 @@ export function BookEdit({
 
       setProviders(results);
 
-      setEditData({
-        ...editData!,
-        last_metadata_refresh_at: new Date().toISOString(),
-      });
+      const updatedBook = await getBook(editData.id);
+
+      setEditData(updatedBook);
+
+      onBookUpdated(updatedBook);
 
       const successful = results.filter((r) => r.success).length;
 
@@ -544,9 +554,10 @@ export function BookEdit({
 
                   <div className="text-white mt-1">
                     {editData?.last_metadata_refresh_at
-                      ? new Date(
+                      ? formatDateTime(
                           editData.last_metadata_refresh_at,
-                        ).toLocaleString()
+                          preferences,
+                        )
                       : "Never"}
                   </div>
                 </div>

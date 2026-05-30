@@ -24,6 +24,8 @@ type Props = {
   onSave: () => void;
 
   onDelete: (id: number) => void;
+
+  onBookUpdated: (book: Book) => void;
 };
 
 export function BookPanel({
@@ -35,6 +37,7 @@ export function BookPanel({
   onClose,
   onSave,
   onDelete,
+  onBookUpdated,
 }: Props) {
   const { locations } = useLocations();
 
@@ -47,6 +50,8 @@ export function BookPanel({
   useEffect(() => {
     setConfirmDelete(false);
   }, [book, editing]);
+
+  useEffect(() => {}, [book]);
 
   function handleEdit() {
     if (!book) return;
@@ -210,6 +215,7 @@ export function BookPanel({
               onSave={onSave}
               onCancel={handleCancel}
               onDelete={() => setConfirmDelete(true)}
+              onBookUpdated={onBookUpdated}
             />
           )}
         </div>
