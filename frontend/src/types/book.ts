@@ -1,5 +1,13 @@
 import type { Category } from "./category";
 
+export type CoverCandidate = {
+  provider: string;
+
+  label: string;
+
+  url: string;
+};
+
 export type Book = {
   id: number;
 
@@ -28,6 +36,8 @@ export type Book = {
   location_id?: number | null;
 
   cover_url?: string;
+
+  uploaded_cover_candidates_json?: CoverCandidate[];
 
   // ✅ single category
   category_id?: number | null;

@@ -18,6 +18,12 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
+
+      "/covers": {
+        target: "http://192.168.1.200:8000",
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 });

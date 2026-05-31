@@ -157,12 +157,15 @@ export async function updateBook(
   return res.data;
 }
 
-export async function uploadCover(file: File): Promise<CoverCandidate> {
+export async function uploadCover(
+  bookId: number,
+  file: File,
+): Promise<CoverCandidate> {
   const formData = new FormData();
 
   formData.append("file", file);
 
-  const res = await client.post("/books/upload-cover", formData, {
+  const res = await client.post(`/books/${bookId}/upload-cover`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },

@@ -66,8 +66,6 @@ export function BookEdit({
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
-  const [uploadedCovers, setUploadedCovers] = useState<CoverCandidate[]>([]);
-
   const [coverModalOpen, setCoverModalOpen] = useState(false);
 
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
@@ -135,7 +133,7 @@ export function BookEdit({
       }
     }
 
-    for (const cover of uploadedCovers) {
+    for (const cover of editData?.uploaded_cover_candidates_json || []) {
       if (!cover.url || seen.has(cover.url)) {
         continue;
       }
@@ -146,11 +144,7 @@ export function BookEdit({
     }
 
     return merged;
-  }, [providers, uploadedCovers]);
-
-  function handleCoverUploaded(cover: CoverCandidate) {
-    setUploadedCovers((prev) => [cover, ...prev]);
-  }
+  }, [providers, editData?.uploaded_cover_candidates_json]);
 
   // -------------------
   // 🏷️ CATEGORY
@@ -796,8 +790,20 @@ export function BookEdit({
         onClose={() => setCoverModalOpen(false)}
         title={editData?.title || "Book Covers"}
         covers={allCoverCandidates}
+        bookId={editData?.id}
         selectedCoverUrl={editData?.cover_url}
+        onCoverUploaded={(cover) => {
+          setEditData({
+            ...editData!,
+            uploaded_cover_candidates_json: [
+              cover,
+              ...(editData?.uploaded_cover_candidates_json || []),
+            ],
+          });
+        }}
         onSelectCover={(cover) => {
+          console.log("SELECTED COVER URL", cover.url);
+
           setEditData({
             ...editData!,
             cover_url: cover.url,
