@@ -187,6 +187,10 @@ class BookBase(BaseModel):
 
     cover_url: Optional[str] = None
 
+    uploaded_cover_candidates_json: Optional[
+    List[Any]
+    ] = None
+
     date_added: Optional[datetime] = None
 
     last_metadata_refresh_at: Optional[
@@ -224,6 +228,10 @@ class BookUpdate(BaseModel):
     location_id: Optional[int] = None
 
     cover_url: Optional[str] = None
+
+    uploaded_cover_candidates_json: Optional[
+    List[Any]
+    ] = None
 
     category_id: Optional[int] = None
 

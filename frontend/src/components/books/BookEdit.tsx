@@ -66,6 +66,8 @@ export function BookEdit({
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
+  const [uploadedCovers, setUploadedCovers] = useState<CoverCandidate[]>([]);
+
   const [coverModalOpen, setCoverModalOpen] = useState(false);
 
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
@@ -133,8 +135,22 @@ export function BookEdit({
       }
     }
 
+    for (const cover of uploadedCovers) {
+      if (!cover.url || seen.has(cover.url)) {
+        continue;
+      }
+
+      seen.add(cover.url);
+
+      merged.push(cover);
+    }
+
     return merged;
-  }, [providers]);
+  }, [providers, uploadedCovers]);
+
+  function handleCoverUploaded(cover: CoverCandidate) {
+    setUploadedCovers((prev) => [cover, ...prev]);
+  }
 
   // -------------------
   // 🏷️ CATEGORY

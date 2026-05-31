@@ -40,6 +40,18 @@ from ..services.providers.snapshot_query_service import (
     get_provider_results_for_book,
 )
 
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    UploadFile,
+    File,
+)
+
+import os
+import uuid
+
 router = APIRouter(
     prefix="/books",
     tags=["Books"],
@@ -539,6 +551,103 @@ def update_book(
 
     return book
 
+
+# -------------------
+# 🖼️ UPLOAD COVER
+# -------------------
+
+@router.post(
+    "/{book_id}/upload-cover",
+)
+async def upload_cover(
+    book_id: int,
+
+    file: UploadFile = File(...),
+
+    db: Session = Depends(get_db),
+
+    current_user: models.User = Depends(
+        get_current_user
+    ),
+):
+    book = book_service.get_book(
+        db,
+        current_user.id,
+        book_id,
+    )
+
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail="Book not found",
+        )
+
+    allowed_types = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }
+
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported image type",
+        )
+
+    extension = allowed_types[
+        file.content_type
+    ]
+
+    upload_dir = (
+        "/app/covers/uploaded"
+    )
+
+    os.makedirs(
+        upload_dir,
+        exist_ok=True,
+    )
+
+    filename = (
+        f"{uuid.uuid4()}.{extension}"
+    )
+
+    filepath = os.path.join(
+        upload_dir,
+        filename,
+    )
+
+    contents = await file.read()
+
+    with open(
+        filepath,
+        "wb",
+    ) as output:
+        output.write(contents)
+
+    candidate = {
+        "provider": "upload",
+        "label": "Custom Upload",
+        "url": (
+            f"/covers/uploaded/{filename}"
+        ),
+    }
+
+    uploaded_covers = (
+        book.uploaded_cover_candidates_json
+        or []
+    )
+
+    uploaded_covers.append(
+        candidate
+    )
+
+    book.uploaded_cover_candidates_json = (
+        uploaded_covers
+    )
+
+    db.commit()
+
+    return candidate
 
 # -------------------
 # ❌ DELETE BOOK

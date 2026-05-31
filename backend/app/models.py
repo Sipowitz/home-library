@@ -323,6 +323,11 @@ class Book(Base):
         nullable=True,
     )
 
+    uploaded_cover_candidates_json = Column(
+        JSONB,
+        nullable=True,
+    )
+
     category_id = Column(
         Integer,
         ForeignKey("categories.id"),

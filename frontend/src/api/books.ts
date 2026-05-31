@@ -71,6 +71,14 @@ type CreateBookFromISBNPayload = {
   provider_results: ProviderResult[];
 };
 
+export type CoverCandidate = {
+  provider: string;
+
+  label: string;
+
+  url: string;
+};
+
 export async function getBooks(
   skip: number,
   limit: number,
@@ -145,6 +153,20 @@ export async function updateBook(
   book: BookUpdateInput,
 ): Promise<Book> {
   const res = await client.put(`/books/${id}`, book);
+
+  return res.data;
+}
+
+export async function uploadCover(file: File): Promise<CoverCandidate> {
+  const formData = new FormData();
+
+  formData.append("file", file);
+
+  const res = await client.post("/books/upload-cover", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 
   return res.data;
 }
