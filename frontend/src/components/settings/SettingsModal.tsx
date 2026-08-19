@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import axios from "axios";
+
 import toast from "react-hot-toast";
 
 import client from "../../api/client";
@@ -13,6 +15,8 @@ import { SettingsSidebar } from "./SettingsSidebar";
 import { BackupSettings } from "./backup/BackupSettings";
 
 import { ConfirmRestoreModal } from "./backup/ConfirmRestoreModal";
+
+import type { BackupValidationSummary } from "./backup/ConfirmRestoreModal";
 
 import { LocationSettings } from "./locations/LocationSettings";
 
@@ -78,6 +82,12 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
   const [restoring, setRestoring] = useState(false);
 
+  const [validatingBackup, setValidatingBackup] = useState(false);
+
+  const [validationToken, setValidationToken] = useState<string | null>(null);
+
+  const [validationSummary, setValidationSummary] = useState<BackupValidationSummary | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -126,7 +136,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
       a.href = url;
 
-      a.download = `library-backup-${timestamp}.json`;
+      a.download = `library-backup-${timestamp}.lbak`;
 
       document.body.appendChild(a);
 
@@ -154,37 +164,59 @@ export function SettingsModal({ isOpen, onClose }: Props) {
   // 📥 RESTORE
   // -------------------
 
-  async function handleRestore(file: File) {
+  function backupErrorMessage(err: unknown, fallback: string) {
+    if (axios.isAxiosError<{ message?: string }>(err)) {
+      return err.response?.data?.message || fallback;
+    }
+    return fallback;
+  }
+
+  async function handleValidate(file: File) {
+    try {
+      setValidatingBackup(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await client.post("/backup/validate", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setPendingFile(file);
+      setValidationToken(response.data.validation_token);
+      setValidationSummary(response.data.summary);
+      setConfirmRestoreOpen(true);
+    } catch (err) {
+      console.error("Backup validation failed", err);
+      toast.error(backupErrorMessage(err, "Backup validation failed"));
+      setPendingFile(null);
+      setValidationToken(null);
+      setValidationSummary(null);
+    } finally {
+      setValidatingBackup(false);
+    }
+  }
+
+  async function handleRestore() {
+    if (!validationToken) return;
     try {
       setRestoring(true);
-
-      const formData = new FormData();
-
-      formData.append("file", file);
-
-      await client.post("/backup/import", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
+      await client.post("/backup/restore", { validation_token: validationToken });
       const restoreTimestamp = new Date().toISOString();
-
       localStorage.setItem("last_restore_at", restoreTimestamp);
-
       setLastRestoreAt(restoreTimestamp);
-
       toast.success("Restore complete");
-
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    } catch (err) {
+      setTimeout(() => window.location.reload(), 750);
+    } catch (err: unknown) {
       console.error("Restore failed", err);
-
-      toast.error("Restore failed");
+      const code = axios.isAxiosError<{ code?: string }>(err)
+        ? err.response?.data?.code
+        : undefined;
+      const suffix = code === "RESTORE_DB_ROLLBACK" ? " Your current library was left unchanged." : "";
+      toast.error(`${backupErrorMessage(err, "Restore failed")}${suffix}`);
     } finally {
       setRestoring(false);
+      setConfirmRestoreOpen(false);
+      setPendingFile(null);
+      setValidationToken(null);
+      setValidationSummary(null);
     }
   }
 
@@ -350,15 +382,12 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
                   <BackupSettings
                     restoring={restoring}
+                    validating={validatingBackup}
                     fileInputRef={fileInputRef}
                     lastBackupAt={lastBackupAt}
                     lastRestoreAt={lastRestoreAt}
                     onBackup={handleBackup}
-                    onFileSelect={(file: File) => {
-                      setPendingFile(file);
-
-                      setConfirmRestoreOpen(true);
-                    }}
+                    onFileSelect={handleValidate}
                   />
                 </div>
               </div>
@@ -373,21 +402,17 @@ export function SettingsModal({ isOpen, onClose }: Props) {
         open={confirmRestoreOpen}
         restoring={restoring}
         file={pendingFile}
+        summary={validationSummary}
         onConfirm={() => {
-          if (!pendingFile || restoring) {
-            return;
-          }
-
-          handleRestore(pendingFile);
-
-          setConfirmRestoreOpen(false);
-
-          setPendingFile(null);
+          if (!validationToken || restoring) return;
+          handleRestore();
         }}
         onCancel={() => {
           setConfirmRestoreOpen(false);
 
           setPendingFile(null);
+          setValidationToken(null);
+          setValidationSummary(null);
         }}
       />
 

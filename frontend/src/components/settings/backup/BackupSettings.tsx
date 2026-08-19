@@ -7,6 +7,8 @@ import { formatDateTime } from "../../../utils/dateFormatters";
 type Props = {
   restoring: boolean;
 
+  validating: boolean;
+
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 
   onBackup: () => void;
@@ -20,6 +22,7 @@ type Props = {
 
 export function BackupSettings({
   restoring,
+  validating,
   fileInputRef,
   onBackup,
   onFileSelect,
@@ -73,7 +76,7 @@ export function BackupSettings({
       {/* RESTORE */}
       <button
         onClick={() => fileInputRef.current?.click()}
-        disabled={restoring}
+        disabled={restoring || validating}
         className="
           w-full
           py-2.5
@@ -84,19 +87,19 @@ export function BackupSettings({
           transition
         "
       >
-        {restoring ? "Restoring..." : "Upload Backup"}
+        {validating ? "Validating..." : restoring ? "Restoring..." : "Choose Backup"}
       </button>
 
       {/* HINT */}
       <p className="text-xs text-gray-500 mt-3">
-        Backups include your books, categories, locations, and metadata.
+        Backups include your books, reading state, categories, locations, preferences, metadata history, and referenced local covers. Passwords, secrets, provider API keys, and other users are excluded.
       </p>
 
       {/* FILE INPUT */}
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json"
+        accept=".lbak,application/vnd.library-app.backup+zip"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
