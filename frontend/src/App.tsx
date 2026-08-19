@@ -38,6 +38,7 @@ export default function App() {
     updateBookInState,
     updateFilters,
     isLoading,
+    loadError,
   } = useBooks();
 
   const { locations } = useLocations();
@@ -119,7 +120,7 @@ export default function App() {
 
   useEffect(() => {
     function handleScroll() {
-      if (!hasMore) return;
+      if (!hasMore || isLoading) return;
 
       const bottom =
         window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
@@ -132,7 +133,7 @@ export default function App() {
     window.addEventListener("scroll", handleScroll);
 
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [hasMore, books]);
+  }, [hasMore, isLoading, books]);
 
   // -------------------
   // 🔐 LOGIN
@@ -254,6 +255,9 @@ export default function App() {
         <div className="h-6 mb-3 px-1 flex items-center">
           {isLoading && (
             <div className="text-sm text-gray-400">Searching...</div>
+          )}
+          {!isLoading && loadError && (
+            <div className="text-sm text-red-300">{loadError}</div>
           )}
         </div>
 

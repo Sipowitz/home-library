@@ -8,6 +8,31 @@ from app import models
 from app.models import Book
 
 
+SORT_COLUMNS = {
+    "id": Book.id,
+    "title": Book.title,
+    "author": func.split_part(Book.author, " ", -1),
+    "publisher": Book.publisher,
+    "language": Book.language,
+    "page_count": Book.page_count,
+    "year": Book.year,
+    "isbn": Book.isbn,
+    "read": Book.read,
+    "read_at": Book.read_at,
+    "date_added": Book.date_added,
+}
+
+
+def _validate_required_fields(data: dict, partial: bool = False) -> None:
+    for field in ("title", "author"):
+        if partial and field not in data:
+            continue
+        value = data.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise HTTPException(status_code=400, detail=f"{field.title()} is required")
+        data[field] = value.strip()
+
+
 def _owned_subtree_ids(db: Session, model, user_id: int, root_id: int) -> list[int]:
     rows = db.query(model.id, model.parent_id).filter(model.owner_id == user_id).all()
     children: dict[int | None, list[int]] = {}
@@ -86,17 +111,16 @@ def get_books(
 
     total = query.count()
 
-    if sort == "author":
-        sort_column = func.split_part(Book.author, " ", -1)
-    elif sort == "title":
-        sort_column = Book.title
-    else:
-        sort_column = getattr(Book, sort, Book.date_added)
+    sort_column = SORT_COLUMNS.get(sort)
+    if sort_column is None:
+        raise HTTPException(status_code=400, detail="Invalid sort field")
+    if order not in {"asc", "desc"}:
+        raise HTTPException(status_code=400, detail="Invalid sort direction")
 
     if order == "asc":
-        query = query.order_by(asc(sort_column))
+        query = query.order_by(asc(sort_column), asc(Book.id))
     else:
-        query = query.order_by(desc(sort_column))
+        query = query.order_by(desc(sort_column), desc(Book.id))
 
     items = (
         query
@@ -126,6 +150,7 @@ def get_book(db: Session, user_id: int, book_id: int):
 
 
 def create_book(db: Session, user_id: int, data: dict):
+    _validate_required_fields(data)
     category_id = data.get("category_id")
     location_id = data.get("location_id")
 
@@ -200,6 +225,8 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
 
     if not book:
         return None
+
+    _validate_required_fields(data, partial=True)
 
     # ✅ CATEGORY UPDATE (single)
     if "category_id" in data:

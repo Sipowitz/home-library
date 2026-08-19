@@ -49,6 +49,8 @@ type Filters = {
   locationId?: number | null;
 
   categoryId?: number | null;
+
+  read?: boolean | null;
 };
 
 const LIMIT = 20;
@@ -61,6 +63,8 @@ export function useBooks() {
   const [hasMore, setHasMore] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
+
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<Filters>({
     search: "",
@@ -86,36 +90,43 @@ export function useBooks() {
     const newSkip = reset ? 0 : skip;
 
     setIsLoading(true);
+    setLoadError(null);
 
-    const data = await getBooks(
-      newSkip,
-      LIMIT,
-      filters.search,
-      filters.locationId,
-      filters.categoryId,
-    );
+    try {
+      const data = await getBooks(
+        newSkip,
+        LIMIT,
+        filters.search,
+        filters.locationId,
+        filters.categoryId,
+        filters.read ?? undefined,
+      );
 
-    if (requestId !== requestIdRef.current) return;
+      if (requestId !== requestIdRef.current) return;
 
-    if (reset) {
-      setBooks(data.items);
+      if (reset) {
+        setBooks(data.items);
+        setSkip(LIMIT);
+      } else {
+        setBooks((prev) => {
+          const existingIds = new Set(prev.map((b) => b.id));
+          const newItems = data.items.filter((b) => !existingIds.has(b.id));
+          return [...prev, ...newItems];
+        });
+        setSkip(newSkip + LIMIT);
+      }
 
-      setSkip(LIMIT);
-    } else {
-      setBooks((prev) => {
-        const existingIds = new Set(prev.map((b) => b.id));
-
-        const newItems = data.items.filter((b) => !existingIds.has(b.id));
-
-        return [...prev, ...newItems];
-      });
-
-      setSkip(newSkip + LIMIT);
+      setHasMore(newSkip + LIMIT < data.total);
+    } catch (err) {
+      if (requestId === requestIdRef.current) {
+        console.error("Failed to load books", err);
+        setLoadError("Books could not be loaded");
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+      }
     }
-
-    setHasMore(newSkip + LIMIT < data.total);
-
-    setIsLoading(false);
   }
 
   async function loadMoreBooks() {
@@ -140,7 +151,12 @@ export function useBooks() {
   // -------------------
 
   useEffect(() => {
-    if (!ready || !token) return;
+    if (!ready || !token) {
+      requestIdRef.current += 1;
+      setIsLoading(false);
+      setLoadError(null);
+      return;
+    }
 
     loadBooks(true);
 
@@ -270,5 +286,6 @@ export function useBooks() {
     updateFilters,
     filters,
     isLoading,
+    loadError,
   };
 }

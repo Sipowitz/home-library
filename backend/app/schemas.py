@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from pydantic_core import PydanticCustomError
 
 from typing import Optional, List, Any
 
@@ -195,6 +196,15 @@ class BookBase(BaseModel):
         datetime
     ] = None
 
+    @field_validator("title", "author", mode="before")
+    @classmethod
+    def validate_required_text(cls, value):
+        if not isinstance(value, str) or not value.strip():
+            raise PydanticCustomError(
+                "required_book_text", "must not be null or blank"
+            )
+        return value.strip()
+
 
 class BookCreate(BookBase):
     pass
@@ -232,6 +242,15 @@ class BookUpdate(BaseModel):
     ] = None
 
     category_id: Optional[int] = None
+
+    @field_validator("title", "author", mode="before")
+    @classmethod
+    def validate_required_text(cls, value):
+        if not isinstance(value, str) or not value.strip():
+            raise PydanticCustomError(
+                "required_book_text", "must not be null or blank"
+            )
+        return value.strip()
 
 
 class BookResponse(BookBase):

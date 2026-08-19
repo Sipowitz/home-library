@@ -51,6 +51,7 @@ from fastapi import (
 )
 
 from pathlib import Path
+from typing import Literal
 
 from ..services.cover_storage import CoverUploadError, store_uploaded_cover
 
@@ -106,21 +107,24 @@ def get_db():
     response_model=schemas.BookListResponse,
 )
 def get_books(
-    skip: int = Query(0, ge=0),
+    skip: int = Query(0, ge=0, le=1_000_000),
 
-    limit: int = Query(20, le=100),
+    limit: int = Query(20, ge=1, le=100),
 
-    search: str | None = Query(None),
+    search: str | None = Query(None, max_length=500),
 
-    category_id: int | None = Query(None),
+    category_id: int | None = Query(None, ge=-1),
 
-    location_id: int | None = Query(None),
+    location_id: int | None = Query(None, ge=-1),
 
     read: bool | None = Query(None),
 
-    sort: str = Query("author"),
+    sort: Literal[
+        "id", "title", "author", "publisher", "language", "page_count",
+        "year", "isbn", "read", "read_at", "date_added",
+    ] = Query("author"),
 
-    order: str = Query("asc"),
+    order: Literal["asc", "desc"] = Query("asc"),
 
     db: Session = Depends(get_db),
 

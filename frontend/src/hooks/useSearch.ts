@@ -5,7 +5,6 @@ type Params = {
 
   updateFilters: (filters: {
     search?: string;
-    locationId?: number | null;
   }) => void;
 };
 
@@ -34,7 +33,6 @@ export function useSearch({ isAuthenticated, updateFilters }: Params) {
     // ✅ ONLY search goes to backend
     updateFilters({
       search: debouncedSearch,
-      locationId: null,
     });
 
     if (debouncedSearch !== prevSearch) {
