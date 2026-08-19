@@ -454,7 +454,7 @@ async def create_book_from_isbn_endpoint(
     ),
 ):
     book_data = clean_input(
-        payload.book
+        payload.book.model_dump()
     )
 
     isbn = (
@@ -498,7 +498,11 @@ async def create_book_from_isbn_endpoint(
 
                     duration_ms=result_payload.duration_ms,
 
-                    data=result_payload.data,
+                    data=(
+                        result_payload.data.model_dump()
+                        if result_payload.data is not None
+                        else None
+                    ),
 
                     error=result_payload.error,
                 )

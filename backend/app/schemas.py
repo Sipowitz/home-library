@@ -1,9 +1,11 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_core import PydanticCustomError
 
 from typing import Optional, List, Any
 
 from datetime import datetime
+from app.services.domain_validation import required_text
+from app.services.isbn_validation import normalize_isbn_value
 
 
 # -------------------
@@ -112,6 +114,11 @@ class CategoryBase(BaseModel):
 
     parent_id: Optional[int] = None
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value):
+        return required_text(value, "Category name")
+
 
 class CategoryCreate(CategoryBase):
     pass
@@ -121,6 +128,13 @@ class CategoryUpdate(BaseModel):
     name: Optional[str] = None
 
     parent_id: Optional[int] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value):
+        if value is None:
+            return value
+        return required_text(value, "Category name")
 
 
 class CategoryStats(BaseModel):
@@ -199,11 +213,20 @@ class BookBase(BaseModel):
     @field_validator("title", "author", mode="before")
     @classmethod
     def validate_required_text(cls, value):
-        if not isinstance(value, str) or not value.strip():
-            raise PydanticCustomError(
-                "required_book_text", "must not be null or blank"
-            )
-        return value.strip()
+        try:
+            return required_text(value, "Book field")
+        except ValueError as exc:
+            raise PydanticCustomError("required_book_text", "must not be null or blank") from exc
+
+    @field_validator("isbn", mode="before")
+    @classmethod
+    def validate_isbn(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        try:
+            return normalize_isbn_value(value)
+        except (TypeError, ValueError) as exc:
+            raise PydanticCustomError("invalid_isbn", "Invalid ISBN") from exc
 
 
 class BookCreate(BookBase):
@@ -251,6 +274,51 @@ class BookUpdate(BaseModel):
                 "required_book_text", "must not be null or blank"
             )
         return value.strip()
+
+    @field_validator("isbn", mode="before")
+    @classmethod
+    def validate_isbn(cls, value):
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        try:
+            return normalize_isbn_value(value)
+        except (TypeError, ValueError) as exc:
+            raise PydanticCustomError("invalid_isbn", "Invalid ISBN") from exc
+
+
+class CreateBookFromIsbnBook(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    author: str
+    subtitle: Optional[str] = None
+    publisher: Optional[str] = None
+    language: Optional[str] = None
+    page_count: Optional[int] = None
+    year: Optional[int] = None
+    isbn: str
+    description: Optional[str] = None
+    read: bool = False
+    read_at: Optional[datetime] = None
+    location_id: Optional[int] = None
+    category_id: Optional[int] = None
+    cover_url: Optional[str] = None
+
+    @field_validator("title", "author", mode="before")
+    @classmethod
+    def validate_required_text(cls, value):
+        try:
+            return required_text(value, "Book field")
+        except ValueError as exc:
+            raise PydanticCustomError("required_book_text", "must not be null or blank") from exc
+
+    @field_validator("isbn", mode="before")
+    @classmethod
+    def validate_required_isbn(cls, value):
+        try:
+            return normalize_isbn_value(value)
+        except (TypeError, ValueError) as exc:
+            raise PydanticCustomError("invalid_isbn", "Invalid ISBN") from exc
 
 
 class BookResponse(BookBase):
@@ -366,6 +434,11 @@ class LocationBase(BaseModel):
 
     parent_id: Optional[int] = None
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value):
+        return required_text(value, "Location name")
+
 
 class LocationCreate(LocationBase):
     pass
@@ -375,6 +448,13 @@ class LocationUpdate(BaseModel):
     name: Optional[str] = None
 
     parent_id: Optional[int] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value):
+        if value is None:
+            return value
+        return required_text(value, "Location name")
 
 
 class LocationResponse(BaseModel):

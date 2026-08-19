@@ -3,14 +3,12 @@
 from sqlalchemy.orm import Session
 
 from app import models
+from app.services.domain_validation import MAX_CATEGORY_DEPTH
 
 
 # -------------------
 # ⚙️ CONFIG
 # -------------------
-
-MAX_CATEGORY_DEPTH = 4
-
 
 # -------------------
 # 🌲 BUILD TREE

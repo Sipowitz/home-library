@@ -257,3 +257,130 @@ def test_valid_sorts_and_unassigned_compatibility_filters(client, db, users):
     )
     assert response.status_code == 200
     assert response.json()["total"] == 1
+
+
+def isbn_payload(isbn="9780306406157", **book_changes):
+    book = {
+        "title": "Frontend title",
+        "author": "Frontend author",
+        "isbn": isbn,
+        "subtitle": "Subtitle",
+        "read": False,
+        "category_id": None,
+        "location_id": None,
+    }
+    book.update(book_changes)
+    return {
+        "book": book,
+        "provider_results": [
+            {
+                "provider": "google_books",
+                "success": True,
+                "isbn": isbn,
+                "duration_ms": 42,
+                "data": {
+                    "title": "Provider title",
+                    "author": "Provider author",
+                    "isbn": isbn,
+                    "cover_url": "https://example.test/cover.jpg",
+                    "cover_candidates": [
+                        {
+                            "provider": "google_books",
+                            "label": "thumbnail",
+                            "url": "https://example.test/cover.jpg",
+                        }
+                    ],
+                    "provider": "google_books",
+                    "read": False,
+                },
+                "error": None,
+            }
+        ],
+    }
+
+
+@pytest.mark.parametrize("isbn", ["0306406152", "9780306406157"])
+def test_from_isbn_frontend_payload_persists_owned_book_and_metadata(client, db, users, isbn):
+    owner, other = users
+    response = client.post("/books/from-isbn", json=isbn_payload(isbn), headers=headers(owner))
+    assert response.status_code == 200, response.text
+    book = db.query(models.Book).filter_by(id=response.json()["id"]).one()
+    assert book.owner_id == owner.id and book.owner_id != other.id
+    assert book.isbn == isbn
+    assert len(book.metadata_snapshots) == 1
+    snapshot = book.metadata_snapshots[0]
+    assert snapshot.provider == "google_books"
+    assert snapshot.raw_json["cover_candidates"][0]["label"] == "thumbnail"
+    candidates = client.get(
+        f"/books/{book.id}/metadata-candidates", headers=headers(owner)
+    )
+    assert candidates.status_code == 200
+    assert candidates.json()[0]["data"]["title"] == "Provider title"
+
+
+@pytest.mark.parametrize("field", ["id", "owner_id", "date_added", "last_metadata_refresh_at", "metadata_snapshots", "unsupported"])
+def test_from_isbn_rejects_internal_and_unknown_book_fields(client, users, field):
+    owner, _ = users
+    payload = isbn_payload()
+    payload["book"][field] = 123 if field not in {"metadata_snapshots"} else []
+    response = client.post("/books/from-isbn", json=payload, headers=headers(owner))
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"isbn": "malformed"},
+        {"title": ""},
+        {"title": "   "},
+        {"author": ""},
+        {"author": "  "},
+        {"title": 123},
+        {"page_count": "many"},
+    ],
+)
+def test_from_isbn_rejects_invalid_book_values_with_422(client, users, change):
+    owner, _ = users
+    values = dict(change)
+    isbn = values.pop("isbn", "9780306406157")
+    response = client.post(
+        "/books/from-isbn", json=isbn_payload(isbn, **values), headers=headers(owner)
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda payload: payload["provider_results"][0].update(extra="no"),
+        lambda payload: payload["provider_results"][0].update(duration_ms=-1),
+        lambda payload: payload["provider_results"][0].update(data={"unknown": "value"}),
+        lambda payload: payload["provider_results"][0]["data"].update(description="x" * 100_001),
+        lambda payload: payload.update(provider_results=payload["provider_results"] * 6),
+    ],
+)
+def test_from_isbn_rejects_malformed_or_excessive_evidence(client, users, mutation):
+    owner, _ = users
+    payload = isbn_payload()
+    mutation(payload)
+    response = client.post("/books/from-isbn", json=payload, headers=headers(owner))
+    assert response.status_code == 422
+
+
+def test_invalid_from_isbn_input_never_creates_a_book(client, db, users):
+    owner, _ = users
+    payload = isbn_payload(owner_id=999999)
+    response = client.post("/books/from-isbn", json=payload, headers=headers(owner))
+    assert response.status_code == 422
+    assert db.query(models.Book).count() == 0
+
+
+def test_normal_book_creation_remains_available(client, db, users):
+    owner, _ = users
+    response = client.post(
+        "/books/",
+        json={"title": "Manual", "author": "Author", "isbn": "9780306406157"},
+        headers=headers(owner),
+    )
+    assert response.status_code == 200
+    assert db.get(models.Book, response.json()["id"]).owner_id == owner.id

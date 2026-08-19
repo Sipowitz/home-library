@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from destructive_db_guard import require_disposable_database
-from test_backup_archive import archive_bytes
+from test_backup_archive import archive_bytes, base_library, book_record, category_chain, valid_preferences
 
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
@@ -230,3 +230,38 @@ def test_cleanup_removes_expired_and_orphans_but_not_active_or_external_files(li
     db.close()
     assert_invalid(factory, expired_token, user_id)
     db = factory(); claimed = consume_session(active_token, user_id, db); finish_session(claimed, db); db.close()
+
+
+@pytest.mark.parametrize(
+    "library",
+    [
+        base_library(categories=category_chain(5)),
+        base_library(categories=[{"archive_id": "c", "name": " ", "parent_archive_id": None}]),
+        base_library(locations=[{"archive_id": "l", "name": " ", "parent_archive_id": None}]),
+        base_library(books=[book_record(title=" ")]),
+        base_library(books=[book_record(author=" ")]),
+        base_library(books=[book_record(isbn="invalid")]),
+        base_library(preferences=valid_preferences(time_format="invalid")),
+        base_library(books=[book_record(read=False, read_at="2026-01-01T00:00:00Z")]),
+    ],
+)
+def test_domain_invalid_validation_has_no_live_side_effects(lifecycle, library):
+    factory, (user_id, _), tmp_path = lifecycle
+    db = factory()
+    db.add(models.Book(owner_id=user_id, title="Keep", author="Untouched"))
+    db.commit()
+    before = [(row.id, row.title) for row in db.query(models.Book).all()]
+    covers = tmp_path / "covers"
+    covers.mkdir()
+
+    with pytest.raises(BackupError) as raised:
+        stage_and_validate(
+            SimpleNamespace(file=io.BytesIO(archive_bytes(library))), user_id, db
+        )
+    assert raised.value.code == "BACKUP_DOMAIN_INVALID"
+    db.expire_all()
+    assert [(row.id, row.title) for row in db.query(models.Book).all()] == before
+    assert db.query(models.BackupValidationSession).count() == 0
+    assert list(covers.iterdir()) == []
+    db.close()
+    assert_invalid(factory, "token-never-issued-for-invalid-backup", user_id)

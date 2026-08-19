@@ -134,3 +134,113 @@ def test_missing_referenced_cover_rejected(tmp_path):
 def test_passwords_and_api_keys_are_not_part_of_schema(tmp_path):
     library = base_library(); library["password_hash"] = "secret"
     assert_code(tmp_path, archive_bytes(library), "BACKUP_MALFORMED")
+
+
+def category_chain(depth):
+    return [
+        {
+            "archive_id": f"category-{index}",
+            "name": f"Level {index}",
+            "parent_archive_id": None if index == 1 else f"category-{index - 1}",
+        }
+        for index in range(1, depth + 1)
+    ]
+
+
+def book_record(**changes):
+    value = {
+        "archive_id": "book-1",
+        "title": "Valid title",
+        "author": "Valid author",
+        "isbn": "9780306406157",
+        "read": False,
+    }
+    value.update(changes)
+    return value
+
+
+def valid_preferences(**changes):
+    value = {
+        "date_format": "DD/MM/YYYY",
+        "time_format": "24h",
+        "library_view_mode": "grid",
+        "show_covers_in_list": True,
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+    }
+    value.update(changes)
+    return value
+
+
+def test_exact_maximum_category_depth_is_valid(tmp_path):
+    inspect(tmp_path, archive_bytes(base_library(categories=category_chain(4))))
+
+
+def test_five_level_category_depth_is_rejected(tmp_path):
+    assert_code(
+        tmp_path,
+        archive_bytes(base_library(categories=category_chain(5))),
+        "BACKUP_DOMAIN_INVALID",
+    )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("title", ""), ("title", "   "), ("author", ""), ("author", " \t ")],
+)
+def test_blank_required_book_text_is_rejected(tmp_path, field, value):
+    assert_code(
+        tmp_path,
+        archive_bytes(base_library(books=[book_record(**{field: value})])),
+        "BACKUP_DOMAIN_INVALID",
+    )
+
+
+@pytest.mark.parametrize("kind", ["categories", "locations"])
+def test_blank_hierarchy_name_is_rejected(tmp_path, kind):
+    item = {"archive_id": "item-1", "name": "   ", "parent_archive_id": None}
+    assert_code(
+        tmp_path,
+        archive_bytes(base_library(**{kind: [item]})),
+        "BACKUP_DOMAIN_INVALID",
+    )
+
+
+def test_malformed_isbn_is_rejected_and_valid_isbn10_and_13_are_accepted(tmp_path):
+    assert_code(
+        tmp_path,
+        archive_bytes(base_library(books=[book_record(isbn="not-an-isbn")])),
+        "BACKUP_DOMAIN_INVALID",
+    )
+    inspect(tmp_path, archive_bytes(base_library(books=[book_record(isbn="0306406152")])))
+    inspect(tmp_path, archive_bytes(base_library(books=[book_record(isbn="9780306406157")])))
+
+
+def test_preferences_domain_values_are_enforced(tmp_path):
+    for change in (
+        {"date_format": "tomorrow-first"},
+        {"time_format": "25h"},
+        {"library_view_mode": "carousel"},
+    ):
+        assert_code(
+            tmp_path,
+            archive_bytes(base_library(preferences=valid_preferences(**change))),
+            "BACKUP_DOMAIN_INVALID",
+        )
+    inspect(tmp_path, archive_bytes(base_library(preferences=valid_preferences())))
+
+
+def test_unread_book_with_read_timestamp_is_rejected(tmp_path):
+    assert_code(
+        tmp_path,
+        archive_bytes(
+            base_library(
+                books=[book_record(read=False, read_at="2026-01-01T00:00:00Z")]
+            )
+        ),
+        "BACKUP_DOMAIN_INVALID",
+    )
+
+
+def test_read_book_without_timestamp_remains_legacy_compatible(tmp_path):
+    inspect(tmp_path, archive_bytes(base_library(books=[book_record(read=True, read_at=None)])))

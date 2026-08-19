@@ -1,6 +1,11 @@
 from sqlalchemy.orm import Session
 
 from app import models
+from app.services.domain_validation import (
+    VALID_DATE_FORMATS,
+    VALID_LIBRARY_VIEW_MODES,
+    VALID_TIME_FORMATS,
+)
 
 
 # -------------------
@@ -14,23 +19,6 @@ DEFAULT_TIME_FORMAT = "24h"
 DEFAULT_LIBRARY_VIEW_MODE = "grid"
 
 DEFAULT_SHOW_COVERS_IN_LIST = True
-
-VALID_DATE_FORMATS = {
-    "DD/MM/YYYY",
-    "MM/DD/YYYY",
-    "YYYY-MM-DD",
-}
-
-VALID_TIME_FORMATS = {
-    "24h",
-    "12h",
-}
-
-VALID_LIBRARY_VIEW_MODES = {
-    "grid",
-    "list",
-}
-
 
 # -------------------
 # 🔍 GET OR CREATE

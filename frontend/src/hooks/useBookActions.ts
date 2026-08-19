@@ -192,6 +192,9 @@ export function useBookActions({
     if (!payload.id) {
       try {
         delete (payload as any).id;
+        delete (payload as any).date_added;
+        delete (payload as any).last_metadata_refresh_at;
+        delete (payload as any).category;
 
         const created = payload.isbn
           ? await addBookFromISBN({

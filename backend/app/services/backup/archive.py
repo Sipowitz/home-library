@@ -20,6 +20,12 @@ from ... import models
 from ...core.config import settings
 from .errors import BackupError
 from .schemas import FORMAT_VERSION, LibraryData, Manifest
+from ..domain_validation import (
+    MAX_CATEGORY_DEPTH,
+    required_text,
+    validate_preferences_values,
+)
+from ..isbn_validation import normalize_isbn_value
 from ..image_validation import (
     ImageValidationError,
     MAX_IMAGE_PIXELS,
@@ -166,6 +172,7 @@ def inspect_archive(path: Path) -> tuple[Manifest, LibraryData, dict[str, str]]:
                 raise BackupError(400, "BACKUP_MALFORMED", "Manifest record counts do not match library data")
             _validate_tree(library.categories, "category")
             _validate_tree(library.locations, "location")
+            _validate_domain_invariants(library)
             referenced = _referenced_covers(library)
             cover_entries: dict[str, str] = {}
             for digest, media_type in referenced.items():
@@ -216,6 +223,46 @@ def _validate_tree(items, label: str) -> None:
                 raise BackupError(400, "BACKUP_HIERARCHY_CYCLE", f"{label.title()} hierarchy contains a cycle")
             seen.add(current)
             current = parents.get(current)
+
+
+def _validate_domain_invariants(library: LibraryData) -> None:
+    try:
+        category_parents = {
+            item.archive_id: item.parent_archive_id for item in library.categories
+        }
+        for category in library.categories:
+            required_text(category.name, "Category name")
+            depth = 1
+            current = category.parent_archive_id
+            while current is not None:
+                depth += 1
+                current = category_parents[current]
+            if depth > MAX_CATEGORY_DEPTH:
+                raise ValueError("Category hierarchy exceeds maximum depth")
+
+        for location in library.locations:
+            required_text(location.name, "Location name")
+
+        for book in library.books:
+            required_text(book.title, "Book title")
+            required_text(book.author, "Book author")
+            if book.isbn is not None and book.isbn.strip():
+                normalize_isbn_value(book.isbn)
+            if not book.read and book.read_at is not None:
+                raise ValueError("Unread book cannot have a read timestamp")
+
+        if library.preferences is not None:
+            validate_preferences_values(
+                date_format=library.preferences.date_format,
+                time_format=library.preferences.time_format,
+                library_view_mode=library.preferences.library_view_mode,
+            )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise BackupError(
+            400,
+            "BACKUP_DOMAIN_INVALID",
+            "Backup contains data that is not valid for this application",
+        ) from exc
 
 
 def _utcnow() -> datetime:

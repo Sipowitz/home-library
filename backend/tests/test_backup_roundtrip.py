@@ -51,13 +51,13 @@ def populated(db):
     room = models.Location(name="Room", owner_id=source.id); db.add_all([child, room]); db.flush()
     cover = Path(settings.COVERS_DIR) / "uploaded" / "one.png"; cover.parent.mkdir(); Image.new("RGB", (8, 8), "red").save(cover)
     book = models.Book(owner_id=source.id, title="Complete", author="Author", subtitle="Subtitle", publisher="Publisher",
-        language="en", page_count=321, year=2025, isbn="9781234567890", description="Description", read=True,
+        language="en", page_count=321, year=2025, isbn="9780306406157", description="Description", read=True,
         read_at=datetime(2025, 1, 2, tzinfo=timezone.utc), category_id=child.id, location_id=room.id,
         cover_url="/covers/uploaded/one.png", uploaded_cover_candidates_json=[{"provider":"upload","label":"Custom Upload","url":"/covers/uploaded/one.png"}],
         date_added=datetime(2024, 1, 1, tzinfo=timezone.utc), last_metadata_refresh_at=datetime(2025, 2, 2, tzinfo=timezone.utc))
     other_book = models.Book(owner_id=other.id, title="Untouched", author="Other")
     db.add_all([book, other_book]); db.flush()
-    snap = models.ProviderMetadataSnapshot(book_id=book.id, provider="test", provider_book_id="p1", isbn_query="9781234567890",
+    snap = models.ProviderMetadataSnapshot(book_id=book.id, provider="test", provider_book_id="p1", isbn_query="9780306406157",
         raw_json={"title":"raw"}, http_status=200, http_etag="etag", normalizer_version="v2",
         fetched_at=datetime(2025, 2, 1, tzinfo=timezone.utc), created_at=datetime(2025, 2, 1, tzinfo=timezone.utc))
     db.add(snap); db.flush()
