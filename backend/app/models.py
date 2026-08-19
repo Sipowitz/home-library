@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     ForeignKey,
     DateTime,
+    UniqueConstraint,
 )
 
 from sqlalchemy.dialects.postgresql import JSONB
@@ -70,9 +71,11 @@ class UserPreferences(Base):
     user_id = Column(
         Integer,
         ForeignKey("users.id", ondelete="CASCADE"),
-        unique=True,
         nullable=False,
-        index=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", name="uq_user_preferences_user_id"),
     )
 
     date_format = Column(
@@ -221,7 +224,7 @@ class Category(Base):
     books = relationship(
         "Book",
         back_populates="category",
-        cascade="all, delete",
+        passive_deletes=True,
     )
 
     owner_id = Column(
@@ -330,7 +333,7 @@ class Book(Base):
 
     category_id = Column(
         Integer,
-        ForeignKey("categories.id"),
+        ForeignKey("categories.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -384,7 +387,6 @@ class ProviderMetadataSnapshot(Base):
     id = Column(
         Integer,
         primary_key=True,
-        index=True,
     )
 
     book_id = Column(
@@ -471,7 +473,6 @@ class NormalizedMetadataRecord(Base):
     id = Column(
         Integer,
         primary_key=True,
-        index=True,
     )
 
     snapshot_id = Column(

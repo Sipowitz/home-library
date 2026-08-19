@@ -339,6 +339,29 @@ def update_category(
 # 🗑️ DELETE
 # -------------------
 
+def _get_subtree_ids(db: Session, user_id: int, category_id: int):
+    categories = (
+        db.query(models.Category.id, models.Category.parent_id)
+        .filter(models.Category.owner_id == user_id)
+        .all()
+    )
+    children = {}
+    for current_id, parent_id in categories:
+        children.setdefault(parent_id, []).append(current_id)
+
+    result = []
+    pending = [category_id]
+    seen = set()
+    while pending:
+        current_id = pending.pop()
+        if current_id in seen:
+            continue
+        seen.add(current_id)
+        result.append(current_id)
+        pending.extend(children.get(current_id, []))
+    return result
+
+
 def delete_category(
     db: Session,
     user_id: int,
@@ -347,14 +370,8 @@ def delete_category(
 ):
     category = (
         db.query(models.Category)
-        .filter(
-            models.Category.id
-            == category_id
-        )
-        .filter(
-            models.Category.owner_id
-            == user_id
-        )
+        .filter(models.Category.id == category_id)
+        .filter(models.Category.owner_id == user_id)
         .first()
     )
 
@@ -364,34 +381,31 @@ def delete_category(
             "message": "Category not found",
         }
 
-    # -------------------
-    # ⚠️ HAS CHILDREN
-    # -------------------
-
-    descendants = get_descendant_names(
-        category
-    )
-
-    if descendants and not cascade:
+    subtree_ids = _get_subtree_ids(db, user_id, category_id)
+    child_exists = len(subtree_ids) > 1
+    if child_exists and not cascade:
+        descendants = get_descendant_names(category)
         return {
             "error": True,
             "message": {
                 "message": "Category has child categories",
                 "descendants": descendants,
-                "count": len(
-                    descendants
-                ),
+                "count": len(descendants),
             },
         }
 
-    # -------------------
-    # 🗑️ DELETE
-    # -------------------
+    # Detach every affected book before deleting the category tree.  This is
+    # intentionally explicit even with the database SET NULL FK: it keeps the
+    # behavior correct for loaded ORM objects and makes subtree semantics clear.
+    db.query(models.Book).filter(
+        models.Book.owner_id == user_id,
+        models.Book.category_id.in_(subtree_ids),
+    ).update(
+        {models.Book.category_id: None},
+        synchronize_session=False,
+    )
 
     db.delete(category)
-
     db.commit()
 
-    return {
-        "success": True,
-    }
+    return {"success": True}
