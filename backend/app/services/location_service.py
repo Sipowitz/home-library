@@ -5,6 +5,43 @@ from app import models
 from app.models import Location, Book
 
 
+PARENT_NOT_FOUND = "Parent location not found"
+
+
+def _require_owned_parent(db: Session, user_id: int, parent_id: int | None):
+    if parent_id is None:
+        return None
+
+    parent = (
+        db.query(Location)
+        .filter(
+            Location.id == parent_id,
+            Location.owner_id == user_id,
+        )
+        .first()
+    )
+    if not parent:
+        raise HTTPException(status_code=400, detail=PARENT_NOT_FOUND)
+    return parent
+
+
+def _find_sibling(
+    db: Session,
+    user_id: int,
+    parent_id: int | None,
+    name: str,
+    exclude_id: int | None = None,
+):
+    query = db.query(Location).filter(
+        Location.owner_id == user_id,
+        Location.parent_id == parent_id,
+        Location.name.ilike(name),
+    )
+    if exclude_id is not None:
+        query = query.filter(Location.id != exclude_id)
+    return query.first()
+
+
 def build_tree(locations):
     tree_nodes = {
         l.id: {
@@ -52,16 +89,9 @@ def create_location(db: Session, user_id: int, data: dict):
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
 
-    # 🔥 CRITICAL FIX — prevent duplicates under same parent
-    existing = (
-        db.query(Location)
-        .filter(
-            Location.owner_id == user_id,
-            Location.parent_id == parent_id,
-            Location.name.ilike(name),
-        )
-        .first()
-    )
+    _require_owned_parent(db, user_id, parent_id)
+
+    existing = _find_sibling(db, user_id, parent_id, name)
 
     if existing:
         raise HTTPException(
@@ -100,40 +130,42 @@ def update_location(
     if not location:
         return None
 
-    # -------------------
-    # ✏️ NAME
-    # -------------------
-
-    if (
-        "name" in data
-        and data["name"] is not None
-    ):
+    name = location.name
+    if "name" in data and data["name"] is not None:
         name = data["name"].strip()
-
         if not name:
+            raise HTTPException(status_code=400, detail="Name is required")
+
+    parent_id = location.parent_id
+    if "parent_id" in data:
+        parent_id = data["parent_id"]
+        if parent_id == 0:
+            parent_id = None
+        if parent_id == location.id:
             raise HTTPException(
                 status_code=400,
-                detail="Name is required",
+                detail="Location cannot be its own parent",
             )
 
-        existing = (
-            db.query(Location)
-            .filter(
-                Location.owner_id == user_id,
-                Location.parent_id == location.parent_id,
-                Location.name.ilike(name),
-                Location.id != location.id,
-            )
-            .first()
+        _require_owned_parent(db, user_id, parent_id)
+
+        if parent_id is not None:
+            descendants = set(_get_descendant_ids(db, user_id, location.id))
+            descendants.discard(location.id)
+            if parent_id in descendants:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot move location inside its own descendant",
+                )
+
+    if _find_sibling(db, user_id, parent_id, name, exclude_id=location.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Location already exists in this parent",
         )
 
-        if existing:
-            raise HTTPException(
-                status_code=400,
-                detail="Location already exists in this parent",
-            )
-
-        location.name = name
+    location.name = name
+    location.parent_id = parent_id
 
     db.commit()
 
@@ -156,9 +188,13 @@ def _get_descendant_ids(db: Session, user_id: int, parent_id: int):
 
     result = []
     stack = [parent_id]
+    visited = set()
 
     while stack:
         current = stack.pop()
+        if current in visited:
+            continue
+        visited.add(current)
         result.append(current)
         stack.extend(children_map.get(current, []))
 

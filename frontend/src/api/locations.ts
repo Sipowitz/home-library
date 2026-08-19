@@ -9,7 +9,7 @@ type LocationCreateInput = {
 
 type LocationUpdateInput = {
   name?: string;
-  parent_id?: number;
+  parent_id?: number | null;
 };
 
 // -------------------
