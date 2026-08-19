@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 
 import { login as loginApi } from "./api/auth";
 
@@ -24,8 +24,6 @@ import { Header } from "./components/layout/Header";
 import toast from "react-hot-toast";
 
 import type { Book, BookDraft } from "./types/book";
-import type { Location } from "./types/location";
-import type { Category } from "./types/category";
 import type { LibraryViewMode } from "./types/preferences";
 
 export default function App() {
@@ -105,127 +103,15 @@ export default function App() {
     }
   }
 
-  // -------------------
-  // 📍 LOCATION DESCENDANTS
-  // -------------------
-
-  function getLocationDescendantIds(
-    nodes: Location[],
-    parentId: number,
-  ): number[] {
-    const result: number[] = [];
-
-    function walk(node: Location) {
-      result.push(node.id);
-
-      if (node.children) {
-        node.children.forEach(walk);
-      }
-    }
-
-    function find(nodes: Location[]) {
-      for (const node of nodes) {
-        if (node.id === parentId) {
-          walk(node);
-        } else if (node.children) {
-          find(node.children);
-        }
-      }
-    }
-
-    find(nodes);
-
-    return result;
+  function handleLocationFilterChange(value: number | null) {
+    setSelectedLocation(value);
+    updateFilters({ locationId: value });
   }
 
-  // -------------------
-  // 🏷️ CATEGORY DESCENDANTS
-  // -------------------
-
-  function buildCategoryMap(
-    nodes: Category[],
-    map = new Map<number, Category>(),
-  ) {
-    for (const node of nodes) {
-      map.set(node.id, node);
-
-      if (node.children?.length) {
-        buildCategoryMap(node.children, map);
-      }
-    }
-
-    return map;
+  function handleCategoryFilterChange(value: number | null) {
+    setSelectedCategory(value);
+    updateFilters({ categoryId: value });
   }
-
-  function getCategoryDescendantIds(category: Category): number[] {
-    let ids = [category.id];
-
-    if (category.children?.length) {
-      for (const child of category.children) {
-        ids = ids.concat(getCategoryDescendantIds(child));
-      }
-    }
-
-    return ids;
-  }
-
-  // -------------------
-  // ⚡ CLIENT FILTERING
-  // -------------------
-
-  const filteredBooks = useMemo(() => {
-    let result = books;
-
-    // 🔍 SEARCH
-    if (searchInput.trim()) {
-      const q = searchInput.toLowerCase();
-
-      result = result.filter(
-        (b) =>
-          b.title.toLowerCase().includes(q) ||
-          b.author.toLowerCase().includes(q),
-      );
-    }
-
-    // 📍 LOCATION
-    if (selectedLocation === -1) {
-      result = result.filter((b) => b.location_id === null);
-    } else if (selectedLocation !== null) {
-      const ids = getLocationDescendantIds(locations, selectedLocation);
-
-      result = result.filter(
-        (b) => typeof b.location_id === "number" && ids.includes(b.location_id),
-      );
-    }
-
-    // 🏷️ CATEGORY
-    if (selectedCategory !== null) {
-      if (selectedCategory === -1) {
-        result = result.filter((b) => !b.category_id);
-      } else {
-        const map = buildCategoryMap(categories);
-
-        const root = map.get(selectedCategory);
-
-        if (root) {
-          const allowedIds = getCategoryDescendantIds(root);
-
-          result = result.filter(
-            (b) => b.category_id && allowedIds.includes(b.category_id),
-          );
-        }
-      }
-    }
-
-    return result;
-  }, [
-    books,
-    searchInput,
-    selectedLocation,
-    selectedCategory,
-    locations,
-    categories,
-  ]);
 
   // -------------------
   // 📜 INFINITE SCROLL
@@ -349,9 +235,9 @@ export default function App() {
               searchInput={searchInput}
               onSearchChange={setSearchInput}
               selectedLocation={selectedLocation}
-              onLocationChange={setSelectedLocation}
+              onLocationChange={handleLocationFilterChange}
               selectedCategory={selectedCategory}
-              onCategoryChange={setSelectedCategory}
+              onCategoryChange={handleCategoryFilterChange}
               locations={locations}
               categories={categories}
             />
@@ -374,7 +260,7 @@ export default function App() {
         {/* BOOK VIEWS */}
         {viewMode === "grid" ? (
           <BookGridView
-            books={filteredBooks}
+            books={books}
             onSelect={(book) => {
               setSelectedBook(book);
 
@@ -383,7 +269,7 @@ export default function App() {
           />
         ) : (
           <BookListView
-            books={filteredBooks}
+            books={books}
             locations={locations}
             categories={categories}
             showCovers={showCoversInList}

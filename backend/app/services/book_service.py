@@ -1,11 +1,48 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, asc, desc, func
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
 from app import models
 from app.models import Book
+
+
+def _owned_subtree_ids(db: Session, model, user_id: int, root_id: int) -> list[int]:
+    rows = db.query(model.id, model.parent_id).filter(model.owner_id == user_id).all()
+    children: dict[int | None, list[int]] = {}
+    owned_ids = set()
+    for row_id, parent_id in rows:
+        owned_ids.add(row_id)
+        children.setdefault(parent_id, []).append(row_id)
+    if root_id not in owned_ids:
+        return []
+    result = []
+    stack = [root_id]
+    seen = set()
+    while stack:
+        current = stack.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        result.append(current)
+        stack.extend(children.get(current, []))
+    return result
+
+
+def _apply_read_transition(book: Book, data: dict) -> None:
+    was_read = bool(book.read)
+    will_be_read = bool(data.get("read", was_read))
+    explicit_read_at = data.get("read_at") if "read_at" in data else None
+
+    if not will_be_read:
+        book.read_at = None
+    elif not was_read:
+        book.read_at = explicit_read_at or datetime.now(timezone.utc)
+    elif "read_at" in data and explicit_read_at is not None:
+        book.read_at = explicit_read_at
+
+    book.read = will_be_read
 
 
 def get_books(
@@ -34,13 +71,15 @@ def get_books(
     if category_id == -1:
         query = query.filter(Book.category_id == None)
     elif category_id is not None:
-        query = query.filter(Book.category_id == category_id)
+        category_ids = _owned_subtree_ids(db, models.Category, user_id, category_id)
+        query = query.filter(Book.category_id.in_(category_ids)) if category_ids else query.filter(False)
 
     # ✅ SINGLE LOCATION FILTER (STRICT)
     if location_id == -1:
         query = query.filter(Book.location_id == None)
     elif location_id is not None:
-        query = query.filter(Book.location_id == location_id)
+        location_ids = _owned_subtree_ids(db, models.Location, user_id, location_id)
+        query = query.filter(Book.location_id.in_(location_ids)) if location_ids else query.filter(False)
 
     if read is not None:
         query = query.filter(Book.read == read)
@@ -133,7 +172,7 @@ def create_book(db: Session, user_id: int, data: dict):
 
     # ✅ READ TRACKING
     if data.get("read"):
-        data["read_at"] = datetime.utcnow()
+        data["read_at"] = data.get("read_at") or datetime.now(timezone.utc)
     else:
         data["read_at"] = None
 
@@ -203,14 +242,10 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
         book.location_id = location_id
 
     # ✅ READ TRACKING
-    if "read" in data:
-        if data["read"]:
-            book.read_at = datetime.utcnow()
-        else:
-            book.read_at = None
+    _apply_read_transition(book, data)
 
     for key, value in data.items():
-        if key not in ("category_id", "location_id"):
+        if key not in ("category_id", "location_id", "read", "read_at"):
             setattr(book, key, value)
 
     db.commit()
