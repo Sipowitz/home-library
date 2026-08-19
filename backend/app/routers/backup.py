@@ -8,7 +8,7 @@ from starlette.background import BackgroundTask
 from .. import models
 from ..auth.dependencies import get_current_user
 from ..database import SessionLocal
-from ..services.backup.archive import consume_session, finish_session, inspect_archive, stage_and_validate
+from ..services.backup.archive import consume_session, finish_session, stage_and_validate
 from ..services.backup.errors import BackupError
 from ..services.backup.export_service import create_backup
 from ..services.backup.restore_service import restore_user
@@ -21,6 +21,16 @@ router = APIRouter(prefix="/backup", tags=["Backup"])
 def get_backup_db():
     # Deliberately separate from auth's dependency session so export can begin a
     # REPEATABLE READ snapshot before any query is issued.
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_backup_session_db():
+    # A distinct dependency ensures the single-use claim commits independently
+    # before the transactional restore begins.
     db = SessionLocal()
     try:
         yield db
@@ -41,14 +51,14 @@ def export_data(db: Session = Depends(get_backup_db), current_user: models.User 
 
 
 @router.post("/validate")
-def validate_backup(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user)):
+def validate_backup(file: UploadFile = File(...), db: Session = Depends(get_backup_session_db), current_user: models.User = Depends(get_current_user)):
     if not file.filename or Path(file.filename).suffix.lower() != ".lbak":
         raise BackupError(400, "BACKUP_MALFORMED", "Only .lbak backup archives are accepted")
-    session = stage_and_validate(file, current_user.id)
+    token, session = stage_and_validate(file, current_user.id, db)
     counts = session.manifest.record_counts
     return {
-        "validation_token": session.token,
-        "expires_at": session.expires_at,
+        "validation_token": token,
+        "expires_at": session.expires_at.timestamp(),
         "summary": {
             "books": counts.books, "categories": counts.categories, "locations": counts.locations,
             "metadata_records": counts.metadata_snapshots + counts.normalized_metadata_records,
@@ -61,14 +71,11 @@ def validate_backup(file: UploadFile = File(...), current_user: models.User = De
 
 
 @router.post("/restore")
-def restore_backup(payload: RestoreRequest, db: Session = Depends(get_backup_db), current_user: models.User = Depends(get_current_user)):
-    session = consume_session(payload.validation_token, current_user.id)
+def restore_backup(payload: RestoreRequest, db: Session = Depends(get_backup_db), session_db: Session = Depends(get_backup_session_db), current_user: models.User = Depends(get_current_user)):
+    session = consume_session(payload.validation_token, current_user.id, session_db)
     try:
-        manifest, library, cover_entries = inspect_archive(session.archive_path)
-        if manifest != session.manifest or library != session.library or cover_entries != session.cover_entries:
-            raise BackupError(409, "BACKUP_CHECKSUM_MISMATCH", "Staged backup no longer matches the validation plan")
         cover_urls = publish_covers(session)
         counts = restore_user(db, current_user.id, session, cover_urls)
         return {"success": True, "message": "Backup restored successfully", "counts": counts}
     finally:
-        finish_session(session)
+        finish_session(session, session_db)

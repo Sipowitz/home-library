@@ -7,14 +7,16 @@ import re
 import secrets
 import shutil
 import stat
-import time
 import zipfile
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from pydantic import ValidationError
+from sqlalchemy.orm import Session
 
+from ... import models
 from ...core.config import settings
 from .errors import BackupError
 from .schemas import FORMAT_VERSION, LibraryData, Manifest
@@ -34,17 +36,17 @@ _DRIVE = re.compile(r"^[A-Za-z]:")
 
 @dataclass
 class ValidationSession:
-    token: str
+    id: int
     user_id: int
     archive_path: Path
     archive_sha256: str
-    expires_at: float
+    expires_at: datetime
     manifest: Manifest
     library: LibraryData
     cover_entries: dict[str, str]
 
-
-_sessions: dict[str, ValidationSession] = {}
+_STAGED_NAME = re.compile(r"^[0-9a-f]{48}\.lbak$")
+_INVALID_SESSION = "Validation session is missing, expired, or no longer usable"
 
 
 def sha256_file(path: Path) -> tuple[str, int]:
@@ -216,20 +218,81 @@ def _validate_tree(items, label: str) -> None:
             current = parents.get(current)
 
 
-def cleanup_expired() -> None:
-    now = time.time()
-    for token, session in list(_sessions.items()):
-        if session.expires_at <= now:
-            session.archive_path.unlink(missing_ok=True)
-            _sessions.pop(token, None)
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
-def stage_and_validate(upload, user_id: int) -> ValidationSession:
-    cleanup_expired()
-    staging = Path(settings.BACKUP_STAGING_DIR)
-    staging.mkdir(parents=True, exist_ok=True, mode=0o700)
+def _staging_root() -> Path:
+    root = Path(settings.BACKUP_STAGING_DIR)
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    return root.resolve()
+
+
+def _staged_path(filename: str) -> Path:
+    if not _STAGED_NAME.fullmatch(filename):
+        raise BackupError(410, "RESTORE_VALIDATION_EXPIRED", _INVALID_SESSION)
+    root = _staging_root()
+    path = root / filename
+    if path.parent != root:
+        raise BackupError(410, "RESTORE_VALIDATION_EXPIRED", _INVALID_SESSION)
+    return path
+
+
+def _remove_staged(filename: str) -> None:
+    try:
+        path = _staged_path(filename)
+        path.unlink(missing_ok=True)
+    except (BackupError, OSError):
+        pass
+
+
+def cleanup_expired(db: Session) -> None:
+    """Bounded activity-time cleanup for expired/abandoned sessions and stage files."""
+    now = _utcnow()
+    consumed_before = now - timedelta(seconds=settings.BACKUP_VALIDATION_TTL_SECONDS)
+    rows = (
+        db.query(models.BackupValidationSession)
+        .filter(
+            (models.BackupValidationSession.expires_at <= now)
+            | (
+                models.BackupValidationSession.consumed_at.is_not(None)
+                & (models.BackupValidationSession.consumed_at <= consumed_before)
+            )
+        )
+        .limit(100)
+        .all()
+    )
+    filenames = [row.staged_filename for row in rows]
+    for row in rows:
+        db.delete(row)
+    db.commit()
+    for filename in filenames:
+        _remove_staged(filename)
+
+    # Only generated, sufficiently old files can be treated as abandoned. Other
+    # files in the staging directory are deliberately ignored.
+    referenced = {name for (name,) in db.query(models.BackupValidationSession.staged_filename).all()}
+    cutoff = now.timestamp() - settings.BACKUP_VALIDATION_TTL_SECONDS
+    for path in list(_staging_root().iterdir())[:100]:
+        try:
+            if (
+                path.name not in referenced
+                and _STAGED_NAME.fullmatch(path.name)
+                and not path.is_symlink()
+                and path.is_file()
+                and path.stat().st_mtime <= cutoff
+            ):
+                path.unlink(missing_ok=True)
+        except OSError:
+            continue
+
+
+def stage_and_validate(upload, user_id: int, db: Session) -> tuple[str, ValidationSession]:
+    cleanup_expired(db)
+    staging = _staging_root()
     token = secrets.token_urlsafe(32)
-    archive_path = staging / f"{secrets.token_hex(24)}.lbak"
+    filename = f"{secrets.token_hex(24)}.lbak"
+    archive_path = staging / filename
     digest = hashlib.sha256()
     total = 0
     try:
@@ -241,27 +304,66 @@ def stage_and_validate(upload, user_id: int) -> ValidationSession:
                 digest.update(chunk)
                 target.write(chunk)
         manifest, library, cover_entries = inspect_archive(archive_path)
-        session = ValidationSession(token, user_id, archive_path, digest.hexdigest(), time.time() + settings.BACKUP_VALIDATION_TTL_SECONDS, manifest, library, cover_entries)
-        _sessions[token] = session
-        return session
+        expires_at = _utcnow() + timedelta(seconds=settings.BACKUP_VALIDATION_TTL_SECONDS)
+        row = models.BackupValidationSession(
+            token_digest=hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            user_id=user_id,
+            staged_filename=filename,
+            archive_sha256=digest.hexdigest(),
+            expires_at=expires_at,
+        )
+        db.add(row)
+        db.commit()
+        session = ValidationSession(row.id, user_id, archive_path, row.archive_sha256, expires_at, manifest, library, cover_entries)
+        return token, session
     except Exception:
+        db.rollback()
         archive_path.unlink(missing_ok=True)
         raise
 
 
-def consume_session(token: str, user_id: int) -> ValidationSession:
-    cleanup_expired()
-    session = _sessions.get(token)
-    if session is None or session.user_id != user_id or session.expires_at <= time.time():
-        raise BackupError(410, "RESTORE_VALIDATION_EXPIRED", "Validation session is missing, expired, or belongs to another user")
-    digest, _ = sha256_file(session.archive_path)
-    if digest != session.archive_sha256:
-        _sessions.pop(token, None)
-        session.archive_path.unlink(missing_ok=True)
-        raise BackupError(409, "BACKUP_CHECKSUM_MISMATCH", "Staged backup integrity check failed")
-    return session
+def consume_session(token: str, user_id: int, db: Session) -> ValidationSession:
+    """Atomically claim a token before any destructive restore work begins."""
+    cleanup_expired(db)
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    now = _utcnow()
+    row = (
+        db.query(models.BackupValidationSession)
+        .filter(models.BackupValidationSession.token_digest == digest)
+        .with_for_update()
+        .one_or_none()
+    )
+    if row is None or row.user_id != user_id or row.consumed_at is not None or row.expires_at <= now:
+        db.rollback()
+        raise BackupError(410, "RESTORE_VALIDATION_EXPIRED", _INVALID_SESSION)
+    row.consumed_at = now
+    db.commit()  # durable single-use claim precedes the restore transaction
+
+    session_id = row.id
+    staged_filename = row.staged_filename
+    archive_sha256 = row.archive_sha256
+    expires_at = row.expires_at
+    try:
+        archive_path = _staged_path(staged_filename)
+        if archive_path.is_symlink() or not archive_path.is_file():
+            raise BackupError(410, "RESTORE_VALIDATION_EXPIRED", _INVALID_SESSION)
+        actual_digest, _ = sha256_file(archive_path)
+        if actual_digest != archive_sha256:
+            raise BackupError(409, "BACKUP_CHECKSUM_MISMATCH", "Staged backup integrity check failed")
+        manifest, library, cover_entries = inspect_archive(archive_path)
+        return ValidationSession(session_id, user_id, archive_path, archive_sha256, expires_at, manifest, library, cover_entries)
+    except Exception:
+        _discard_session(session_id, staged_filename, db)
+        raise
 
 
-def finish_session(session: ValidationSession) -> None:
-    _sessions.pop(session.token, None)
-    session.archive_path.unlink(missing_ok=True)
+def _discard_session(session_id: int, staged_filename: str, db: Session) -> None:
+    row = db.get(models.BackupValidationSession, session_id)
+    if row is not None:
+        db.delete(row)
+        db.commit()
+    _remove_staged(staged_filename)
+
+
+def finish_session(session: ValidationSession, db: Session) -> None:
+    _discard_session(session.id, session.archive_path.name, db)

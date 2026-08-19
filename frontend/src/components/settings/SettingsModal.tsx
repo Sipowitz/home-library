@@ -169,8 +169,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
   // -------------------
 
   function backupErrorMessage(err: unknown, fallback: string) {
-    if (axios.isAxiosError<{ message?: string }>(err)) {
-      return err.response?.data?.message || fallback;
+    if (axios.isAxiosError<{ message?: string; detail?: { message?: string } }>(err)) {
+      return err.response?.data?.detail?.message || err.response?.data?.message || fallback;
     }
     return fallback;
   }
@@ -210,9 +210,13 @@ export function SettingsModal({ isOpen, onClose }: Props) {
       setTimeout(() => window.location.reload(), 750);
     } catch (err: unknown) {
       console.error("Restore failed", err);
-      const code = axios.isAxiosError<{ code?: string }>(err)
-        ? err.response?.data?.code
+      const code = axios.isAxiosError<{ code?: string; detail?: { code?: string } }>(err)
+        ? err.response?.data?.detail?.code || err.response?.data?.code
         : undefined;
+      if (code === "RESTORE_VALIDATION_EXPIRED") {
+        toast.error("This validation session is no longer usable. Validate the backup again.");
+        return;
+      }
       const suffix = code === "RESTORE_DB_ROLLBACK" ? " Your current library was left unchanged." : "";
       toast.error(`${backupErrorMessage(err, "Restore failed")}${suffix}`);
     } finally {

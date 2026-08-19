@@ -72,7 +72,7 @@ def populated(db):
 
 def validation_session(path, user_id):
     manifest, library, covers = inspect_archive(path); digest, _ = sha256_file(path)
-    return ValidationSession("token", user_id, path, digest, 9999999999, manifest, library, covers)
+    return ValidationSession(0, user_id, path, digest, datetime.max.replace(tzinfo=timezone.utc), manifest, library, covers)
 
 
 def test_populated_round_trip_remaps_ids_preserves_data_and_other_user(db):
