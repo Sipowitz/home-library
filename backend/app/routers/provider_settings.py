@@ -16,7 +16,7 @@ from app.database import (
 )
 
 from app.auth.dependencies import (
-    get_current_user,
+    get_current_admin_user,
 )
 
 from app.services.provider_settings_service import (
@@ -39,12 +39,10 @@ router = APIRouter(
 def list_provider_settings(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(
-        get_current_user
+        get_current_admin_user
     ),
 ):
-    return get_all_provider_settings(
-        db,
-    )
+    return [_response(item) for item in get_all_provider_settings(db)]
 
 
 @router.put(
@@ -56,7 +54,7 @@ def update_provider(
     payload: schemas.ProviderSettingUpdate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(
-        get_current_user
+        get_current_admin_user
     ),
 ):
     provider = update_provider_setting(
@@ -71,4 +69,14 @@ def update_provider(
             detail="Provider not found",
         )
 
-    return provider
+    return _response(provider)
+
+
+def _response(provider):
+    return {
+        "id": provider.id, "provider_name": provider.provider_name,
+        "enabled": provider.enabled, "priority": provider.priority,
+        "timeout_seconds": provider.timeout_seconds, "max_retries": provider.max_retries,
+        "created_at": provider.created_at, "updated_at": provider.updated_at,
+        "has_api_key": bool(provider.api_key),
+    }

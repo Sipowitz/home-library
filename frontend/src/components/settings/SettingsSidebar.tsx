@@ -3,12 +3,14 @@ type Section =
   | "categories"
   | "providers"
   | "backup"
-  | "preferences";
+  | "preferences"
+  | "users";
 
 type Props = {
   active: Section;
 
   onChange: (section: Section) => void;
+  isAdmin: boolean;
 };
 
 const items: {
@@ -29,6 +31,7 @@ const items: {
     id: "providers",
     label: "Providers",
   },
+  { id: "users", label: "Users" },
 
   {
     id: "preferences",
@@ -41,7 +44,8 @@ const items: {
   },
 ];
 
-export function SettingsSidebar({ active, onChange }: Props) {
+export function SettingsSidebar({ active, onChange, isAdmin }: Props) {
+  const visibleItems = items.filter((item) => isAdmin || (item.id !== "providers" && item.id !== "users"));
   return (
     <>
       {/* ================= DESKTOP SIDEBAR ================= */}
@@ -56,7 +60,7 @@ export function SettingsSidebar({ active, onChange }: Props) {
           space-y-1
         "
       >
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const selected = active === item.id;
 
           return (
@@ -85,7 +89,7 @@ export function SettingsSidebar({ active, onChange }: Props) {
 
       <div className="lg:hidden mb-4">
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {items.map((item) => {
+          {visibleItems.map((item) => {
             const selected = active === item.id;
 
             return (

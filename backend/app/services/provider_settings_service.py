@@ -26,6 +26,8 @@ DEFAULT_PROVIDERS = [
 def ensure_default_provider_settings(
     db: Session,
 ) -> None:
+    added = False
+
     for provider in DEFAULT_PROVIDERS:
         existing = (
             db.query(ProviderSetting)
@@ -48,13 +50,16 @@ def ensure_default_provider_settings(
         )
 
         db.add(db_provider)
+        added = True
 
-    db.commit()
+    if added:
+        db.commit()
 
 
 def get_enabled_provider_settings(
     db: Session,
 ):
+    ensure_default_provider_settings(db)
     return (
         db.query(ProviderSetting)
         .filter(
@@ -70,6 +75,7 @@ def get_enabled_provider_settings(
 def get_all_provider_settings(
     db: Session,
 ):
+    ensure_default_provider_settings(db)
     return (
         db.query(ProviderSetting)
         .order_by(
@@ -98,6 +104,13 @@ def update_provider_setting(
     update_data = data.model_dump(
         exclude_unset=True
     )
+
+    clear_api_key = update_data.pop("clear_api_key", False)
+    api_key = update_data.pop("api_key", None)
+    if clear_api_key:
+        provider.api_key = None
+    elif api_key is not None and api_key.strip():
+        provider.api_key = api_key
 
     for key, value in update_data.items():
         setattr(provider, key, value)

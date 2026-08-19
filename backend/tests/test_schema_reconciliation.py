@@ -6,6 +6,7 @@ The suite refuses to run without that variable and never targets library_db by d
 import os
 from pathlib import Path
 from urllib.parse import urlparse
+from destructive_db_guard import require_disposable_database
 
 import pytest
 import sqlalchemy as sa
@@ -20,6 +21,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 if TEST_DATABASE_URL:
+    require_disposable_database(TEST_DATABASE_URL)
     database_name = urlparse(TEST_DATABASE_URL).path.rsplit("/", 1)[-1]
     if database_name in {"library", "library_db"}:
         raise RuntimeError("refusing to run migration tests against the live library database")
@@ -88,6 +90,23 @@ def test_fresh_database_reaches_head_and_is_clean():
     assert fks[0]["options"]["ondelete"] == "SET NULL"
     engine.dispose()
     command.check(_config())
+
+
+def test_security_migration_backfills_users_and_preserves_ownership():
+    _reset_to("reconcile_legacy_library_schema")
+    engine = _engine()
+    with engine.begin() as conn:
+        conn.execute(sa.text("INSERT INTO users (id, username, hashed_password) VALUES (4, 'older', 'h'), (9, 'newer', 'h')"))
+        conn.execute(sa.text("INSERT INTO books (id, title, author, owner_id) VALUES (1, 'owned', 'a', 9)"))
+    engine.dispose()
+    _upgrade_head()
+    engine = _engine()
+    with engine.connect() as conn:
+        rows = conn.execute(sa.text("SELECT id, email, is_active, is_admin FROM users ORDER BY id")).all()
+        assert rows == [(4, "legacy-4@local.invalid", True, True), (9, "legacy-9@local.invalid", True, False)]
+        assert conn.execute(sa.text("SELECT owner_id FROM books WHERE id=1")).scalar_one() == 9
+    assert any(item["name"] == "uq_users_email" for item in sa.inspect(engine).get_unique_constraints("users"))
+    engine.dispose()
 
 
 def test_zero_legacy_assignments_leave_books_unassigned():
@@ -193,7 +212,7 @@ def test_category_delete_detaches_leaf_and_subtree_books():
     _reset_to("head")
     db = SessionLocal()
     try:
-        user = models.User(username="u", hashed_password="h")
+        user = models.User(username="u", email="u@example.test", hashed_password="h")
         db.add(user)
         db.flush()
         root = models.Category(name="root", owner_id=user.id)
@@ -223,7 +242,7 @@ def test_raw_category_delete_uses_set_null_fk():
     _reset_to("head")
     engine = _engine()
     with engine.begin() as conn:
-        conn.execute(sa.text("INSERT INTO users (id, username, hashed_password) VALUES (1, 'u', 'h')"))
+        conn.execute(sa.text("INSERT INTO users (id, username, email, hashed_password) VALUES (1, 'u', 'u@example.test', 'h')"))
         conn.execute(sa.text("INSERT INTO categories (id, name, owner_id) VALUES (1, 'c', 1)"))
         conn.execute(sa.text("INSERT INTO books (id, title, author, owner_id, category_id) VALUES (1, 't', 'a', 1, 1)"))
         conn.execute(sa.text("DELETE FROM categories WHERE id=1"))
@@ -235,7 +254,7 @@ def test_reconciliation_downgrade_recreates_single_assignment_only():
     _reset_to("head")
     engine = _engine()
     with engine.begin() as conn:
-        conn.execute(sa.text("INSERT INTO users (id, username, hashed_password) VALUES (1, 'u', 'h')"))
+        conn.execute(sa.text("INSERT INTO users (id, username, email, hashed_password) VALUES (1, 'u', 'u@example.test', 'h')"))
         conn.execute(sa.text("INSERT INTO categories (id, name, owner_id) VALUES (1, 'c', 1)"))
         conn.execute(sa.text("INSERT INTO books (id, title, author, owner_id, category_id) VALUES (1, 't', 'a', 1, 1)"))
     engine.dispose()

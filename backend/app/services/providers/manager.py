@@ -2,11 +2,8 @@ import time
 
 from sqlalchemy.orm import Session
 
-from app.models import (
-    ProviderSetting,
-)
-
 from app.core.logging import logger
+from app.services.provider_settings_service import get_enabled_provider_settings
 
 from app.services.providers.google_books import (
     GoogleBooksProvider,
@@ -23,6 +20,7 @@ from app.services.providers.types import (
 from app.services.providers.aggregator import (
     aggregate_metadata,
 )
+from app.services.isbn_validation import normalize_isbn
 
 PROVIDER_MAP = {
     "google_books": GoogleBooksProvider,
@@ -34,16 +32,8 @@ async def fetch_all_provider_results(
     db: Session,
     isbn: str,
 ) -> list[ProviderResult]:
-    provider_settings = (
-        db.query(ProviderSetting)
-        .filter(
-            ProviderSetting.enabled.is_(True)
-        )
-        .order_by(
-            ProviderSetting.priority.asc()
-        )
-        .all()
-    )
+    isbn = normalize_isbn(isbn)
+    provider_settings = get_enabled_provider_settings(db)
 
     results: list[ProviderResult] = []
 
@@ -96,7 +86,7 @@ async def fetch_all_provider_results(
                 provider_result
             )
 
-        except Exception as exc:
+        except Exception:
             duration_ms = int(
                 (
                     time.perf_counter()
@@ -112,14 +102,11 @@ async def fetch_all_provider_results(
                     isbn=isbn,
                     duration_ms=duration_ms,
                     data=None,
-                    error=str(exc),
+                    error="Provider request failed",
                 )
             )
 
-            logger.error(
-                "Provider failure: %s",
-                provider_result,
-            )
+            logger.error("Provider %s request failed", setting.provider_name)
 
             results.append(
                 provider_result

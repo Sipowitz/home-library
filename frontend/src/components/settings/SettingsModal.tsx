@@ -27,6 +27,8 @@ import { PreferencesSettings } from "./preferences/PreferencesSettings";
 import { ProviderSettingsPanel } from "./providers/ProviderSettingsPanel";
 
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
+import { PendingUsersPanel } from "./users/PendingUsersPanel";
+import { useAuth } from "../../context/AuthContext";
 
 import { fetchCategories } from "../../api/categories";
 
@@ -43,9 +45,11 @@ type Section =
   | "categories"
   | "providers"
   | "backup"
-  | "preferences";
+  | "preferences"
+  | "users";
 
 export function SettingsModal({ isOpen, onClose }: Props) {
+  const { user } = useAuth();
   const { locations, deleteLocation } = useLocations();
 
   const [activeSection, setActiveSection] = useState<Section>("locations");
@@ -275,6 +279,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             <SettingsSidebar
               active={activeSection}
               onChange={setActiveSection}
+              isAdmin={Boolean(user?.is_admin)}
             />
 
             <div className="mt-3 lg:mt-auto lg:pt-4">
@@ -332,7 +337,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
             {/* PROVIDERS */}
 
-            {activeSection === "providers" && (
+            {activeSection === "providers" && user?.is_admin && (
               <div className="max-w-4xl">
                 <div className="space-y-4">
                   <div>
@@ -346,6 +351,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
                   <ProviderSettingsPanel />
                 </div>
               </div>
+            )}
+
+            {activeSection === "users" && user?.is_admin && (
+              <div className="max-w-4xl space-y-4"><div><h2 className="text-lg font-semibold">Users</h2><p className="text-sm text-gray-400 mt-1">Approve or reject pending accounts.</p></div><PendingUsersPanel /></div>
             )}
 
             {/* PREFERENCES */}

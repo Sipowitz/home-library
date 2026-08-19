@@ -12,12 +12,14 @@ logger = logging.getLogger(__name__)
 # 🔥 HTTP EXCEPTIONS (expected)
 # ---------------------------
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if isinstance(exc.detail, dict) and "code" in exc.detail:
+        content = {"error": True, **exc.detail}
+    else:
+        content = {"error": True, "message": exc.detail}
+
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "error": True,
-            "message": exc.detail,
-        },
+        content=content,
     )
 
 

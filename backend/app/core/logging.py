@@ -25,6 +25,10 @@ def setup_logging():
 
 setup_logging()
 
+# HTTP client request logs can contain provider credentials in query strings.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 
 logger = logging.getLogger(
     "home_library"

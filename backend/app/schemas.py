@@ -11,7 +11,7 @@ from datetime import datetime
 
 class UserCreate(BaseModel):
     username: str
-
+    email: str
     password: str
 
 
@@ -19,6 +19,9 @@ class UserResponse(BaseModel):
     id: int
 
     username: str
+    email: str
+    is_active: bool
+    is_admin: bool
 
     class Config:
         from_attributes = True
@@ -70,25 +73,19 @@ class ProviderSettingBase(BaseModel):
 
     enabled: bool = True
 
-    priority: int = 100
-
-    api_key: Optional[str] = None
-
-    timeout_seconds: int = 5
-
-    max_retries: int = 3
+    priority: int = Field(default=100, ge=1, le=10000)
+    timeout_seconds: int = Field(default=5, ge=1, le=30)
+    max_retries: int = Field(default=3, ge=0, le=5)
 
 
 class ProviderSettingUpdate(BaseModel):
     enabled: Optional[bool] = None
 
-    priority: Optional[int] = None
-
+    priority: Optional[int] = Field(default=None, ge=1, le=10000)
     api_key: Optional[str] = None
-
-    timeout_seconds: Optional[int] = None
-
-    max_retries: Optional[int] = None
+    clear_api_key: bool = False
+    timeout_seconds: Optional[int] = Field(default=None, ge=1, le=30)
+    max_retries: Optional[int] = Field(default=None, ge=0, le=5)
 
 
 class ProviderSettingResponse(
@@ -99,6 +96,7 @@ class ProviderSettingResponse(
     created_at: datetime
 
     updated_at: datetime
+    has_api_key: bool
 
     class Config:
         from_attributes = True

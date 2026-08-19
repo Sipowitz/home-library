@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from ..database import SessionLocal
 from .. import models, schemas
@@ -36,6 +38,8 @@ def register(
     user: schemas.UserCreate,
     db: Session = Depends(get_db),
 ):
+    # Serialize the empty-install bootstrap decision across processes.
+    db.execute(text("SELECT pg_advisory_xact_lock(4815162342)"))
     existing_user = (
         db.query(models.User)
         .filter(
@@ -51,22 +55,34 @@ def register(
             detail="Username already exists",
         )
 
+    if db.query(models.User).filter(models.User.email == user.email).first():
+        raise HTTPException(status_code=400, detail="Email already exists")
+
+    is_first_user = db.query(models.User.id).first() is None
+
     new_user = models.User(
         username=user.username,
+        email=user.email,
         hashed_password=hash_password(
             user.password
         ),
+        is_active=is_first_user,
+        is_admin=is_first_user,
     )
 
     db.add(new_user)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Account already exists")
 
     db.refresh(new_user)
 
     return {
         "message":
-        "User created successfully"
+        ("Administrator account created" if is_first_user else "Account created and awaiting approval")
     }
 
 
@@ -98,6 +114,9 @@ def login(
             detail="Invalid credentials",
         )
 
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
     access_token = (
         create_access_token(
             data={
@@ -125,4 +144,7 @@ def get_me(
         "id": current_user.id,
         "username":
             current_user.username,
+        "email": current_user.email,
+        "is_active": current_user.is_active,
+        "is_admin": current_user.is_admin,
     }

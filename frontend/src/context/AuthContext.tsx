@@ -9,9 +9,15 @@ type AuthContextType = {
 
   isAuthenticated: boolean;
 
+  user: AuthUser | null;
+
   login: (token: string) => void;
 
   logout: () => void;
+};
+
+type AuthUser = {
+  id: number; username: string; email: string; is_active: boolean; is_admin: boolean;
 };
 
 type Props = {
@@ -22,6 +28,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: Props) {
   const [token, setTokenState] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   const [ready, setReady] = useState(false);
 
@@ -47,9 +54,10 @@ export function AuthProvider({ children }: Props) {
       }
 
       try {
-        await client.get("/auth/me");
+        const response = await client.get<AuthUser>("/auth/me");
 
         setTokenState(stored);
+        setUser(response.data);
       } catch {
         console.warn("Stored token invalid. Logging out.");
 
@@ -70,6 +78,7 @@ export function AuthProvider({ children }: Props) {
   useEffect(() => {
     function handleAuthExpired() {
       setTokenState(null);
+      setUser(null);
     }
 
     window.addEventListener("auth-expired", handleAuthExpired);
@@ -86,6 +95,7 @@ export function AuthProvider({ children }: Props) {
     localStorage.setItem("token", token);
 
     setTokenState(token);
+    client.get<AuthUser>("/auth/me").then((response) => setUser(response.data));
   }
 
   // -------------------
@@ -95,6 +105,7 @@ export function AuthProvider({ children }: Props) {
     localStorage.removeItem("token");
 
     setTokenState(null);
+    setUser(null);
   }
 
   if (!ready) {
@@ -107,6 +118,7 @@ export function AuthProvider({ children }: Props) {
         token,
         ready,
         isAuthenticated: !!token,
+        user,
         login,
         logout,
       }}
@@ -116,6 +128,7 @@ export function AuthProvider({ children }: Props) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
 

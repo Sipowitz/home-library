@@ -28,6 +28,7 @@ from .routers import (
     backup,
     preferences,
     provider_settings,
+    admin_users,
 )
 
 from .core.error_handlers import (
@@ -102,6 +103,7 @@ app.include_router(preferences.router)
 app.include_router(
     provider_settings.router
 )
+app.include_router(admin_users.router)
 
 
 @app.get("/")

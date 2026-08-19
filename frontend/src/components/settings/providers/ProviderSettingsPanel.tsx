@@ -14,17 +14,9 @@ export function ProviderSettingsPanel() {
 
   useEffect(() => {
     refreshProviders();
+    // The context action is intentionally invoked once when this panel opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    const values: Record<number, string> = {};
-
-    providers.forEach((provider) => {
-      values[provider.id] = provider.api_key ?? "";
-    });
-
-    setApiKeyValues(values);
-  }, [providers]);
 
   if (loading) {
     return <div className="text-sm text-gray-400">Loading providers...</div>;
@@ -156,12 +148,7 @@ export function ProviderSettingsPanel() {
                     [provider.id]: e.target.value,
                   }))
                 }
-                onBlur={() =>
-                  updateProvider(provider.id, {
-                    api_key: apiKeyValues[provider.id] ?? "",
-                  })
-                }
-                placeholder="Enter API key"
+                placeholder={provider.has_api_key ? "Key configured — enter replacement" : "Enter API key"}
                 className="
                   w-full
                   rounded-lg
@@ -196,6 +183,15 @@ export function ProviderSettingsPanel() {
                   <Eye size={18} />
                 )}
               </button>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <button type="button" className="px-3 py-2 rounded bg-gray-800" onClick={async () => {
+                const value = apiKeyValues[provider.id]?.trim();
+                if (!value) return;
+                await updateProvider(provider.id, { api_key: value });
+                setApiKeyValues((prev) => ({ ...prev, [provider.id]: "" }));
+              }}>Save key</button>
+              {provider.has_api_key && <button type="button" className="px-3 py-2 rounded bg-red-900" onClick={() => updateProvider(provider.id, { clear_api_key: true })}>Remove key</button>}
             </div>
           </div>
         </div>

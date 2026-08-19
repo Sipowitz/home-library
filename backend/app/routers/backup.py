@@ -1,17 +1,26 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session, joinedload
-from datetime import datetime
-import json
+from pathlib import Path
 
-from ..database import SessionLocal
-from ..auth.dependencies import get_current_user
+from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
+
 from .. import models
+from ..auth.dependencies import get_current_user
+from ..database import SessionLocal
+from ..services.backup.archive import consume_session, finish_session, inspect_archive, stage_and_validate
+from ..services.backup.errors import BackupError
+from ..services.backup.export_service import create_backup
+from ..services.backup.restore_service import restore_user
+from ..services.backup.schemas import RestoreRequest
+from ..services.backup.storage import publish_covers
 
 router = APIRouter(prefix="/backup", tags=["Backup"])
 
 
-def get_db():
+def get_backup_db():
+    # Deliberately separate from auth's dependency session so export can begin a
+    # REPEATABLE READ snapshot before any query is issued.
     db = SessionLocal()
     try:
         yield db
@@ -19,230 +28,47 @@ def get_db():
         db.close()
 
 
-# =========================
-# 📤 EXPORT
-# =========================
 @router.get("/export")
-def export_data(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    user_id = current_user.id
-
-    books = (
-        db.query(models.Book)
-        .options(
-            joinedload(models.Book.category),
-            joinedload(models.Book.location),
-        )
-        .filter(models.Book.owner_id == user_id)
-        .all()
-    )
-
-    books_data = []
-
-    for b in books:
-        books_data.append({
-            "id": b.id,
-            "title": b.title,
-            "author": b.author,
-            "year": b.year,
-            "isbn": b.isbn,
-            "description": b.description,
-            "read": b.read,
-            "read_at": b.read_at.isoformat() if b.read_at else None,
-            "location_id": b.location_id,
-            "category_id": b.category_id,
-            "cover_url": b.cover_url,
-            "date_added": b.date_added.isoformat() if b.date_added else None,
-        })
-
-    categories = (
-        db.query(models.Category)
-        .filter(models.Category.owner_id == user_id)
-        .all()
-    )
-
-    categories_data = [
-        {
-            "id": c.id,
-            "name": c.name,
-            "parent_id": c.parent_id,
-        }
-        for c in categories
-    ]
-
-    locations = (
-        db.query(models.Location)
-        .filter(models.Location.owner_id == user_id)
-        .all()
-    )
-
-    locations_data = [
-        {
-            "id": l.id,
-            "name": l.name,
-            "parent_id": l.parent_id,
-        }
-        for l in locations
-    ]
-
-    payload = {
-        "version": 1,
-        "books": books_data,
-        "categories": categories_data,
-        "locations": locations_data,
-    }
-
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-    return JSONResponse(
-        content=payload,
-        headers={
-            "Content-Disposition": f'attachment; filename="library-backup-{timestamp}.json"'
-        },
-    )
-
-
-# =========================
-# 📥 IMPORT
-# =========================
-@router.post("/import")
-async def import_data(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
+def export_data(db: Session = Depends(get_backup_db), current_user: models.User = Depends(get_current_user)):
     try:
-        content = await file.read()
+        archive_path, filename = create_backup(db, current_user.id, current_user.username)
+        return FileResponse(archive_path, media_type="application/vnd.library-app.backup+zip", filename=filename,
+                            background=BackgroundTask(archive_path.unlink, missing_ok=True))
+    except BackupError:
+        raise
+    except Exception as exc:
+        raise BackupError(500, "RESTORE_INTERNAL_ERROR", "Backup creation failed") from exc
 
-        data = json.loads(content)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON file")
 
-    user_id = current_user.id
-
-    books = data.get("books", [])
-    categories = data.get("categories", [])
-    locations = data.get("locations", [])
-
-    # -------------------------
-    # 🔥 CLEAR EXISTING DATA
-    # -------------------------
-
-    db.query(models.Book).filter(
-        models.Book.owner_id == user_id
-    ).delete()
-
-    db.query(models.Category).filter(
-        models.Category.owner_id == user_id
-    ).delete()
-
-    db.query(models.Location).filter(
-        models.Location.owner_id == user_id
-    ).delete()
-
-    db.commit()
-
-    # -------------------------
-    # 🏷️ RECREATE CATEGORIES
-    # -------------------------
-
-    category_map = {}
-
-    for c in categories:
-        new = models.Category(
-            name=c["name"],
-            parent_id=None,
-            owner_id=user_id,
-        )
-
-        db.add(new)
-
-        db.flush()
-
-        category_map[c["id"]] = new.id
-
-    db.commit()
-
-    # restore parent links
-
-    for c in categories:
-        if c["parent_id"]:
-            db.query(models.Category).filter(
-                models.Category.id == category_map[c["id"]]
-            ).update({
-                "parent_id": category_map.get(c["parent_id"])
-            })
-
-    db.commit()
-
-    # -------------------------
-    # 📍 RECREATE LOCATIONS
-    # -------------------------
-
-    location_map = {}
-
-    for l in locations:
-        new = models.Location(
-            name=l["name"],
-            parent_id=None,
-            owner_id=user_id,
-        )
-
-        db.add(new)
-
-        db.flush()
-
-        location_map[l["id"]] = new.id
-
-    db.commit()
-
-    # restore parent links
-
-    for l in locations:
-        if l["parent_id"]:
-            db.query(models.Location).filter(
-                models.Location.id == location_map[l["id"]]
-            ).update({
-                "parent_id": location_map.get(l["parent_id"])
-            })
-
-    db.commit()
-
-    # -------------------------
-    # 📚 RECREATE BOOKS
-    # -------------------------
-
-    for b in books:
-        new_book = models.Book(
-            title=b.get("title"),
-            author=b.get("author"),
-            year=b.get("year"),
-            isbn=b.get("isbn"),
-            description=b.get("description"),
-            read=b.get("read", False),
-            cover_url=b.get("cover_url"),
-            owner_id=user_id,
-            location_id=location_map.get(b.get("location_id")),
-            category_id=category_map.get(b.get("category_id")),
-            date_added=(
-                datetime.fromisoformat(b["date_added"])
-                if b.get("date_added")
-                else None
-            ),
-            read_at=(
-                datetime.fromisoformat(b["read_at"])
-                if b.get("read_at")
-                else None
-            ),
-        )
-
-        db.add(new_book)
-
-    db.commit()
-
+@router.post("/validate")
+def validate_backup(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user)):
+    if not file.filename or Path(file.filename).suffix.lower() != ".lbak":
+        raise BackupError(400, "BACKUP_MALFORMED", "Only .lbak backup archives are accepted")
+    session = stage_and_validate(file, current_user.id)
+    counts = session.manifest.record_counts
     return {
-        "success": True,
-        "message": "Backup restored successfully",
+        "validation_token": session.token,
+        "expires_at": session.expires_at,
+        "summary": {
+            "books": counts.books, "categories": counts.categories, "locations": counts.locations,
+            "metadata_records": counts.metadata_snapshots + counts.normalized_metadata_records,
+            "metadata_snapshots": counts.metadata_snapshots,
+            "normalized_metadata_records": counts.normalized_metadata_records,
+            "cover_files": counts.cover_files, "created_at": session.manifest.created_at,
+            "backup_version": session.manifest.format_version, "source_username": session.manifest.subject_username,
+        },
     }
+
+
+@router.post("/restore")
+def restore_backup(payload: RestoreRequest, db: Session = Depends(get_backup_db), current_user: models.User = Depends(get_current_user)):
+    session = consume_session(payload.validation_token, current_user.id)
+    try:
+        manifest, library, cover_entries = inspect_archive(session.archive_path)
+        if manifest != session.manifest or library != session.library or cover_entries != session.cover_entries:
+            raise BackupError(409, "BACKUP_CHECKSUM_MISMATCH", "Staged backup no longer matches the validation plan")
+        cover_urls = publish_covers(session)
+        counts = restore_user(db, current_user.id, session, cover_urls)
+        return {"success": True, "message": "Backup restored successfully", "counts": counts}
+    finally:
+        finish_session(session)

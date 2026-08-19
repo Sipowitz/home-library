@@ -7,7 +7,7 @@ export interface ProviderSetting {
 
   priority: number;
 
-  api_key: string | null;
+  has_api_key: boolean;
 
   timeout_seconds: number;
 
@@ -24,6 +24,7 @@ export interface ProviderSettingUpdate {
   priority?: number;
 
   api_key?: string;
+  clear_api_key?: boolean;
 
   timeout_seconds?: number;
 
@@ -39,6 +40,8 @@ export interface ProviderResult {
 
   duration_ms: number;
 
+  // Provider payloads are intentionally heterogeneous.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any> | null;
 
   error: string | null;

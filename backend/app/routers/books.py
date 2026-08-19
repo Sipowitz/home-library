@@ -13,6 +13,7 @@ from .. import models, schemas
 from ..auth.dependencies import (
     get_current_user,
 )
+from ..services.isbn_validation import normalize_isbn
 
 from ..services import book_service
 
@@ -158,7 +159,9 @@ async def preview_book_by_isbn(
     isbn: str,
 
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
+    isbn = normalize_isbn(isbn)
     result = await fetch_book_by_isbn(
         db,
         isbn,
@@ -180,7 +183,9 @@ async def get_provider_results_by_isbn(
     isbn: str,
 
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
 ):
+    isbn = normalize_isbn(isbn)
     return await fetch_all_provider_results(
         db,
         isbn,
