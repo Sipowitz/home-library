@@ -79,32 +79,58 @@ def get_category_depth(category):
     return depth
 
 
+def _owned_hierarchy(db: Session, user_id: int):
+    rows = (
+        db.query(models.Category.id, models.Category.parent_id)
+        .filter(models.Category.owner_id == user_id)
+        .all()
+    )
+    parents = {category_id: parent_id for category_id, parent_id in rows}
+    children = {}
+    for category_id, parent_id in rows:
+        children.setdefault(parent_id, []).append(category_id)
+    return parents, children
+
+
+def _parent_depth(parent_id: int | None, parents: dict[int, int | None]) -> int:
+    depth = 0
+    current = parent_id
+    seen = set()
+    while current is not None:
+        if current in seen:
+            raise ValueError("Category hierarchy contains a cycle")
+        if current not in parents:
+            raise ValueError("Parent category not found")
+        seen.add(current)
+        depth += 1
+        current = parents[current]
+    return depth
+
+
+def _subtree_ids_and_height(root_id: int, children: dict[int | None, list[int]]):
+    descendants = set()
+    maximum_height = 0
+    pending = [(root_id, 1)]
+    while pending:
+        current, height = pending.pop()
+        if current in descendants:
+            raise ValueError("Category hierarchy contains a cycle")
+        descendants.add(current)
+        maximum_height = max(maximum_height, height)
+        pending.extend(
+            (child_id, height + 1)
+            for child_id in children.get(current, [])
+        )
+    return descendants, maximum_height
+
+
 def validate_depth(
     db: Session,
     user_id: int,
     parent_id: int | None,
 ):
-    if parent_id is None:
-        return
-
-    parent = (
-        db.query(models.Category)
-        .filter(
-            models.Category.id == parent_id
-        )
-        .filter(
-            models.Category.owner_id
-            == user_id
-        )
-        .first()
-    )
-
-    if not parent:
-        raise ValueError(
-            "Parent category not found"
-        )
-
-    depth = get_category_depth(parent) + 1
+    parents, _ = _owned_hierarchy(db, user_id)
+    depth = _parent_depth(parent_id, parents) + 1
 
     if depth > MAX_CATEGORY_DEPTH:
         raise ValueError(
@@ -276,6 +302,8 @@ def update_category(
             "parent_id"
         )
 
+        parents, children = _owned_hierarchy(db, user_id)
+
         # 🛑 SELF PARENT
         if (
             new_parent_id
@@ -286,33 +314,21 @@ def update_category(
             )
 
         # 🛑 PREVENT CYCLES
+        descendants, subtree_height = _subtree_ids_and_height(
+            category.id,
+            children,
+        )
         if new_parent_id:
-            descendants = []
-
-            def collect_ids(node):
-                for child in node.children:
-                    descendants.append(
-                        child.id
-                    )
-
-                    collect_ids(child)
-
-            collect_ids(category)
-
-            if (
-                new_parent_id
-                in descendants
-            ):
+            if new_parent_id in descendants:
                 raise ValueError(
                     "Cannot move category inside its own descendant"
                 )
 
-        # 🛑 DEPTH LIMIT
-        validate_depth(
-            db,
-            user_id,
-            new_parent_id,
-        )
+        parent_depth = _parent_depth(new_parent_id, parents)
+        if parent_depth + subtree_height > MAX_CATEGORY_DEPTH:
+            raise ValueError(
+                f"Maximum category depth is {MAX_CATEGORY_DEPTH}"
+            )
 
         category.parent_id = (
             new_parent_id
