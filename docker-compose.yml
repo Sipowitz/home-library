@@ -1,11 +1,7 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:15
-
     container_name: library_db
-
     restart: always
 
     environment:
@@ -21,18 +17,13 @@ services:
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-
       interval: 5s
-
       timeout: 5s
-
       retries: 5
 
   backend:
     build: ./backend
-
     container_name: library_backend
-
     restart: always
 
     depends_on:
@@ -40,16 +31,15 @@ services:
         condition: service_healthy
 
     ports:
-      - "8000:8000"
+      - "8001:8000"
 
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/library
-
       SECRET_KEY: super-secure-production-key-123
 
     volumes:
-      - ./backend:/app
-      - ./backend/covers:/app/covers
+      - /srv/dev-disk-by-uuid-43d92b4b-6f5d-4851-bd58-48f90f1d2259/Docker/DockerData/development/workspace/Apps/Library-App/backend:/app
+      - /srv/dev-disk-by-uuid-43d92b4b-6f5d-4851-bd58-48f90f1d2259/Docker/DockerData/development/workspace/Apps/Library-App/backend/covers:/app/covers
 
     command: >
       uvicorn app.main:app
