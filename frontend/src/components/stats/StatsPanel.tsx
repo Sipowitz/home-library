@@ -10,7 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 
-import { getBooks } from "../../api/books";
+import { getStats } from "../../api/stats";
 
 import { useAuth } from "../../context/AuthContext";
 
@@ -18,9 +18,9 @@ import { usePreferences } from "../../hooks/usePreferences";
 
 import { formatDate } from "../../utils/dateFormatters";
 
-import type { Book } from "../../types/book";
-
 import type { Preferences } from "../../types/preferences";
+
+import type { LibraryStats } from "../../types/stats";
 
 type ChartPoint = {
   date: string;
@@ -73,7 +73,11 @@ type CustomTooltipProps = {
 };
 
 export function StatsPanel() {
-  const [books, setBooks] = useState<Book[]>([]);
+  const [stats, setStats] = useState<LibraryStats | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [error, setError] = useState<string | null>(null);
 
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
 
@@ -84,16 +88,17 @@ export function StatsPanel() {
   const { preferences } = usePreferences();
 
   async function loadStats() {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const data = await getBooks(0, 100, undefined, undefined);
-
-      const items = data?.items ?? [];
-
-      setBooks(items);
+      setStats(await getStats());
     } catch (err) {
       console.error("Failed to load stats", err);
-
-      setBooks([]);
+      setStats(null);
+      setError("Statistics could not be loaded");
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -120,7 +125,12 @@ export function StatsPanel() {
   // -------------------
 
   useEffect(() => {
-    let filtered = [...books];
+    if (!stats) {
+      setChartData([]);
+      return;
+    }
+
+    let filtered = [...stats.books_over_time];
 
     if (range !== "all") {
       const now = Date.now();
@@ -129,17 +139,11 @@ export function StatsPanel() {
 
       const cutoff = now - days * 24 * 60 * 60 * 1000;
 
-      filtered = filtered.filter(
-        (b) => b.date_added && new Date(b.date_added).getTime() >= cutoff,
-      );
+      filtered = filtered.filter((item) => {
+        const endOfDay = new Date(`${item.date}T23:59:59.999Z`).getTime();
+        return endOfDay >= cutoff;
+      });
     }
-
-    const sorted = filtered
-      .filter((b) => b.date_added)
-      .sort(
-        (a, b) =>
-          new Date(a.date_added!).getTime() - new Date(b.date_added!).getTime(),
-      );
 
     let total = 0;
 
@@ -147,50 +151,39 @@ export function StatsPanel() {
 
     const data: ChartPoint[] = [];
 
-    sorted.forEach((b) => {
-      total += 1;
-
-      if (b.read) {
-        read += 1;
-      }
-
-      const date = new Date(b.date_added!).toISOString().slice(0, 10);
+    filtered.forEach((item) => {
+      total += item.added_books;
+      read += item.read_books;
 
       data.push({
-        date,
+        date: item.date,
         total,
         read,
       });
     });
 
     setChartData(data);
-  }, [books, range]);
+  }, [stats, range]);
 
   // -------------------
   // 📊 TOTALS
   // -------------------
 
-  const total = books.length;
+  if (isLoading && !stats) {
+    return (
+      <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl text-sm text-gray-400">
+        Loading statistics...
+      </div>
+    );
+  }
 
-  const read = books.filter((b) => b.read).length;
-
-  const unread = total - read;
-
-  // -------------------
-  // 📅 ACTIVITY
-  // -------------------
-
-  const now = Date.now();
-
-  const DAY = 1000 * 60 * 60 * 24;
-
-  const last7 = books.filter(
-    (b) => b.date_added && new Date(b.date_added).getTime() >= now - 7 * DAY,
-  );
-
-  const last30 = books.filter(
-    (b) => b.date_added && new Date(b.date_added).getTime() >= now - 30 * DAY,
-  );
+  if (error || !stats) {
+    return (
+      <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl text-sm text-red-300">
+        {error ?? "Statistics could not be loaded"}
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl">
@@ -216,23 +209,23 @@ export function StatsPanel() {
         {/* STATS */}
         <div className="lg:col-span-2 flex flex-col gap-3">
           <div className="grid grid-cols-3 gap-3">
-            <StatCard label="Total" value={total} />
+            <StatCard label="Total" value={stats.total_books} />
 
-            <StatCard label="Read" value={read} highlight />
+            <StatCard label="Read" value={stats.read_books} highlight />
 
-            <StatCard label="Unread" value={unread} />
+            <StatCard label="Unread" value={stats.unread_books} />
           </div>
 
           <ActivityBox
             title="Last 7 days"
-            added={last7.length}
-            read={last7.filter((b) => b.read).length}
+            added={stats.recent_added_7_days}
+            read={stats.recent_reads_7_days}
           />
 
           <ActivityBox
             title="Last 30 days"
-            added={last30.length}
-            read={last30.filter((b) => b.read).length}
+            added={stats.recent_added_30_days}
+            read={stats.recent_reads_30_days}
           />
         </div>
 

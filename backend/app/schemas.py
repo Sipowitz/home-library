@@ -392,6 +392,14 @@ class MonthlyStat(BaseModel):
     count: int
 
 
+class DailyBookStat(BaseModel):
+    date: str
+
+    added_books: int
+
+    read_books: int
+
+
 class StatsResponse(BaseModel):
     total_books: int
 
@@ -412,6 +420,8 @@ class StatsResponse(BaseModel):
     recent_added_30_days: int
 
     monthly_reads: List[MonthlyStat]
+
+    books_over_time: List[DailyBookStat]
 
     class Config:
         from_attributes = True
