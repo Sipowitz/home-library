@@ -13,23 +13,22 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from PIL import Image, UnidentifiedImageError
 from pydantic import ValidationError
 
 from ...core.config import settings
 from .errors import BackupError
 from .schemas import FORMAT_VERSION, LibraryData, Manifest
+from ..image_validation import (
+    ImageValidationError,
+    MAX_IMAGE_PIXELS,
+    SUPPORTED_IMAGES,
+    validate_image as validate_supported_image,
+)
 
 MAX_ENTRIES = 10_000
 MAX_ENTRY_BYTES = 64 * 1024 * 1024
 MAX_EXPANDED_BYTES = 512 * 1024 * 1024
 MAX_COMPRESSION_RATIO = 200
-MAX_IMAGE_PIXELS = 80_000_000
-SUPPORTED_IMAGES = {
-    "JPEG": ("image/jpeg", "jpg"),
-    "PNG": ("image/png", "png"),
-    "WEBP": ("image/webp", "webp"),
-}
 _DRIVE = re.compile(r"^[A-Za-z]:")
 
 
@@ -74,23 +73,17 @@ def strict_json(data: bytes, label: str) -> Any:
 
 def validate_image(path: Path, expected_media_type: str | None = None) -> tuple[str, str]:
     try:
-        with Image.open(path) as image:
-            image.verify()
-        with Image.open(path) as image:
-            width, height = image.size
-            image_format = image.format
-            if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
-                raise BackupError(400, "BACKUP_IMAGE_INVALID", "Cover image dimensions are not allowed")
-    except BackupError:
-        raise
-    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as exc:
-        raise BackupError(400, "BACKUP_IMAGE_INVALID", "A cover file is not a valid supported image") from exc
-    if image_format not in SUPPORTED_IMAGES:
-        raise BackupError(400, "BACKUP_IMAGE_INVALID", "Only JPEG, PNG and WebP covers are supported")
-    media_type, extension = SUPPORTED_IMAGES[image_format]
-    if expected_media_type and expected_media_type != media_type:
-        raise BackupError(400, "BACKUP_IMAGE_INVALID", "Cover media type does not match its contents")
-    return media_type, extension
+        return validate_supported_image(path, expected_media_type)
+    except ImageValidationError as exc:
+        if exc.reason == "dimensions":
+            message = "Cover image dimensions are not allowed"
+        elif exc.reason == "unsupported":
+            message = "Only JPEG, PNG and WebP covers are supported"
+        elif exc.reason == "media_type_mismatch":
+            message = "Cover media type does not match its contents"
+        else:
+            message = "A cover file is not a valid supported image"
+        raise BackupError(400, "BACKUP_IMAGE_INVALID", message) from exc
 
 
 def safe_member_name(info: zipfile.ZipInfo) -> str:

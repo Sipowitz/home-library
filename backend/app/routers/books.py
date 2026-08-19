@@ -50,8 +50,9 @@ from fastapi import (
     File,
 )
 
-import os
-import uuid
+from pathlib import Path
+
+from ..services.cover_storage import CoverUploadError, store_uploaded_cover
 
 router = APIRouter(
     prefix="/books",
@@ -587,53 +588,16 @@ async def upload_cover(
             detail="Book not found",
         )
 
-    allowed_types = {
-        "image/jpeg": "jpg",
-        "image/png": "png",
-        "image/webp": "webp",
-    }
-
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported image type",
-        )
-
-    extension = allowed_types[
-        file.content_type
-    ]
-
-    upload_dir = (
-        "/app/covers/uploaded"
-    )
-
-    os.makedirs(
-        upload_dir,
-        exist_ok=True,
-    )
-
-    filename = (
-        f"{uuid.uuid4()}.{extension}"
-    )
-
-    filepath = os.path.join(
-        upload_dir,
-        filename,
-    )
-
-    contents = await file.read()
-
-    with open(
-        filepath,
-        "wb",
-    ) as output:
-        output.write(contents)
+    try:
+        stored = await store_uploaded_cover(file)
+    except CoverUploadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
     candidate = {
         "provider": "upload",
         "label": "Custom Upload",
         "url": (
-            f"/covers/uploaded/{filename}"
+            stored.url
         ),
     }
 
@@ -650,7 +614,12 @@ async def upload_cover(
         uploaded_covers
     )
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        Path(stored.path).unlink(missing_ok=True)
+        raise
 
     return candidate
 

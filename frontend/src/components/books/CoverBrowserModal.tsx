@@ -1,6 +1,9 @@
 import { useRef } from "react";
 
 import { uploadCover } from "../../api/books";
+import toast from "react-hot-toast";
+
+const MAX_COVER_UPLOAD_BYTES = 15 * 1024 * 1024;
 
 type CoverCandidate = {
   provider: string;
@@ -45,9 +48,18 @@ export function CoverBrowserModal({
       return;
     }
 
-    const candidate = await uploadCover(bookId, file);
+    if (file.size > MAX_COVER_UPLOAD_BYTES) {
+      toast.error("Cover images must be 15 MiB or smaller");
+      return;
+    }
 
-    onCoverUploaded?.(candidate);
+    try {
+      const candidate = await uploadCover(bookId, file);
+
+      onCoverUploaded?.(candidate);
+    } catch {
+      toast.error("Cover upload failed. Use a valid JPEG, PNG or WebP image.");
+    }
   }
 
   if (!open) return null;
@@ -137,11 +149,7 @@ export function CoverBrowserModal({
           <input
             ref={fileInputRef}
             type="file"
-            accept="
-              image/jpeg,
-              image/png,
-              image/webp
-            "
+            accept="image/jpeg,image/png,image/webp"
             className="hidden"
             onChange={async (e) => {
               const file = e.target.files?.[0];
