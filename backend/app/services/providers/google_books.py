@@ -1,8 +1,5 @@
-import asyncio
 import re
 from typing import Any, Dict
-
-import httpx
 
 from app.services.providers.base import BookProvider
 
@@ -86,95 +83,21 @@ def normalize_cover_url(
 class GoogleBooksProvider(BookProvider):
     provider_name = "google_books"
 
-    def get_timeout(self) -> float:
-        if (
-            self.settings
-            and self.settings.timeout_seconds
-        ):
-            return float(
-                self.settings.timeout_seconds
-            )
-
-        return 5.0
-
-    def get_max_retries(self) -> int:
-        if (
-            self.settings
-            and self.settings.max_retries
-        ):
-            return int(
-                self.settings.max_retries
-            )
-
-        return 3
-
-    async def safe_request(
-        self,
-        url: str,
-    ) -> dict | None:
-        for attempt in range(
-            self.get_max_retries()
-        ):
-            try:
-                async with httpx.AsyncClient(
-                    timeout=self.get_timeout()
-                ) as client:
-                    response = (
-                        await client.get(url)
-                    )
-
-                    if (
-                        response.status_code
-                        == 200
-                    ):
-                        return (
-                            response.json()
-                        )
-
-                    if (
-                        response.status_code
-                        >= 500
-                    ):
-                        await asyncio.sleep(
-                            0.5
-                            * (
-                                attempt
-                                + 1
-                            )
-                        )
-
-                        continue
-
-                    return None
-
-            except httpx.RequestError:
-                await asyncio.sleep(
-                    0.5
-                    * (attempt + 1)
-                )
-
-        return None
-
     async def fetch_from_google(
         self,
         isbn: str,
     ) -> dict | None:
-        url = (
-            f"{GOOGLE_BOOKS_URL}"
-            f"?q=isbn:{isbn}"
-        )
+        params = {"q": f"isbn:{isbn}"}
 
         if (
             self.settings
             and self.settings.api_key
         ):
-            url += (
-                f"&key="
-                f"{self.settings.api_key}"
-            )
+            params["key"] = self.settings.api_key
 
-        return await self.safe_request(
-            url
+        return await self.request_json(
+            GOOGLE_BOOKS_URL,
+            params=params,
         )
 
     async def fetch_book_by_isbn(
@@ -197,15 +120,14 @@ class GoogleBooksProvider(BookProvider):
             )
         )
 
-        if (
-            not data
-            or not data.get("items")
-        ):
+        if not data or not isinstance(data.get("items"), list) or not data["items"]:
             return None
 
         valid_items = []
 
         for item in data["items"]:
+            if not isinstance(item, dict):
+                continue
             info = (
                 item.get(
                     "volumeInfo",

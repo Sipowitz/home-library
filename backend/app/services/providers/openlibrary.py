@@ -1,7 +1,5 @@
 import re
 
-import httpx
-
 from app.services.providers.base import (
     BookProvider,
 )
@@ -13,9 +11,6 @@ OPENLIBRARY_SEARCH_URL = (
 OPENLIBRARY_COVER_URL = (
     "https://covers.openlibrary.org/b/isbn"
 )
-
-TIMEOUT = 5.0
-
 
 def clean_isbn(isbn: str) -> str:
     return re.sub(
@@ -38,28 +33,16 @@ class OpenLibraryProvider(BookProvider):
         if not isbn:
             return None
 
-        try:
-            async with httpx.AsyncClient(
-                timeout=TIMEOUT,
-            ) as client:
-                response = await client.get(
-                    OPENLIBRARY_SEARCH_URL,
-                    params={
-                        "isbn": isbn,
-                    },
-                )
-
-            if response.status_code != 200:
-                return None
-
-            data = response.json()
-
-        except Exception:
+        data = await self.request_json(
+            OPENLIBRARY_SEARCH_URL,
+            params={"isbn": isbn},
+        )
+        if not data:
             return None
 
         docs = data.get("docs", [])
 
-        if not docs:
+        if not isinstance(docs, list) or not docs or not isinstance(docs[0], dict):
             return None
 
         book = docs[0]
