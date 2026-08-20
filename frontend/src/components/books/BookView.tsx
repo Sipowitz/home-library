@@ -10,7 +10,6 @@ import {
   Folder,
   Languages,
   MapPin,
-  Pencil,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -28,7 +27,6 @@ type Props = {
   book: Book;
   locations: Location[];
   categories: Category[];
-  onEdit: () => void;
 };
 
 type HeroFact = {
@@ -93,7 +91,7 @@ function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: Re
   );
 }
 
-export function BookView({ book, locations, categories, onEdit }: Props) {
+export function BookView({ book, locations, categories }: Props) {
   const { preferences } = usePreferences();
   const [failedForegroundUrl, setFailedForegroundUrl] = useState<string | null>(null);
   const [failedBackdropUrl, setFailedBackdropUrl] = useState<string | null>(null);
@@ -140,6 +138,11 @@ export function BookView({ book, locations, categories, onEdit }: Props) {
   const libraryFacts = ([
     categoryPath ? { label: "Category", value: categoryPath, icon: Folder } : null,
     locationPath ? { label: "Location", value: locationPath, icon: MapPin } : null,
+    {
+      label: "Reading status",
+      value: book.read ? "Read" : "Unread",
+      icon: book.read ? Check : BookOpen,
+    },
     book.date_added
       ? {
           label: "Added",
@@ -208,24 +211,9 @@ export function BookView({ book, locations, categories, onEdit }: Props) {
               />
             </div>
 
-            <div
-              className={`mt-3 flex min-h-10 items-center rounded-xl border px-4 text-sm font-medium backdrop-blur-md ${
-                book.read
-                  ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-100"
-                  : "border-white/20 bg-[#07111f]/55 text-gray-100"
-              }`}
-            >
-              <span
-                aria-hidden="true"
-                className={`mr-2 h-2 w-2 rounded-full ${
-                  book.read ? "bg-emerald-400" : "bg-blue-500"
-                }`}
-              />
-              {book.read ? "Read" : "Unread"}
-            </div>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col self-stretch text-center md:min-h-[260px] md:text-left">
+          <div className="flex min-w-0 flex-1 flex-col self-stretch text-center md:text-left">
             <div className="min-w-0">
               <h2 className="break-words text-3xl font-bold leading-[1.1] tracking-tight text-white sm:text-4xl lg:text-[42px]">
                 {book.title}
@@ -241,6 +229,23 @@ export function BookView({ book, locations, categories, onEdit }: Props) {
                 <UserRound size={17} className="shrink-0 text-gray-300" aria-hidden="true" />
                 {book.author}
               </p>
+
+              <div className="mt-3 flex justify-center md:justify-start">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                    book.read
+                      ? "border-emerald-400/25 bg-emerald-500/15 text-emerald-100"
+                      : "border-white/15 bg-slate-700/35 text-slate-200"
+                  }`}
+                >
+                  {book.read ? (
+                    <Check size={13} aria-hidden="true" />
+                  ) : (
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400" aria-hidden="true" />
+                  )}
+                  {book.read ? "Read" : "Unread"}
+                </span>
+              </div>
             </div>
 
             {heroFacts.length > 0 && (
@@ -250,17 +255,6 @@ export function BookView({ book, locations, categories, onEdit }: Props) {
                 ))}
               </div>
             )}
-
-            <div className="mt-6 flex justify-center md:mt-auto md:justify-start md:pt-4">
-              <button
-                type="button"
-                onClick={onEdit}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-              >
-                <Pencil size={16} aria-hidden="true" />
-                Edit Book
-              </button>
-            </div>
           </div>
         </div>
       </section>

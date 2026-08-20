@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useLocations } from "../../context/LocationContext";
@@ -127,7 +127,19 @@ export function BookPanel({
           <div />
 
           <div className="flex items-center gap-2">
+            {!editing && (
+              <button
+                type="button"
+                onClick={handleEdit}
+                aria-label="Edit book"
+                title="Edit book"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/30 text-gray-200 backdrop-blur-md transition hover:bg-black/45 hover:text-white"
+              >
+                <Pencil size={19} aria-hidden="true" />
+              </button>
+            )}
             <button
+              type="button"
               onClick={onClose}
               aria-label="Close book details"
               className={`
@@ -161,7 +173,6 @@ export function BookPanel({
               book={book}
               locations={locations}
               categories={categories}
-              onEdit={handleEdit}
             />
           ) : (
             <BookEdit
