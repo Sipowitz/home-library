@@ -178,26 +178,26 @@ export function BookView({ book, locations, categories, onEdit }: Props) {
       <section className="relative isolate overflow-hidden border-b border-white/10 bg-[#081421]">
         {showBackdrop && (
           <img
-            key={resolvedCoverUrl}
+            key={`backdrop-banner-${resolvedCoverUrl}`}
             src={resolvedCoverUrl!}
             alt=""
             aria-hidden="true"
             onError={() => setFailedBackdropUrl(resolvedCoverUrl)}
-            className="pointer-events-none absolute -inset-12 z-0 h-[calc(100%+6rem)] w-[calc(100%+6rem)] scale-110 object-cover opacity-70 blur-3xl"
+            className="pointer-events-none absolute -inset-2 z-0 h-[calc(100%+1rem)] w-[calc(100%+1rem)] object-cover object-[center_34%] opacity-80 blur-[4px] md:object-[center_40%]"
           />
         )}
 
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-r from-[#06111e]/90 via-[#071421]/70 to-[#071421]/58"
+          className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-r from-[#06111e]/75 via-[#071421]/82 to-[#071421]/92"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-[#06101c]/95 via-black/15 to-black/30"
+          className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-[#06101c]/70 via-black/5 to-black/20"
         />
 
-        <div className="relative z-20 mx-auto flex max-w-[980px] flex-col gap-7 px-5 pb-8 pt-7 sm:px-8 md:flex-row md:items-start md:gap-10 md:px-10 md:pb-9 md:pt-8 lg:px-12">
-          <div className="mx-auto w-44 shrink-0 sm:w-48 md:mx-0 md:w-52">
+        <div className="relative z-20 mx-auto flex max-w-[980px] flex-col gap-7 px-5 pb-8 pt-7 sm:px-8 md:flex-row md:items-start md:gap-8 md:px-10 md:pb-6 md:pt-6 lg:px-12">
+          <div className="mx-auto w-44 shrink-0 sm:w-48 md:mx-0 md:w-44">
             <div className="aspect-[2/3] overflow-hidden rounded-xl border border-white/15 bg-gray-900 shadow-[0_18px_45px_rgba(0,0,0,0.5)]">
               <img
                 key={foregroundUrl}
@@ -225,7 +225,7 @@ export function BookView({ book, locations, categories, onEdit }: Props) {
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col self-stretch text-center md:min-h-[300px] md:text-left">
+          <div className="flex min-w-0 flex-1 flex-col self-stretch text-center md:min-h-[260px] md:text-left">
             <div className="min-w-0">
               <h2 className="break-words text-3xl font-bold leading-[1.1] tracking-tight text-white sm:text-4xl lg:text-[42px]">
                 {book.title}
@@ -237,21 +237,21 @@ export function BookView({ book, locations, categories, onEdit }: Props) {
                 </p>
               )}
 
-              <p className="mt-4 flex items-center justify-center gap-2 break-words text-base font-medium text-gray-100 md:justify-start">
+              <p className="mt-3 flex items-center justify-center gap-2 break-words text-base font-medium text-gray-100 md:justify-start">
                 <UserRound size={17} className="shrink-0 text-gray-300" aria-hidden="true" />
                 {book.author}
               </p>
             </div>
 
             {heroFacts.length > 0 && (
-              <div className="mt-7 grid grid-cols-2 gap-x-5 gap-y-5 text-left sm:grid-cols-3 md:flex md:flex-wrap md:items-start">
+              <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-4 text-left sm:grid-cols-3 md:flex md:flex-wrap md:items-start">
                 {heroFacts.map((fact) => (
                   <HeroMetadata key={fact.label} fact={fact} />
                 ))}
               </div>
             )}
 
-            <div className="mt-7 flex justify-center md:mt-auto md:justify-start md:pt-6">
+            <div className="mt-6 flex justify-center md:mt-auto md:justify-start md:pt-4">
               <button
                 type="button"
                 onClick={onEdit}
