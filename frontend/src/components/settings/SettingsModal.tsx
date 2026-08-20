@@ -27,12 +27,9 @@ import { PreferencesSettings } from "./preferences/PreferencesSettings";
 import { ProviderSettingsPanel } from "./providers/ProviderSettingsPanel";
 
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
+
 import { PendingUsersPanel } from "./users/PendingUsersPanel";
 import { useAuth } from "../../context/AuthContext";
-
-import { fetchCategories } from "../../api/categories";
-
-import type { Category } from "../../types/category";
 
 type Props = {
   isOpen: boolean;
@@ -55,30 +52,12 @@ export function SettingsModal({ isOpen, onClose }: Props) {
   const [activeSection, setActiveSection] = useState<Section>("locations");
 
   // -------------------
-  // 🏷 CATEGORIES
-  // -------------------
-
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  // -------------------
   // ❌ DELETE LOCATION
   // -------------------
 
   const [confirmDeleteLocation, setConfirmDeleteLocation] = useState<
     number | null
   >(null);
-
-  // -------------------
-  // ❌ DELETE CATEGORY
-  // -------------------
-
-  const [confirmDeleteCategory, setConfirmDeleteCategory] = useState<
-    number | null
-  >(null);
-
-  const [categoryDeleteDetails, setCategoryDeleteDetails] = useState<string[]>(
-    [],
-  );
 
   // -------------------
   // 💾 BACKUP / RESTORE
@@ -102,23 +81,10 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
   const [lastRestoreAt, setLastRestoreAt] = useState<string | null>(null);
 
-  // -------------------
-  // 📥 LOAD CATEGORIES
-  // -------------------
-
   useEffect(() => {
-    fetchCategories().then(setCategories);
-
     setLastBackupAt(localStorage.getItem("last_backup_at"));
-
     setLastRestoreAt(localStorage.getItem("last_restore_at"));
   }, []);
-
-  async function refreshCategories() {
-    const data = await fetchCategories();
-
-    setCategories(data);
-  }
 
   // -------------------
   // 💾 BACKUP
@@ -238,7 +204,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
       <div
         className="
-          fixed inset-0 z-50
+          fixed inset-0 z-[70]
           bg-black/50 backdrop-blur-sm
           flex items-center justify-center
           px-12 lg:px-16
@@ -334,7 +300,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
                     </p>
                   </div>
 
-                  <CategorySettings categories={categories} />
+                  <CategorySettings />
                 </div>
               </div>
             )}
@@ -449,28 +415,6 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           setConfirmDeleteLocation(null);
         }}
         onCancel={() => setConfirmDeleteLocation(null)}
-      />
-
-      {/* DELETE CATEGORY */}
-
-      <ConfirmDeleteModal
-        open={confirmDeleteCategory !== null}
-        title="Delete Category Tree?"
-        message="Deleting this category will also delete all child categories."
-        details={categoryDeleteDetails}
-        confirmText="Delete Everything"
-        onConfirm={async () => {
-          setConfirmDeleteCategory(null);
-
-          setCategoryDeleteDetails([]);
-
-          await refreshCategories();
-        }}
-        onCancel={() => {
-          setConfirmDeleteCategory(null);
-
-          setCategoryDeleteDetails([]);
-        }}
       />
     </>
   );

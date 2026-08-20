@@ -29,7 +29,7 @@ export function ConfirmRestoreModal({ open, restoring, file, summary, onConfirm,
     ["Source username", summary.source_username],
   ];
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]">
       <div className="bg-gray-900 p-6 rounded-xl w-96">
         <h3 className="text-lg mb-3 text-yellow-400 font-semibold">Restore validated backup?</h3>
         <p className="text-sm text-yellow-200 mb-4 font-medium">This will replace your current library data.</p>

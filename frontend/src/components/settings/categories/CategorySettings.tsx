@@ -1,14 +1,12 @@
 // frontend/src/components/settings/categories/CategorySettings.tsx
 
-import type { Category } from "../../../types/category";
+import { useCategories } from "../../../context/CategoryContext";
 
 import { CategoryTreePanel } from "./CategoryTreePanel";
 
-type Props = {
-  categories: Category[];
-};
+export function CategorySettings() {
+  const { categories } = useCategories();
 
-export function CategorySettings({ categories }: Props) {
   return (
     <div
       className="

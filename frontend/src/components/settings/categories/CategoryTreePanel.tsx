@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import axios from "axios";
+
 import toast from "react-hot-toast";
 
 import type { Category } from "../../../types/category";
@@ -158,6 +160,7 @@ export function CategoryTreePanel({ categories }: Props) {
       console.error(err);
 
       toast.error("Failed to rename category");
+      throw err;
     }
   }
 
@@ -168,30 +171,36 @@ export function CategoryTreePanel({ categories }: Props) {
       await addCategory(name, parentId);
 
       toast.success("Category created");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
 
-      const message =
-        err?.response?.data?.detail || "Failed to create category";
-
-      toast.error(message);
+      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : null;
+      toast.error(typeof detail === "string" ? detail : "Failed to create category");
+      throw err;
     }
   }
 
   // ================= DELETE =================
 
   async function handleDelete(id: number, cascade = false) {
-    const result = await removeCategory(id, cascade);
+    try {
+      const result = await removeCategory(id, cascade);
 
-    if (result?.blocked && !cascade) {
-      return result;
+      if (result?.blocked && !cascade) {
+        return result;
+      }
+
+      if (!result?.success) {
+        throw new Error(result?.message || "Failed to delete category");
+      }
+
+      toast.success(cascade ? "Category tree deleted" : "Category deleted");
+      return { success: true };
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Failed to delete category");
+      throw err;
     }
-
-    toast.success(cascade ? "Category tree deleted" : "Category deleted");
-
-    return {
-      success: true,
-    };
   }
 
   return (

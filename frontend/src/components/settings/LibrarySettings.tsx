@@ -4,17 +4,13 @@ import { CategorySettings } from "./categories/CategorySettings";
 
 import { ProviderSettingsPanel } from "./providers/ProviderSettingsPanel";
 
-import type { Category } from "../../types/category";
-
 import type { Location } from "../../types/location";
 
 type Props = {
   locations: Location[];
-
-  categories: Category[];
 };
 
-export function LibrarySettings({ locations, categories }: Props) {
+export function LibrarySettings({ locations }: Props) {
   return (
     <div className="space-y-8">
       {/* LOCATIONS */}
@@ -42,7 +38,7 @@ export function LibrarySettings({ locations, categories }: Props) {
           </p>
         </div>
 
-        <CategorySettings categories={categories} />
+        <CategorySettings />
       </div>
 
       {/* PROVIDERS */}
