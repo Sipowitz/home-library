@@ -1,4 +1,4 @@
-import { Pencil, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useLocations } from "../../context/LocationContext";
@@ -115,70 +115,30 @@ export function BookPanel({
         {/* HEADER */}
 
         <div
-          className="
+          className={`
             flex items-center justify-between
-
-            px-6 py-5
-
-            border-b border-white/5
-          "
+            ${
+              editing
+                ? "relative px-6 py-5 border-b border-white/5"
+                : "absolute right-3 top-3 z-[70]"
+            }
+          `}
         >
           <div />
 
           <div className="flex items-center gap-2">
-            {!editing && (
-              <button
-                onClick={handleEdit}
-                className="
-                  group
-
-                  flex items-center justify-center
-
-                  w-10 h-10
-
-                  rounded-xl
-
-                  border border-white/10
-
-                  bg-white/5
-
-                  text-gray-300
-
-                  transition-all duration-200
-
-                  hover:bg-blue-500/10
-                  hover:border-blue-400/30
-                  hover:text-blue-300
-                "
-                title="Edit Book"
-              >
-                <Pencil
-                  size={18}
-                  className="
-                    transition-transform
-                    duration-200
-                    group-hover:scale-110
-                  "
-                />
-              </button>
-            )}
-
             <button
               onClick={onClose}
-              className="
+              aria-label="Close book details"
+              className={`
                 flex items-center justify-center
-
-                w-10 h-10
-
-                rounded-xl
-
-                text-gray-400
-
-                transition
-
-                hover:bg-white/5
-                hover:text-white
-              "
+                w-10 h-10 rounded-xl transition
+                ${
+                  editing
+                    ? "text-gray-400 hover:bg-white/5 hover:text-white"
+                    : "border border-white/15 bg-black/30 text-gray-200 backdrop-blur-md hover:bg-black/45 hover:text-white"
+                }
+              `}
             >
               <X size={20} />
             </button>
@@ -188,22 +148,20 @@ export function BookPanel({
         {/* CONTENT */}
 
         <div
-          className="
-            flex-1
-            overflow-y-auto
-
-            px-6 py-6
-
+          className={`
+            flex-1 overflow-y-auto
+            ${editing ? "px-6 py-6" : "p-0"}
             scrollbar-thin
             scrollbar-thumb-gray-700
             scrollbar-track-transparent
-          "
+          `}
         >
           {!editing ? (
             <BookView
               book={book}
               locations={locations}
               categories={categories}
+              onEdit={handleEdit}
             />
           ) : (
             <BookEdit
