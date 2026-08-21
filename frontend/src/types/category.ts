@@ -7,11 +7,13 @@ export interface Category extends TreeNode<Category> {
 
   parent_id?: number | null;
 
-  stats?: {
-    total_books?: number;
+  child_count: number;
 
-    read_books?: number;
+  stats: {
+    total_books: number;
 
-    unread_books?: number;
+    read_books: number;
+
+    unread_books: number;
   };
 }

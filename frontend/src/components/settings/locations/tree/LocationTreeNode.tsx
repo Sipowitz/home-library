@@ -173,9 +173,9 @@ export function LocationTreeNode({ data }: NodeProps) {
               </div>
             )}
 
-            <div className="text-[11px] text-gray-300 mt-2 tracking-[0.16em] uppercase">
-              {data.childCount} child
-              {data.childCount !== 1 ? "ren" : ""}
+            <div className="mt-2 text-xs leading-relaxed text-gray-300">
+              {data.stats.total_books} books · {data.childCount}{" "}
+              {data.childCount === 1 ? "child" : "children"}
             </div>
           </button>
 

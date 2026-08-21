@@ -1,5 +1,6 @@
 # app/services/category_service.py
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models
@@ -14,27 +15,21 @@ from app.services.domain_validation import MAX_CATEGORY_DEPTH
 # 🌲 BUILD TREE
 # -------------------
 
-def build_tree(categories):
+def build_tree(categories, direct_stats=None):
+    direct_stats = direct_stats or {}
+
     tree_nodes = {
         c.id: {
             "id": c.id,
             "name": c.name,
             "parent_id": c.parent_id,
+            "child_count": 0,
             "stats": {
-                "total_books": getattr(
-                    c,
-                    "total_books",
-                    0,
-                ),
-                "read_books": getattr(
-                    c,
-                    "read_books",
-                    0,
-                ),
-                "unread_books": getattr(
-                    c,
-                    "unread_books",
-                    0,
+                "total_books": direct_stats.get(c.id, (0, 0))[0],
+                "read_books": direct_stats.get(c.id, (0, 0))[1],
+                "unread_books": (
+                    direct_stats.get(c.id, (0, 0))[0]
+                    - direct_stats.get(c.id, (0, 0))[1]
                 ),
             },
             "children": [],
@@ -56,6 +51,20 @@ def build_tree(categories):
             ].append(node)
         else:
             root.append(node)
+
+    def attach_subtree_stats(node):
+        node["child_count"] = len(node["children"])
+
+        for child in node["children"]:
+            child_stats = attach_subtree_stats(child)
+            node["stats"]["total_books"] += child_stats["total_books"]
+            node["stats"]["read_books"] += child_stats["read_books"]
+            node["stats"]["unread_books"] += child_stats["unread_books"]
+
+        return node["stats"]
+
+    for node in root:
+        attach_subtree_stats(node)
 
     return root
 
@@ -137,60 +146,6 @@ def validate_depth(
 
 
 # -------------------
-# 📊 RECURSIVE STATS
-# -------------------
-
-def attach_recursive_stats(categories):
-    category_map = {
-        c.id: c for c in categories
-    }
-
-    def calculate(category):
-        direct_books = category.books or []
-
-        total_books = len(direct_books)
-
-        read_books = sum(
-            1
-            for book in direct_books
-            if book.read
-        )
-
-        unread_books = (
-            total_books - read_books
-        )
-
-        for child in category.children:
-            child_total, child_read, child_unread = (
-                calculate(child)
-            )
-
-            total_books += child_total
-
-            read_books += child_read
-
-            unread_books += child_unread
-
-        category.total_books = total_books
-
-        category.read_books = read_books
-
-        category.unread_books = unread_books
-
-        return (
-            total_books,
-            read_books,
-            unread_books,
-        )
-
-    for category in categories:
-        if category.parent_id is None:
-            calculate(category)
-
-    return categories
-
-
-# -------------------
 # 📚 GET
 # -------------------
 
@@ -207,9 +162,24 @@ def get_categories(
         .all()
     )
 
-    attach_recursive_stats(categories)
+    direct_stats = {
+        category_id: (total_books, read_books)
+        for category_id, total_books, read_books in (
+            db.query(
+                models.Book.category_id,
+                func.count(models.Book.id),
+                func.count(models.Book.id).filter(models.Book.read.is_(True)),
+            )
+            .filter(
+                models.Book.owner_id == user_id,
+                models.Book.category_id.isnot(None),
+            )
+            .group_by(models.Book.category_id)
+            .all()
+        )
+    }
 
-    return build_tree(categories)
+    return build_tree(categories, direct_stats)
 
 
 # -------------------

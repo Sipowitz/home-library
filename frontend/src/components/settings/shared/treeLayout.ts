@@ -24,7 +24,9 @@ export function buildTreeElements<
 
     children?: T[];
 
-    stats?: {
+    child_count: number;
+
+    stats: {
       total_books?: number;
 
       read_books?: number;
@@ -76,7 +78,7 @@ export function buildTreeElements<
 
         depth,
 
-        childCount: category.children?.length || 0,
+        childCount: category.child_count,
 
         stats: {
           total_books: category.stats?.total_books || 0,

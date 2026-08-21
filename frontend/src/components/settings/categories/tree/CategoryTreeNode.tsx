@@ -6,37 +6,6 @@ import { getDepthStyles } from "./treeStyles";
 
 import { TreeNodeActions } from "./TreeNodeActions";
 
-function StatBadge({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-
-  value: number;
-
-  color: string;
-}) {
-  return (
-    <div
-      className={`
-        rounded-lg
-        border
-        px-3
-        py-2
-        bg-white/5
-        ${color}
-      `}
-    >
-      <div className="text-[10px] uppercase tracking-[0.14em] text-gray-400">
-        {label}
-      </div>
-
-      <div className="text-base font-semibold text-white mt-1">{value}</div>
-    </div>
-  );
-}
-
 export function CategoryTreeNode({ data }: NodeProps) {
   const styles = getDepthStyles(data.depth);
 
@@ -227,9 +196,12 @@ export function CategoryTreeNode({ data }: NodeProps) {
               </div>
             )}
 
-            <div className="text-[11px] text-gray-300 mt-2 tracking-[0.16em] uppercase">
-              {data.childCount} child
-              {data.childCount !== 1 ? "ren" : ""}
+            <div className="mt-2 text-xs leading-relaxed text-gray-300">
+              {data.stats.total_books} books · {data.stats.read_books} read · {data.stats.unread_books} unread
+            </div>
+
+            <div className="mt-1 text-[11px] text-gray-400">
+              {data.childCount} {data.childCount === 1 ? "child" : "children"}
             </div>
           </button>
 
@@ -426,28 +398,6 @@ export function CategoryTreeNode({ data }: NodeProps) {
           </div>
         </div>
 
-        {/* STATS */}
-        {!confirmingDelete && (
-          <div className="grid grid-cols-3 gap-2 mt-5">
-            <StatBadge
-              label="Total"
-              value={data.stats.total_books}
-              color="border-blue-400/20"
-            />
-
-            <StatBadge
-              label="Read"
-              value={data.stats.read_books}
-              color="border-emerald-400/20"
-            />
-
-            <StatBadge
-              label="Unread"
-              value={data.stats.unread_books}
-              color="border-amber-400/20"
-            />
-          </div>
-        )}
       </div>
 
       <Handle type="source" position={Position.Bottom} className="opacity-0" />

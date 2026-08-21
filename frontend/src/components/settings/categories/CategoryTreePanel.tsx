@@ -47,27 +47,14 @@ function MobileTreeNode({
           width: `calc(100% - ${level * 12}px)`,
         }}
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1 font-medium text-white break-words">{node.name}</div>
+        <div className="font-medium text-white break-words">{node.name}</div>
 
-          <div className="text-xs text-gray-300 whitespace-nowrap">
-            <span className="sm:hidden">{node.stats?.total_books ?? 0}</span>
-            <span className="hidden sm:inline">{node.stats?.total_books ?? 0} books</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-1.5 mt-2 text-[10px] sm:gap-2 sm:text-[11px]">
-          <div className="min-w-0 px-1.5 py-1 text-center rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-200">
-            <span className="hidden sm:inline">Total: </span>{node.stats?.total_books ?? 0}
-          </div>
-
-          <div className="min-w-0 px-1.5 py-1 text-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-200">
-            <span className="hidden sm:inline">Read: </span>{node.stats?.read_books ?? 0}
-          </div>
-
-          <div className="min-w-0 px-1.5 py-1 text-center rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200">
-            <span className="hidden sm:inline">Unread: </span>{node.stats?.unread_books ?? 0}
-          </div>
+        <div className="mt-1.5 text-xs leading-relaxed text-gray-300">
+          <span>{node.stats.total_books} books</span>
+          <span aria-hidden="true"> · </span>
+          <span>{node.stats.read_books} <span className="sm:hidden">R</span><span className="hidden sm:inline">read</span></span>
+          <span aria-hidden="true"> · </span>
+          <span>{node.stats.unread_books} <span className="sm:hidden">U</span><span className="hidden sm:inline">unread</span></span>
         </div>
       </div>
 

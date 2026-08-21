@@ -6,4 +6,10 @@ export interface Location extends TreeNode<Location> {
   name: string;
 
   parent_id?: number | null;
+
+  child_count: number;
+
+  stats: {
+    total_books: number;
+  };
 }

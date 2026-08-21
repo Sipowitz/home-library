@@ -45,13 +45,12 @@ function MobileTreeNode({
           width: `calc(100% - ${level * 12}px)`,
         }}
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1 font-medium text-white break-words">{node.name}</div>
+        <div className="font-medium text-white break-words">{node.name}</div>
 
-          <div className="text-xs text-gray-300 whitespace-nowrap">
-            <span className="sm:hidden">{node.children?.length || 0}</span>
-            <span className="hidden sm:inline">{node.children?.length || 0} children</span>
-          </div>
+        <div className="mt-1.5 text-xs leading-relaxed text-gray-300">
+          <span>{node.stats.total_books} books</span>
+          <span aria-hidden="true"> · </span>
+          <span>{node.child_count} {node.child_count === 1 ? "child" : "children"}</span>
         </div>
       </div>
 

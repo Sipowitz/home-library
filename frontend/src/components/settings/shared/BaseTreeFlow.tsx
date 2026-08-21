@@ -23,7 +23,9 @@ type TreeItem<T = any> = {
 
   children?: T[];
 
-  stats?: {
+  child_count: number;
+
+  stats: {
     total_books?: number;
 
     read_books?: number;

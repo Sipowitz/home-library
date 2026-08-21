@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -42,12 +43,16 @@ def _find_sibling(
     return query.first()
 
 
-def build_tree(locations):
+def build_tree(locations, direct_book_counts=None):
+    direct_book_counts = direct_book_counts or {}
+
     tree_nodes = {
         l.id: {
             "id": l.id,
             "name": l.name,
             "parent_id": l.parent_id,
+            "child_count": 0,
+            "stats": {"total_books": direct_book_counts.get(l.id, 0)},
             "children": [],
         }
         for l in locations
@@ -64,6 +69,19 @@ def build_tree(locations):
         else:
             root.append(node)
 
+    def attach_subtree_totals(node):
+        node["child_count"] = len(node["children"])
+        total_books = node["stats"]["total_books"]
+
+        for child in node["children"]:
+            total_books += attach_subtree_totals(child)
+
+        node["stats"]["total_books"] = total_books
+        return total_books
+
+    for node in root:
+        attach_subtree_totals(node)
+
     return root
 
 
@@ -74,7 +92,17 @@ def get_locations(db: Session, user_id: int):
         .all()
     )
 
-    return build_tree(locations)
+    direct_book_counts = dict(
+        db.query(Book.location_id, func.count(Book.id))
+        .filter(
+            Book.owner_id == user_id,
+            Book.location_id.isnot(None),
+        )
+        .group_by(Book.location_id)
+        .all()
+    )
+
+    return build_tree(locations, direct_book_counts)
 
 
 def create_location(db: Session, user_id: int, data: dict):

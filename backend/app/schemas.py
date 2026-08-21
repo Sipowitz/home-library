@@ -152,6 +152,8 @@ class CategoryResponse(BaseModel):
 
     parent_id: Optional[int]
 
+    child_count: int = 0
+
     stats: CategoryStats = Field(
         default_factory=CategoryStats
     )
@@ -457,12 +459,20 @@ class LocationUpdate(BaseModel):
         return required_text(value, "Location name")
 
 
+class LocationStats(BaseModel):
+    total_books: int = 0
+
+
 class LocationResponse(BaseModel):
     id: int
 
     name: str
 
     parent_id: Optional[int]
+
+    child_count: int = 0
+
+    stats: LocationStats = Field(default_factory=LocationStats)
 
     children: List[
         "LocationResponse"

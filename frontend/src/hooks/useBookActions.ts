@@ -8,6 +8,8 @@ import { fetchProviderResultsByISBN } from "../api/providerResults";
 
 import { useCategories } from "../context/CategoryContext";
 
+import { useLocations } from "../context/LocationContext";
+
 import type { Book, BookDraft } from "../types/book";
 
 import type { ProviderResult } from "../types/provider";
@@ -65,6 +67,8 @@ export function useBookActions({
   const inFlightISBNRef = useRef<string | null>(null);
 
   const { reloadCategories } = useCategories();
+
+  const { reloadLocations } = useLocations();
 
   // -------------------
   // 🔍 ISBN SEARCH
@@ -218,7 +222,7 @@ export function useBookActions({
   async function handleDelete(id: number) {
     await removeBook(id);
 
-    await reloadCategories();
+    await Promise.all([reloadCategories(), reloadLocations()]);
 
     setSelectedBook(null);
 
@@ -257,7 +261,7 @@ export function useBookActions({
             })
           : await addBook(payload);
 
-        await reloadCategories();
+        await Promise.all([reloadCategories(), reloadLocations()]);
 
         if (created.warning) {
           toast(created.warning);
@@ -293,7 +297,7 @@ export function useBookActions({
 
     const updated = await saveBook(payload as Book);
 
-    await reloadCategories();
+    await Promise.all([reloadCategories(), reloadLocations()]);
 
     setSelectedBook(updated);
 

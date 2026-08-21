@@ -191,3 +191,49 @@ def test_rename_without_move_is_unaffected(db, users):
 
     assert updated.name == "Renamed"
     assert updated.parent_id == root.id
+
+
+def test_recursive_statistics_child_counts_shape_and_owner_isolation(db, users):
+    owner, other = users
+    root = create(db, owner.id, "Root")
+    child = create(db, owner.id, "Child", root.id)
+    grandchild = create(db, owner.id, "Grandchild", child.id)
+    empty = create(db, owner.id, "Empty")
+    foreign = create(db, other.id, "Foreign")
+
+    db.add_all([
+        models.Book(title="Direct unread", author="A", owner_id=owner.id, category_id=root.id, read=False),
+        models.Book(title="Child read", author="A", owner_id=owner.id, category_id=child.id, read=True),
+        models.Book(title="Grandchild unread", author="A", owner_id=owner.id, category_id=grandchild.id, read=False),
+        models.Book(title="Uncategorized", author="A", owner_id=owner.id, category_id=None, read=True),
+        models.Book(title="Foreign", author="A", owner_id=other.id, category_id=foreign.id, read=True),
+    ])
+    db.commit()
+
+    tree = category_service.get_categories(db, owner.id)
+    by_name = {}
+
+    def collect(nodes):
+        for node in nodes:
+            by_name[node["name"]] = node
+            collect(node["children"])
+
+    collect(tree)
+
+    assert by_name["Root"]["child_count"] == 1
+    assert by_name["Root"]["stats"] == {
+        "total_books": 3, "read_books": 1, "unread_books": 2
+    }
+    assert by_name["Child"]["stats"] == {
+        "total_books": 2, "read_books": 1, "unread_books": 1
+    }
+    assert by_name["Grandchild"]["stats"]["total_books"] == 1
+    assert by_name["Empty"]["child_count"] == 0
+    assert by_name["Empty"]["stats"] == {
+        "total_books": 0, "read_books": 0, "unread_books": 0
+    }
+    assert "Foreign" not in by_name
+
+    from app import schemas
+    payload = schemas.CategoryResponse.model_validate(tree[0]).model_dump()
+    assert set(payload) == {"id", "name", "parent_id", "child_count", "stats", "children"}

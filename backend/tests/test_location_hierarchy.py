@@ -182,3 +182,85 @@ def test_delete_owned_subtree_detaches_books_without_touching_other_user(db, use
     assert db.get(models.Location, grandchild_id) is None
     assert db.get(models.Location, foreign_id) is not None
     assert location_service.delete_location(db, owner.id, foreign_id) is False
+
+
+def test_recursive_statistics_child_counts_mutations_and_shape(db, users):
+    owner, other = users
+    root = create(db, owner.id, "Root")
+    child = create(db, owner.id, "Child", root.id)
+    grandchild = create(db, owner.id, "Grandchild", child.id)
+    empty = create(db, owner.id, "Empty")
+    foreign = create(db, other.id, "Foreign")
+
+    direct = models.Book(title="Direct", author="A", owner_id=owner.id, location_id=root.id)
+    nested = models.Book(title="Nested", author="A", owner_id=owner.id, location_id=child.id)
+    deep = models.Book(title="Deep", author="A", owner_id=owner.id, location_id=grandchild.id)
+    db.add_all([
+        direct, nested, deep,
+        models.Book(title="Unlocated", author="A", owner_id=owner.id, location_id=None),
+        models.Book(title="Foreign", author="A", owner_id=other.id, location_id=foreign.id),
+    ])
+    db.commit()
+
+    def indexed_tree():
+        tree = location_service.get_locations(db, owner.id)
+        by_name = {}
+
+        def collect(nodes):
+            for node in nodes:
+                by_name[node["name"]] = node
+                collect(node["children"])
+
+        collect(tree)
+        return tree, by_name
+
+    tree, by_name = indexed_tree()
+    assert by_name["Root"]["child_count"] == 1
+    assert by_name["Root"]["stats"] == {"total_books": 3}
+    assert by_name["Child"]["stats"] == {"total_books": 2}
+    assert by_name["Grandchild"]["stats"] == {"total_books": 1}
+    assert by_name["Empty"]["child_count"] == 0
+    assert by_name["Empty"]["stats"] == {"total_books": 0}
+    assert "Foreign" not in by_name
+
+    deep.location_id = empty.id
+    db.commit()
+    _, by_name = indexed_tree()
+    assert by_name["Root"]["stats"]["total_books"] == 2
+    assert by_name["Empty"]["stats"]["total_books"] == 1
+
+    location_service.update_location(db, owner.id, child.id, {"parent_id": empty.id})
+    _, by_name = indexed_tree()
+    assert by_name["Root"]["child_count"] == 0
+    assert by_name["Root"]["stats"]["total_books"] == 1
+    assert by_name["Empty"]["child_count"] == 1
+    assert by_name["Empty"]["stats"]["total_books"] == 2
+
+    assert location_service.delete_location(db, owner.id, child.id) is True
+    _, by_name = indexed_tree()
+    assert by_name["Empty"]["child_count"] == 0
+    assert by_name["Empty"]["stats"]["total_books"] == 1
+
+    from app import schemas
+    payload = schemas.LocationResponse.model_validate(tree[0]).model_dump()
+    assert set(payload) == {"id", "name", "parent_id", "child_count", "stats", "children"}
+
+
+def test_statistics_are_not_limited_by_book_page_size(db, users):
+    owner, _ = users
+    root = create(db, owner.id, "Root")
+    child = create(db, owner.id, "Child", root.id)
+    db.add_all([
+        models.Book(
+            title=f"Book {index}",
+            author="A",
+            owner_id=owner.id,
+            location_id=child.id,
+        )
+        for index in range(125)
+    ])
+    db.commit()
+
+    tree = location_service.get_locations(db, owner.id)
+    assert tree[0]["stats"]["total_books"] == 125
+    assert tree[0]["children"][0]["stats"]["total_books"] == 125
