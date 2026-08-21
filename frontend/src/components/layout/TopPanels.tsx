@@ -6,6 +6,8 @@ export function TopPanels({
   setNewBook,
   onSearch,
   onAdd,
+  onReset,
+  onISBNChange,
   isFetching,
 }: any) {
   return (
@@ -17,6 +19,8 @@ export function TopPanels({
           setNewBook={setNewBook}
           onSearch={onSearch}
           onAdd={onAdd}
+          onReset={onReset}
+          onISBNChange={onISBNChange}
           isFetching={isFetching}
         />
       </div>

@@ -72,7 +72,15 @@ export default function App() {
 
   const [showSettings, setShowSettings] = useState(false);
 
-  const { isFetching, handleSearch, handleAddBook, handleDelete, handleSave } =
+  const {
+    isFetching,
+    handleSearch,
+    handleAddBook,
+    handleDelete,
+    handleSave,
+    resetAddBook,
+    handleAddBookISBNChange,
+  } =
     useBookActions({
       newBook,
       setNewBook,
@@ -226,6 +234,8 @@ export default function App() {
           setNewBook={setNewBook}
           onSearch={handleSearch}
           onAdd={handleAddBook}
+          onReset={resetAddBook}
+          onISBNChange={handleAddBookISBNChange}
           isFetching={isFetching}
         />
 

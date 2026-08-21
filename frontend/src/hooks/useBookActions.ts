@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import toast from "react-hot-toast";
 
@@ -58,55 +58,108 @@ export function useBookActions({
 
   const [providerResults, setProviderResults] = useState<ProviderResult[]>([]);
 
+  const lookupRequestIdRef = useRef(0);
+
+  const activeLookupISBNRef = useRef<string | null>(null);
+
+  const inFlightISBNRef = useRef<string | null>(null);
+
   const { reloadCategories } = useCategories();
 
   // -------------------
   // 🔍 ISBN SEARCH
   // -------------------
 
+  function resetAddBook(nextISBN = "") {
+    const isbn = nextISBN.trim();
+
+    lookupRequestIdRef.current += 1;
+    activeLookupISBNRef.current = isbn || null;
+    inFlightISBNRef.current = null;
+
+    setIsFetching(false);
+    setProviderResults([]);
+    setNewBook(isbn ? { isbn } : {});
+  }
+
+  function handleAddBookISBNChange(value: string) {
+    const isbn = value.trim();
+
+    if (
+      activeLookupISBNRef.current !== null &&
+      activeLookupISBNRef.current !== isbn
+    ) {
+      resetAddBook(value);
+      return;
+    }
+
+    setNewBook((prev: BookDraft) => ({
+      ...prev,
+      isbn: value,
+    }));
+  }
+
   async function handleSearch(overrideISBN?: string) {
-    const isbn = overrideISBN || newBook.isbn;
+    const isbn = (overrideISBN ?? newBook.isbn ?? "").trim();
 
     if (!isbn) return;
 
+    if (inFlightISBNRef.current === isbn) return;
+
+    if (
+      activeLookupISBNRef.current !== null &&
+      activeLookupISBNRef.current !== isbn
+    ) {
+      resetAddBook(isbn);
+    }
+
+    activeLookupISBNRef.current = isbn;
+    inFlightISBNRef.current = isbn;
+
+    const requestId = ++lookupRequestIdRef.current;
+
     try {
       setIsFetching(true);
-
-      // -------------------
-      // 📚 PREVIEW DATA
-      // -------------------
+      setProviderResults([]);
 
       const data = await previewBookByISBN(isbn);
 
-      // -------------------
-      // 📦 PROVIDER RESULTS
-      // -------------------
+      if (requestId !== lookupRequestIdRef.current) return;
+
+      let providerData: ProviderResult[] = [];
 
       try {
-        const providerData = await fetchProviderResultsByISBN(isbn);
-
-        setProviderResults(providerData);
+        providerData = await fetchProviderResultsByISBN(isbn);
       } catch (err) {
         console.error("Failed to load provider results:", err);
-
-        setProviderResults([]);
       }
 
-      setNewBook((prev: any) => ({
+      if (requestId !== lookupRequestIdRef.current) return;
+
+      setProviderResults(providerData);
+      setNewBook((prev: BookDraft) => ({
         ...data,
-        ...prev,
+        ...(prev.isbn === isbn ? prev : {}),
         isbn,
-        read: prev.read ?? false,
-        date_added: prev.date_added ?? new Date().toISOString(),
+        read: prev.isbn === isbn ? (prev.read ?? false) : false,
+        date_added:
+          prev.isbn === isbn
+            ? (prev.date_added ?? new Date().toISOString())
+            : new Date().toISOString(),
       }));
 
       toast.success("Book found");
     } catch (err) {
-      console.error(err);
+      if (requestId !== lookupRequestIdRef.current) return;
 
+      console.error(err);
+      setProviderResults([]);
       toast.error("Book not found");
     } finally {
-      setIsFetching(false);
+      if (requestId === lookupRequestIdRef.current) {
+        inFlightISBNRef.current = null;
+        setIsFetching(false);
+      }
     }
   }
 
@@ -253,6 +306,8 @@ export function useBookActions({
 
   return {
     isFetching,
+    resetAddBook,
+    handleAddBookISBNChange,
     handleSearch,
     handleAddBook,
     handleDelete,

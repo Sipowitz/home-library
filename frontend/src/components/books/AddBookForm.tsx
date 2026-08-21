@@ -14,6 +14,8 @@ type Props = {
   setNewBook: (book: BookDraft | ((prev: any) => BookDraft)) => void;
   onSearch: (isbn?: string) => void;
   onAdd: () => void;
+  onReset: () => void;
+  onISBNChange: (value: string) => void;
   isFetching: boolean;
 };
 
@@ -22,6 +24,8 @@ export function AddBookForm({
   setNewBook,
   onSearch,
   onAdd,
+  onReset,
+  onISBNChange,
   isFetching,
 }: Props) {
   const [warning, setWarning] = useState<string | null>(null);
@@ -41,12 +45,8 @@ export function AddBookForm({
   } = useISBNScanner({
     scannerRegionId,
 
-    onScan: async (isbn) => {
-      setNewBook((prev: any) => ({
-        ...prev,
-        isbn,
-      }));
-
+    onScan: (isbn) => {
+      setWarning(null);
       onSearch(isbn);
     },
 
@@ -68,6 +68,12 @@ export function AddBookForm({
     }
   }
 
+  async function handleStartOver() {
+    await stopScanner();
+    setWarning(null);
+    onReset();
+  }
+
   return (
     <>
       <div className="bg-gray-900/80 backdrop-blur border border-gray-800 p-5 rounded-2xl shadow-xl">
@@ -77,12 +83,7 @@ export function AddBookForm({
         <ISBNInputRow
           isbn={newBook.isbn || ""}
           isFetching={isFetching}
-          onChange={(value) =>
-            setNewBook({
-              ...newBook,
-              isbn: value,
-            })
-          }
+          onChange={onISBNChange}
           onSearch={() => onSearch()}
           onOpenScanner={() => setScannerOpen(true)}
         />
@@ -113,13 +114,23 @@ export function AddBookForm({
           }
         />
 
-        {/* ACTION */}
-        <button
-          onClick={handleAdd}
-          className="w-full mt-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 transition font-medium"
-        >
-          Add to Library
-        </button>
+        {/* ACTIONS */}
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={handleStartOver}
+            className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 font-medium text-gray-300 transition hover:bg-gray-700 hover:text-white"
+          >
+            Start Over
+          </button>
+          <button
+            type="button"
+            onClick={handleAdd}
+            className="flex-1 rounded-lg bg-green-600 py-2 font-medium transition hover:bg-green-700"
+          >
+            Add to Library
+          </button>
+        </div>
       </div>
 
       <ISBNScannerModal
