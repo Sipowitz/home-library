@@ -87,8 +87,8 @@ export function SettingsSidebar({ active, onChange, isAdmin }: Props) {
 
       {/* ================= MOBILE TABS ================= */}
 
-      <div className="lg:hidden mb-4">
-        <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="lg:hidden min-w-0 mb-2">
+        <div className="scrollbar-none flex w-full gap-2 overflow-x-auto overscroll-x-contain pb-1 touch-pan-x">
           {visibleItems.map((item) => {
             const selected = active === item.id;
 
@@ -97,8 +97,9 @@ export function SettingsSidebar({ active, onChange, isAdmin }: Props) {
                 key={item.id}
                 onClick={() => onChange(item.id)}
                 className={`
-                  whitespace-nowrap
+                  shrink-0 whitespace-nowrap
                   px-4 py-2
+                  min-h-10
                   rounded-lg
                   transition
                   text-sm

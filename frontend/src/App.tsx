@@ -239,9 +239,9 @@ export default function App() {
           isFetching={isFetching}
         />
 
-        {/* SEARCH + VIEWS */}
-        <div className="mt-6 sticky top-4 z-40 backdrop-blur bg-gray-950/80">
-          <div className="space-y-4">
+        {/* SEARCH + FILTERS */}
+        <div className="sticky top-4 z-40 mt-4 bg-gray-950/90 backdrop-blur">
+          <div>
             <SearchBar
               searchInput={searchInput}
               onSearchChange={setSearchInput}
@@ -252,23 +252,24 @@ export default function App() {
               locations={locations}
               categories={categories}
             />
-
-            <div className="flex justify-end">
-              <ViewModeSwitcher
-                value={viewMode}
-                onChange={handleViewModeChange}
-              />
-            </div>
           </div>
         </div>
 
-        <div className="h-6 mb-3 px-1 flex items-center">
-          {isLoading && (
-            <div className="text-sm text-gray-400">Searching...</div>
-          )}
-          {!isLoading && loadError && (
-            <div className="text-sm text-red-300">{loadError}</div>
-          )}
+        <div className="mb-3 mt-3 flex min-h-12 items-center justify-between gap-3 px-1">
+          <div className="min-w-0">
+            {isLoading ? (
+              <div className="text-sm text-gray-400">Searching...</div>
+            ) : loadError ? (
+              <div className="text-sm text-red-300">{loadError}</div>
+            ) : (
+              <h2 className="text-sm font-medium text-gray-300">Books</h2>
+            )}
+          </div>
+
+          <ViewModeSwitcher
+            value={viewMode}
+            onChange={handleViewModeChange}
+          />
         </div>
 
         {/* BOOK VIEWS */}

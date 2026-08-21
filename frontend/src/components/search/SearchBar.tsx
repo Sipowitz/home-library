@@ -31,23 +31,23 @@ export function SearchBar({
   categories,
 }: Props) {
   return (
-    <div className="sticky top-0 z-30 pb-2">
+    <div>
       <div
         className="
           bg-gray-950/95
           backdrop-blur
           border border-gray-800
-          p-4
+          p-2 sm:p-2.5
           rounded-2xl
           shadow-lg
         "
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           {/* SEARCH */}
           <input
             placeholder="Search title or author..."
             className="
-              p-3
+              px-3 py-2.5
               bg-gray-800
               rounded-xl
               w-full
@@ -64,13 +64,9 @@ export function SearchBar({
           />
 
           {/* FILTERS */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {/* LOCATION */}
             <div>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2 px-1">
-                Location
-              </div>
-
               <LocationTreeSelector
                 locations={locations}
                 selectedLocationId={selectedLocation}
@@ -80,10 +76,6 @@ export function SearchBar({
 
             {/* CATEGORY */}
             <div>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2 px-1">
-                Category
-              </div>
-
               <CategoryTreeSelector
                 categories={categories}
                 selectedCategoryId={selectedCategory}

@@ -207,8 +207,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           fixed inset-0 z-[70]
           bg-black/50 backdrop-blur-sm
           flex items-center justify-center
-          px-12 lg:px-16
-          py-6 lg:py-10
+          px-2 sm:px-6 lg:px-16
+          py-2 sm:py-6 lg:py-10
         "
         onClick={onClose}
       >
@@ -218,7 +218,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
           className="
             bg-gray-950/95
             border border-gray-800
-            rounded-2xl
+            rounded-xl sm:rounded-2xl
             w-full
             h-full
             shadow-2xl
@@ -233,12 +233,12 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             className="
               bg-gray-900/90
               border-b lg:border-b-0 lg:border-r border-gray-800
-              p-3 lg:p-4
+              p-2.5 sm:p-3 lg:p-4
               flex flex-col
               lg:w-64
             "
           >
-            <div className="mb-4 lg:mb-6">
+            <div className="mb-2 lg:mb-6">
               <h2 className="text-xl lg:text-2xl font-semibold">Settings</h2>
 
               <p className="text-sm text-gray-400 mt-1 hidden lg:block">
@@ -252,7 +252,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
               isAdmin={Boolean(user?.is_admin)}
             />
 
-            <div className="mt-3 lg:mt-auto lg:pt-4">
+            <div className="mt-2 lg:mt-auto lg:pt-4">
               <button
                 onClick={onClose}
                 className="
@@ -268,13 +268,13 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
           {/* CONTENT */}
 
-          <div className="flex-1 overflow-y-auto p-4 lg:p-6 flex flex-col min-h-0">
+          <div className="flex-1 min-w-0 overflow-y-auto p-2 sm:p-3 lg:p-6 flex flex-col min-h-0">
             {/* LOCATIONS */}
 
             {activeSection === "locations" && (
               <div className="max-w-full relative flex-1 min-h-0 flex flex-col">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
-                  <div className="mb-5">
+                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
+                  <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Locations</h2>
 
                     <p className="text-sm text-gray-400 mt-1">
@@ -291,8 +291,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
             {activeSection === "categories" && (
               <div className="max-w-full relative flex-1 min-h-0 flex flex-col">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
-                  <div className="mb-5">
+                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
+                  <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Categories</h2>
 
                     <p className="text-sm text-gray-400 mt-1">
@@ -332,7 +332,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             {activeSection === "preferences" && (
               <div className="max-w-2xl">
                 <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
-                  <div className="mb-5">
+                  <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Preferences</h2>
 
                     <p className="text-sm text-gray-400 mt-1">
@@ -351,7 +351,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             {activeSection === "backup" && (
               <div className="max-w-2xl">
                 <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
-                  <div className="mb-5">
+                  <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Backup & Restore</h2>
 
                     <p className="text-sm text-gray-400 mt-1">
