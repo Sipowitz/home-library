@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-import { BookOpen, Save, Sparkles, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  BookText,
+  CalendarDays,
+  Image,
+  Library,
+  RefreshCw,
+  Save,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 
 import type { Book } from "../../types/book";
 import type { Category } from "../../types/category";
@@ -217,550 +227,220 @@ export function BookEdit({
     }
   }
 
-  const inputClass = `
-    w-full
-    h-12
+  const inputClass =
+    "h-10 w-full rounded-lg border border-white/10 bg-[#091624] px-3 text-sm text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10";
 
-    rounded-2xl
+  const sectionClass =
+    "rounded-xl border border-white/[0.08] bg-[#0a1625]/80 p-4 shadow-[0_12px_30px_rgba(0,0,0,0.12)]";
 
-    bg-[#0b1727]
-
-    border border-white/10
-
-    px-4
-
-    text-white
-
-    transition-all duration-200
-
-    focus:outline-none
-    focus:border-blue-500/40
-    focus:bg-[#0e1d31]
-  `;
+  function SectionHeading({
+    icon,
+    children,
+  }: {
+    icon: React.ReactNode;
+    children: React.ReactNode;
+  }) {
+    return (
+      <div className="mb-3 flex items-center gap-2 border-b border-white/[0.06] pb-2.5">
+        <span className="text-blue-400">{icon}</span>
+        <h3 className="text-[13px] font-semibold tracking-wide text-slate-100">
+          {children}
+        </h3>
+      </div>
+    );
+  }
 
   return (
     <>
-      <div className="flex gap-8 h-full">
-        {/* ===================================== */}
-        {/* LEFT */}
-        {/* ===================================== */}
-
-        <div className="w-[150px] flex-shrink-0">
-          {/* HEADER */}
-
-          <div className="flex items-center gap-3 mb-4">
-            <div
-              className="
-                w-12 h-12
-                rounded-2xl
-
-                bg-blue-500/10
-                border border-blue-500/20
-
-                flex items-center justify-center
-              "
+      <div className="mx-auto w-full max-w-[1120px]">
+        <div className="grid items-start gap-5 md:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)]">
+          <aside className="mx-auto w-full max-w-[190px] md:mx-0">
+            <button
+              type="button"
+              onClick={() => setCoverModalOpen(true)}
+              className="group block aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/10 bg-[#091624] shadow-[0_18px_40px_rgba(0,0,0,0.35)] transition hover:border-blue-400/35"
             >
-              <BookOpen size={22} className="text-blue-400" />
-            </div>
-
-            <div>
-              <h2 className="text-3xl font-bold text-white">Edit Book</h2>
-
-              <p
-                className="
-                  text-sm
-                  text-gray-400
-                  mt-0.5
-                  leading-relaxed
-                "
-              >
-                Update metadata and details.
-              </p>
-            </div>
-          </div>
-
-          {/* COVER */}
-
-          <button
-            type="button"
-            onClick={() => setCoverModalOpen(true)}
-            className="
-              relative
-              group
-              rounded-3xl
-              overflow-hidden
-              shadow-2xl
-              w-full
-            "
-          >
-            <img
-              src={
-                editData?.cover_url ||
-                "https://dummyimage.com/300x400/1f2937/ffffff&text=No+Cover"
-              }
-              onError={handleImgError}
-              className="
-                w-full
-                object-cover
-              "
-            />
-
-            {/* OVERLAY */}
-
-            <div
-              className="
-                absolute inset-0
-
-                bg-black/60
-
-                opacity-0
-                group-hover:opacity-100
-
-                transition
-
-                flex items-center justify-center
-              "
+              <img
+                src={
+                  editData?.cover_url ||
+                  "https://dummyimage.com/300x400/1f2937/ffffff&text=No+Cover"
+                }
+                onError={handleImgError}
+                alt={"Cover of " + (editData?.title || "book")}
+                className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCoverModalOpen(true)}
+              className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] text-xs font-medium text-slate-200 transition hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-300"
             >
-              <div
-                className="
-                  px-4 py-2
+              <Image size={14} /> Change Cover
+            </button>
+            <p className="mt-2 text-center text-[11px] leading-relaxed text-slate-500">
+              Choose a provider cover or upload your own image.
+            </p>
+          </aside>
 
-                  rounded-xl
-
-                  bg-white/10
-
-                  backdrop-blur
-
-                  border border-white/10
-
-                  text-sm
-                  text-white
-                  font-medium
-                "
-              >
-                Change Cover
-              </div>
-            </div>
-          </button>
-        </div>
-
-        {/* ===================================== */}
-        {/* RIGHT */}
-        {/* ===================================== */}
-
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* FORM */}
-
-          <div className="flex-1 overflow-y-auto pr-2">
-            <div className="space-y-5">
-              {/* TITLE + AUTHOR */}
-
-              <div className="grid grid-cols-2 gap-4">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(250px,0.85fr)]">
+            <section className={sectionClass}>
+              <SectionHeading icon={<BookText size={16} />}>
+                Core Details
+              </SectionHeading>
+              <div className="space-y-3">
                 <div>
                   <FieldLabel>Title</FieldLabel>
-
-                  <input
-                    value={editData?.title || ""}
-                    onChange={(e) =>
-                      setEditData({
-                        ...editData!,
-                        title: e.target.value,
-                      })
-                    }
-                    className={inputClass}
-                  />
+                  <input value={editData?.title || ""} onChange={(e) => setEditData({ ...editData!, title: e.target.value })} className={inputClass} />
                 </div>
-
-                <div>
-                  <FieldLabel>Author</FieldLabel>
-
-                  <input
-                    value={editData?.author || ""}
-                    onChange={(e) =>
-                      setEditData({
-                        ...editData!,
-                        author: e.target.value,
-                      })
-                    }
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-
-              {/* SUBTITLE + ISBN */}
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <FieldLabel>Subtitle</FieldLabel>
-
-                  <input
-                    value={editData?.subtitle || ""}
-                    onChange={(e) =>
-                      setEditData({
-                        ...editData!,
-                        subtitle: e.target.value,
-                      })
-                    }
-                    className={inputClass}
-                  />
+                  <input value={editData?.subtitle || ""} onChange={(e) => setEditData({ ...editData!, subtitle: e.target.value })} className={inputClass} />
                 </div>
-
                 <div>
-                  <FieldLabel>ISBN</FieldLabel>
-
-                  <input
-                    value={editData?.isbn || ""}
-                    onChange={(e) =>
-                      setEditData({
-                        ...editData!,
-                        isbn: e.target.value,
-                      })
-                    }
-                    className={inputClass}
-                  />
+                  <FieldLabel>Author</FieldLabel>
+                  <input value={editData?.author || ""} onChange={(e) => setEditData({ ...editData!, author: e.target.value })} className={inputClass} />
                 </div>
               </div>
+            </section>
 
-              {/* PUBLISHER + LANGUAGE */}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+            <section className={sectionClass}>
+              <SectionHeading icon={<CalendarDays size={16} />}>
+                Publication
+              </SectionHeading>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
                   <FieldLabel>Publisher</FieldLabel>
-
-                  <input
-                    value={editData?.publisher || ""}
-                    onChange={(e) =>
-                      setEditData({
-                        ...editData!,
-                        publisher: e.target.value,
-                      })
-                    }
-                    className={inputClass}
-                  />
+                  <input value={editData?.publisher || ""} onChange={(e) => setEditData({ ...editData!, publisher: e.target.value })} className={inputClass} />
                 </div>
-
-                <div>
-                  <FieldLabel>Language</FieldLabel>
-
-                  <input
-                    value={editData?.language || ""}
-                    onChange={(e) =>
-                      setEditData({
-                        ...editData!,
-                        language: e.target.value,
-                      })
-                    }
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-
-              {/* YEAR + PAGE COUNT */}
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <FieldLabel>Year</FieldLabel>
-
-                  <input
-                    value={editData?.year || ""}
-                    onChange={(e) =>
-                      setEditData({
-                        ...editData!,
-                        year: Number(e.target.value),
-                      })
-                    }
-                    className={inputClass}
-                  />
+                  <input value={editData?.year || ""} onChange={(e) => setEditData({ ...editData!, year: Number(e.target.value) })} className={inputClass} />
                 </div>
-
+                <div>
+                  <FieldLabel>Language</FieldLabel>
+                  <input value={editData?.language || ""} onChange={(e) => setEditData({ ...editData!, language: e.target.value })} className={inputClass} />
+                </div>
                 <div>
                   <FieldLabel>Page Count</FieldLabel>
-
-                  <input
-                    value={editData?.page_count || ""}
-                    onChange={(e) =>
-                      setEditData({
-                        ...editData!,
-                        page_count: Number(e.target.value),
-                      })
-                    }
-                    className={inputClass}
-                  />
+                  <input value={editData?.page_count || ""} onChange={(e) => setEditData({ ...editData!, page_count: Number(e.target.value) })} className={inputClass} />
+                </div>
+                <div>
+                  <FieldLabel>ISBN</FieldLabel>
+                  <input value={editData?.isbn || ""} onChange={(e) => setEditData({ ...editData!, isbn: e.target.value })} className={inputClass} />
                 </div>
               </div>
+            </section>
 
-              {/* CATEGORY + LOCATION */}
+            <section className={sectionClass}>
+              <SectionHeading icon={<BookOpen size={16} />}>
+                Synopsis
+              </SectionHeading>
+              <FieldLabel>Description</FieldLabel>
+              <textarea
+                ref={textareaRef}
+                rows={8}
+                value={editData?.description || ""}
+                onChange={(e) => setEditData({ ...editData!, description: e.target.value })}
+                className="min-h-[190px] w-full resize-none rounded-lg border border-white/10 bg-[#091624] p-3 text-sm leading-relaxed text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10"
+              />
+            </section>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+            <div className="grid gap-4">
+              <section className={sectionClass}>
+                <SectionHeading icon={<Library size={16} />}>
+                  Library
+                </SectionHeading>
+                <div className="space-y-3">
                   <CategoryTreeSelector
                     categories={categories}
                     selectedCategoryId={selectedCategoryId}
                     onSelect={handleCategorySelect}
                     showSpecialOptions={false}
                   />
-                </div>
-
-                <div>
                   <LocationTreeSelector
                     locations={locations}
                     selectedLocationId={editData?.location_id ?? null}
-                    onSelect={(id) =>
-                      setEditData({
-                        ...editData!,
-                        location_id: id,
-                      })
-                    }
+                    onSelect={(id) => setEditData({ ...editData!, location_id: id })}
                   />
-                </div>
-              </div>
-
-              {/* READ STATUS */}
-
-              <div>
-                <FieldLabel>Status</FieldLabel>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setEditData({
-                      ...editData!,
-                      read: !editData?.read,
-                    })
-                  }
-                  className={`
-      h-12 px-4 rounded-2xl border
-      transition-all duration-200
-      ${
-        editData?.read
-          ? "bg-green-500/10 border-green-500/20 text-green-300"
-          : "bg-white/5 border-white/10 text-gray-300"
-      }
-    `}
-                >
-                  {editData?.read ? "Read" : "Unread"}
-                </button>
-              </div>
-
-              {/* METADATA STATUS */}
-
-              <div>
-                <FieldLabel>Metadata</FieldLabel>
-
-                <div
-                  className="
-      rounded-2xl
-
-      bg-[#0b1727]
-
-      border border-white/10
-
-      px-4 py-3
-
-      text-sm
-    "
-                >
-                  <div className="text-gray-400">Last refresh</div>
-
-                  <div className="text-white mt-1">
-                    {editData?.last_metadata_refresh_at
-                      ? formatDateTime(
-                          editData.last_metadata_refresh_at,
-                          preferences,
-                        )
-                      : "Never"}
+                  <div>
+                    <FieldLabel>Reading Status</FieldLabel>
+                    <button
+                      type="button"
+                      onClick={() => setEditData({ ...editData!, read: !editData?.read })}
+                      className={
+                        "flex h-10 w-full items-center justify-between rounded-lg border px-3 text-sm transition " +
+                        (editData?.read
+                          ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+                          : "border-white/10 bg-[#091624] text-slate-300")
+                      }
+                    >
+                      <span>{editData?.read ? "Read" : "Unread"}</span>
+                      <span className={"h-2 w-2 rounded-full " + (editData?.read ? "bg-emerald-400" : "bg-slate-500")} />
+                    </button>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* DESCRIPTION */}
-
-              <div>
-                <FieldLabel>Description</FieldLabel>
-
-                <textarea
-                  ref={textareaRef}
-                  rows={8}
-                  value={editData?.description || ""}
-                  onChange={(e) =>
-                    setEditData({
-                      ...editData!,
-                      description: e.target.value,
-                    })
-                  }
-                  className="
-                    w-full
-
-                    min-h-[180px]
-
-                    rounded-2xl
-
-                    bg-[#0b1727]
-
-                    border border-white/10
-
-                    p-4
-
-                    text-white
-
-                    resize-none
-
-                    transition-all duration-200
-
-                    focus:outline-none
-                    focus:border-blue-500/40
-                    focus:bg-[#0e1d31]
-                  "
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* ===================================== */}
-          {/* FOOTER */}
-          {/* ===================================== */}
-
-          <div
-            className="
-              sticky bottom-0
-
-              mt-6
-              pt-5
-
-              border-t border-white/5
-
-              bg-[#08111d]
-
-              flex items-center gap-4
-            "
-          >
-            {/* DELETE */}
-
-            <button
-              onClick={onDelete}
-              className="
-                h-12
-                px-5
-
-                rounded-2xl
-
-                border border-red-500/20
-
-                bg-red-500/10
-
-                text-red-300
-
-                flex items-center justify-center gap-2
-
-                transition-all duration-200
-
-                hover:bg-red-500/20
-              "
-            >
-              <Trash2 size={16} />
-              Delete
-            </button>
-
-            {/* RIGHT ACTIONS */}
-
-            <div className="grid grid-cols-4 gap-3 flex-1">
-              <button
-                onClick={onCancel}
-                className="
-                  h-12
-
-                  rounded-2xl
-
-                  bg-white/5
-
-                  border border-white/10
-
-                  text-gray-300
-
-                  transition-all duration-200
-
-                  hover:bg-white/10
-                "
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={() => setShowMetadataPanel(true)}
-                className="
-                  h-12
-
-                  rounded-2xl
-
-                  bg-blue-500/10
-
-                  border border-blue-500/20
-
-                  text-blue-300
-
-                  flex items-center justify-center gap-2
-
-                  transition-all duration-200
-
-                  hover:bg-blue-500/20
-                "
-              >
-                <Sparkles size={16} />
-                Compare
-              </button>
-
-              <button
-                onClick={handleRefreshMetadata}
-                disabled={isRefreshing}
-                className="
-                  h-12
-
-                  rounded-2xl
-
-                  bg-purple-500/10
-
-                  border border-purple-500/20
-
-                  text-purple-300
-
-                  flex items-center justify-center gap-2
-
-                  transition-all duration-200
-
-                  hover:bg-purple-500/20
-
-                  disabled:opacity-50
-                  disabled:cursor-not-allowed
-                "
-              >
-                <Sparkles size={16} />
-                {isRefreshing ? "Refreshing..." : "Refresh"}
-              </button>
-
-              <button
-                onClick={onSave}
-                className="
-                  h-12
-
-                  rounded-2xl
-
-                  bg-blue-600
-
-                  text-white
-
-                  flex items-center justify-center gap-2
-
-                  transition-all duration-200
-
-                  hover:bg-blue-500
-                "
-              >
-                <Save size={16} />
-                Save Changes
-              </button>
+              <section className={sectionClass}>
+                <SectionHeading icon={<RefreshCw size={16} />}>
+                  Metadata
+                </SectionHeading>
+                <dl className="space-y-2.5 text-xs">
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-slate-500">Date added</dt>
+                    <dd className="text-right text-slate-200">
+                      {editData?.date_added ? formatDateTime(editData.date_added, preferences) : "—"}
+                    </dd>
+                  </div>
+                  <div className="flex items-start justify-between gap-3">
+                    <dt className="text-slate-500">Last refresh</dt>
+                    <dd className="text-right text-slate-200">
+                      {editData?.last_metadata_refresh_at
+                        ? formatDateTime(editData.last_metadata_refresh_at, preferences)
+                        : "Never"}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
             </div>
           </div>
         </div>
+
+        <section className={sectionClass + " mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"}>
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+              <Sparkles size={17} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-100">
+                Metadata Comparison
+              </h3>
+              <p className="mt-0.5 text-xs leading-relaxed text-slate-400">
+                Compare available provider metadata with the current book and choose individual values.
+              </p>
+            </div>
+          </div>
+          <button type="button" onClick={() => setShowMetadataPanel(true)} className="h-9 shrink-0 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 text-xs font-medium text-blue-300 transition hover:bg-blue-500/20">
+            Compare Metadata
+          </button>
+        </section>
+
+        <footer className="mt-5 flex flex-col gap-3 border-t border-white/[0.08] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <button type="button" onClick={onDelete} className="flex h-10 items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.08] px-4 text-xs font-medium text-red-300 transition hover:bg-red-500/15">
+            <Trash2 size={15} /> Delete Book
+          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button type="button" onClick={onCancel} className="h-10 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-xs font-medium text-slate-300 transition hover:bg-white/[0.08]">Cancel</button>
+            <button type="button" onClick={() => setShowMetadataPanel(true)} className="flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-xs font-medium text-slate-200 transition hover:border-blue-500/25 hover:text-blue-300"><Sparkles size={15} /> Compare</button>
+            <button type="button" onClick={handleRefreshMetadata} disabled={isRefreshing} className="flex h-10 items-center justify-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/[0.08] px-4 text-xs font-medium text-violet-300 transition hover:bg-violet-500/15 disabled:cursor-not-allowed disabled:opacity-50">
+              <RefreshCw size={15} className={isRefreshing ? "animate-spin" : ""} />
+              {isRefreshing ? "Refreshing..." : "Refresh Metadata"}
+            </button>
+            <button type="button" onClick={onSave} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-xs font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)] transition hover:bg-blue-500">
+              <Save size={15} /> Save Changes
+            </button>
+          </div>
+        </footer>
       </div>
 
       {/* ===================================== */}

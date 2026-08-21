@@ -91,11 +91,11 @@ export function BookPanel({
       {/* PANEL */}
 
       <div
-        className="
+        className={`
           fixed top-4 right-4 z-50
 
           h-[calc(100vh-2rem)]
-          w-[900px]
+          ${editing ? "w-[1180px]" : "w-[900px]"}
           max-w-[calc(100vw-2rem)]
 
           rounded-3xl
@@ -109,52 +109,31 @@ export function BookPanel({
 
           flex flex-col
           overflow-hidden
-        "
+        `}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* HEADER */}
+        {/* CONTROLS */}
 
-        <div
-          className={`
-            flex items-center justify-between
-            ${
-              editing
-                ? "relative px-6 py-5 border-b border-white/5"
-                : "absolute right-3 top-3 z-[70]"
-            }
-          `}
-        >
-          <div />
-
-          <div className="flex items-center gap-2">
-            {!editing && (
-              <button
-                type="button"
-                onClick={handleEdit}
-                aria-label="Edit book"
-                title="Edit book"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/30 text-gray-200 backdrop-blur-md transition hover:bg-black/45 hover:text-white"
-              >
-                <Pencil size={19} aria-hidden="true" />
-              </button>
-            )}
+        <div className="absolute right-3 top-3 z-[70] flex items-center gap-2">
+          {!editing && (
             <button
               type="button"
-              onClick={onClose}
-              aria-label="Close book details"
-              className={`
-                flex items-center justify-center
-                w-10 h-10 rounded-xl transition
-                ${
-                  editing
-                    ? "text-gray-400 hover:bg-white/5 hover:text-white"
-                    : "border border-white/15 bg-black/30 text-gray-200 backdrop-blur-md hover:bg-black/45 hover:text-white"
-                }
-              `}
+              onClick={handleEdit}
+              aria-label="Edit book"
+              title="Edit book"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/30 text-gray-200 backdrop-blur-md transition hover:bg-black/45 hover:text-white"
             >
-              <X size={20} />
+              <Pencil size={19} aria-hidden="true" />
             </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close book details"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/40 text-gray-200 backdrop-blur-md transition hover:bg-black/50 hover:text-white"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* CONTENT */}
@@ -162,7 +141,11 @@ export function BookPanel({
         <div
           className={`
             flex-1 overflow-y-auto
-            ${editing ? "px-6 py-6" : "p-0"}
+            ${
+              editing
+                ? "px-5 pb-4 pt-14 sm:py-5 sm:pl-6 sm:pr-16"
+                : "p-0"
+            }
             scrollbar-thin
             scrollbar-thumb-gray-700
             scrollbar-track-transparent
