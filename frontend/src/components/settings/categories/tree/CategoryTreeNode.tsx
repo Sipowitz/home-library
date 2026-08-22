@@ -208,6 +208,7 @@ export function CategoryTreeNode({ data }: NodeProps) {
           {/* ACTIONS */}
           {!confirmingDelete && (
             <TreeNodeActions
+              label={data.name}
               onAdd={() => setCreatingChild(true)}
               onEdit={() => setEditing(true)}
               onDelete={() => setConfirmingDelete(true)}

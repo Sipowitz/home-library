@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import { ChevronDown, ChevronRight } from "lucide-react";
+
 import axios from "axios";
 
 import toast from "react-hot-toast";
@@ -11,6 +13,8 @@ import type { Category } from "../../../types/category";
 import { useCategories } from "../../../context/CategoryContext";
 
 import { CategoryTreeFlow } from "./tree/CategoryTreeFlow";
+
+import { TreeNodeActions } from "./tree/TreeNodeActions";
 
 import {
   flattenTree,
@@ -27,19 +31,93 @@ type Props = {
 function MobileTreeNode({
   node,
   level = 0,
+  onRename,
+  onAddChild,
+  onDelete,
 }: {
   node: Category;
 
   level?: number;
+
+  onRename: (id: number, name: string) => Promise<void>;
+
+  onAddChild: (parentId: number, name: string) => Promise<void>;
+
+  onDelete: (id: number, cascade?: boolean) => Promise<{
+    blocked?: boolean;
+    count?: number;
+  } | undefined>;
 }) {
+  const hasChildren = (node.children?.length ?? 0) > 0;
+  const [expanded, setExpanded] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(node.name);
+  const [creatingChild, setCreatingChild] = useState(false);
+  const [childName, setChildName] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [cascadeCount, setCascadeCount] = useState<number | null>(null);
+
+  async function handleRename() {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setName(node.name);
+      setEditing(false);
+      return;
+    }
+
+    try {
+      await onRename(node.id, trimmedName);
+      setEditing(false);
+    } catch {
+      setName(node.name);
+    }
+  }
+
+  async function handleCreateChild() {
+    const trimmedName = childName.trim();
+
+    if (!trimmedName) {
+      setCreatingChild(false);
+      setChildName("");
+      return;
+    }
+
+    try {
+      await onAddChild(node.id, trimmedName);
+      setCreatingChild(false);
+      setChildName("");
+      setExpanded(true);
+    } catch {
+      // The shared handler already reports the error.
+    }
+  }
+
+  async function handleDelete(cascade = false) {
+    try {
+      const result = await onDelete(node.id, cascade);
+
+      if (result?.blocked && !cascade) {
+        setCascadeCount(result.count ?? 0);
+        return;
+      }
+
+      setConfirmingDelete(false);
+      setCascadeCount(null);
+    } catch {
+      // The shared handler already reports the error.
+    }
+  }
+
   return (
     <div>
       <div
         className="
+          relative
           bg-gray-900/40
           border border-gray-800
           rounded-xl
-          px-3 py-3
+          px-2 py-3
           text-sm
         "
         style={{
@@ -47,21 +125,143 @@ function MobileTreeNode({
           width: `calc(100% - ${level * 12}px)`,
         }}
       >
-        <div className="font-medium text-white break-words">{node.name}</div>
+        <div className="flex min-w-0 items-start gap-1">
+          {hasChildren ? (
+            <button
+              type="button"
+              aria-label={`${expanded ? "Collapse" : "Expand"} ${node.name}`}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((open) => !open)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800"
+            >
+              {expanded ? (
+                <ChevronDown size={20} aria-hidden="true" />
+              ) : (
+                <ChevronRight size={20} aria-hidden="true" />
+              )}
+            </button>
+          ) : (
+            <div className="h-10 w-10 shrink-0" aria-hidden="true" />
+          )}
 
-        <div className="mt-1.5 text-xs leading-relaxed text-gray-300">
-          <span>{node.stats.total_books} books</span>
-          <span aria-hidden="true"> · </span>
-          <span>{node.stats.read_books} <span className="sm:hidden">R</span><span className="hidden sm:inline">read</span></span>
-          <span aria-hidden="true"> · </span>
-          <span>{node.stats.unread_books} <span className="sm:hidden">U</span><span className="hidden sm:inline">unread</span></span>
+          <div className="min-w-0 flex-1 pt-1">
+            {editing ? (
+              <input
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onBlur={handleRename}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleRename();
+                  if (event.key === "Escape") {
+                    setName(node.name);
+                    setEditing(false);
+                  }
+                }}
+                className="w-full rounded-lg border border-purple-500/40 bg-gray-950 px-2 py-1.5 text-white outline-none"
+              />
+            ) : (
+              <div className="break-words font-medium text-white">{node.name}</div>
+            )}
+
+            <div className="mt-1.5 text-xs leading-relaxed text-gray-300">
+              <span>{node.stats.total_books} books</span>
+              <span aria-hidden="true"> · </span>
+              <span>{node.stats.read_books} read</span>
+              <span aria-hidden="true"> · </span>
+              <span>{node.stats.unread_books} unread</span>
+            </div>
+          </div>
+
+          <TreeNodeActions
+            label={node.name}
+            onAdd={() => setCreatingChild(true)}
+            onEdit={() => setEditing(true)}
+            onDelete={() => setConfirmingDelete(true)}
+          />
         </div>
+
+        {creatingChild && (
+          <div className="mt-3 pl-11">
+            <input
+              autoFocus
+              value={childName}
+              onChange={(event) => setChildName(event.target.value)}
+              placeholder="New child category..."
+              onKeyDown={(event) => {
+                if (event.key === "Enter") handleCreateChild();
+                if (event.key === "Escape") {
+                  setCreatingChild(false);
+                  setChildName("");
+                }
+              }}
+              className="w-full rounded-lg border border-purple-500/40 bg-gray-950 px-3 py-2 text-white outline-none"
+            />
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreatingChild(false);
+                  setChildName("");
+                }}
+                className="flex-1 rounded-lg bg-gray-800 px-3 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                aria-label="Create child category"
+                onClick={handleCreateChild}
+                disabled={!childName.trim()}
+                className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        )}
+
+        {confirmingDelete && (
+          <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 p-3">
+            <div className="text-sm text-red-200">
+              {cascadeCount === null
+                ? "Delete this category?"
+                : `Delete this category and ${cascadeCount} descendants?`}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingDelete(false);
+                  setCascadeCount(null);
+                }}
+                className="flex-1 rounded-lg bg-gray-800 px-3 py-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(cascadeCount !== null)}
+                className="flex-1 rounded-lg bg-red-600 px-3 py-2"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {(node.children?.length ?? 0) > 0 && (
+      {hasChildren && expanded && (
         <div className="mt-1 space-y-1">
           {node.children?.map((child: Category) => (
-            <MobileTreeNode key={child.id} node={child} level={level + 1} />
+            <MobileTreeNode
+              key={child.id}
+              node={child}
+              level={level + 1}
+              onRename={onRename}
+              onAddChild={onAddChild}
+              onDelete={onDelete}
+            />
           ))}
         </div>
       )}
@@ -193,7 +393,7 @@ export function CategoryTreePanel({ categories }: Props) {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex flex-col">
       {/* TOOLBAR */}
       <div
         className="
@@ -227,11 +427,12 @@ export function CategoryTreePanel({ categories }: Props) {
 
             {/* ROOT CREATE */}
             {creatingRoot ? (
-              <input
-                autoFocus
-                value={rootName}
-                onChange={(e) => setRootName(e.target.value)}
-                placeholder="Root category..."
+              <div className="flex w-full flex-col gap-2 sm:w-auto">
+                <input
+                  autoFocus
+                  value={rootName}
+                  onChange={(e) => setRootName(e.target.value)}
+                  placeholder="Root category..."
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleCreateRoot();
@@ -252,7 +453,29 @@ export function CategoryTreePanel({ categories }: Props) {
                   text-sm
                   focus:outline-none
                 "
-              />
+                />
+                <div className="flex gap-2 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatingRoot(false);
+                      setRootName("");
+                    }}
+                    className="flex-1 rounded-lg bg-gray-800 px-3 py-2 text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Create root category"
+                    onClick={handleCreateRoot}
+                    disabled={!rootName.trim()}
+                    className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Create
+                  </button>
+                </div>
+              </div>
             ) : (
               <button
                 onClick={() => setCreatingRoot(true)}
@@ -319,16 +542,23 @@ export function CategoryTreePanel({ categories }: Props) {
       </div>
 
       {/* MOBILE */}
-      <div className="lg:hidden flex-1 overflow-y-auto px-1.5 py-2 sm:p-3">
+      <div className="lg:hidden px-1.5 py-2 sm:p-3">
         <div className="space-y-2">
           {categories.map((cat: Category) => (
-            <MobileTreeNode key={cat.id} node={cat} level={0} />
+            <MobileTreeNode
+              key={cat.id}
+              node={cat}
+              level={0}
+              onRename={handleRename}
+              onAddChild={handleAddChild}
+              onDelete={handleDelete}
+            />
           ))}
         </div>
       </div>
 
       {/* DESKTOP */}
-      <div className="hidden lg:flex flex-1">
+      <div className="hidden h-[70vh] lg:flex">
         <CategoryTreeFlow
           categories={categories}
           focusedId={focusedId}

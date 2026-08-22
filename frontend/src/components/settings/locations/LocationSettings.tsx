@@ -13,12 +13,10 @@ export function LocationSettings({ locations }: Props) {
     <div
       className="
         relative
-        flex-1
-        min-h-0
         rounded-lg lg:rounded-2xl
         border border-gray-800/70 lg:border-gray-800
         bg-gray-900/20 lg:bg-gray-900/40
-        overflow-hidden
+        overflow-visible lg:overflow-hidden
       "
     >
       <LocationTreePanel locations={locations} />

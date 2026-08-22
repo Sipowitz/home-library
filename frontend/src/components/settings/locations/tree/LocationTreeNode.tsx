@@ -174,14 +174,14 @@ export function LocationTreeNode({ data }: NodeProps) {
             )}
 
             <div className="mt-2 text-xs leading-relaxed text-gray-300">
-              {data.stats.total_books} books · {data.childCount}{" "}
-              {data.childCount === 1 ? "child" : "children"}
+              {data.stats.total_books} books
             </div>
           </button>
 
           {/* ACTIONS */}
           {!confirmingDelete && (
             <TreeNodeActions
+              label={data.name}
               onAdd={() => setCreatingChild(true)}
               onEdit={() => setEditing(true)}
               onDelete={() => setConfirmingDelete(true)}

@@ -222,7 +222,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             w-full
             h-full
             shadow-2xl
-            overflow-hidden
+            overflow-y-auto
             flex flex-col lg:flex-row
           "
           onClick={(e) => e.stopPropagation()}
@@ -268,12 +268,12 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
           {/* CONTENT */}
 
-          <div className="flex-1 min-w-0 overflow-y-auto p-2 sm:p-3 lg:p-6 flex flex-col min-h-0">
+          <div className="min-w-0 p-2 sm:p-3 lg:flex-1 lg:p-6">
             {/* LOCATIONS */}
 
             {activeSection === "locations" && (
-              <div className="max-w-full relative flex-1 min-h-0 flex flex-col">
-                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
+              <div className="max-w-full relative">
+                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
                   <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Locations</h2>
 
@@ -290,8 +290,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             {/* CATEGORIES */}
 
             {activeSection === "categories" && (
-              <div className="max-w-full relative flex-1 min-h-0 flex flex-col">
-                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 flex flex-col flex-1 min-h-0 w-full">
+              <div className="max-w-full relative">
+                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
                   <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Categories</h2>
 
