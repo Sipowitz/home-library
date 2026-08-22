@@ -130,17 +130,6 @@ export function useBookActions({
 
       if (requestId !== lookupRequestIdRef.current) return;
 
-      let providerData: ProviderResult[] = [];
-
-      try {
-        providerData = await fetchProviderResultsByISBN(isbn);
-      } catch (err) {
-        console.error("Failed to load provider results:", err);
-      }
-
-      if (requestId !== lookupRequestIdRef.current) return;
-
-      setProviderResults(providerData);
       setNewBook((prev: BookDraft) => ({
         ...data,
         ...(prev.isbn === isbn ? prev : {}),
@@ -152,7 +141,21 @@ export function useBookActions({
             : new Date().toISOString(),
       }));
 
+      setIsFetching(false);
       toast.success("Book found");
+
+      try {
+        const providerData = await fetchProviderResultsByISBN(isbn);
+
+        if (requestId !== lookupRequestIdRef.current) return;
+
+        setProviderResults(providerData);
+      } catch (err) {
+        if (requestId !== lookupRequestIdRef.current) return;
+
+        console.error("Failed to load provider results:", err);
+        setProviderResults([]);
+      }
     } catch (err) {
       if (requestId !== lookupRequestIdRef.current) return;
 

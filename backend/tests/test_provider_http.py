@@ -87,14 +87,22 @@ def fake_http(monkeypatch):
     return delays
 
 
-def setting(provider_name, *, timeout=5, retries=0, api_key=None, priority=1):
+def setting(
+    provider_name,
+    *,
+    timeout=5,
+    retries=0,
+    api_key=None,
+    priority=1,
+    enabled=True,
+):
     return SimpleNamespace(
         provider_name=provider_name,
         timeout_seconds=timeout,
         max_retries=retries,
         api_key=api_key,
         priority=priority,
-        enabled=True,
+        enabled=enabled,
     )
 
 
@@ -238,3 +246,124 @@ def test_unknown_provider_is_skipped_without_blocking_known_provider(monkeypatch
 
     assert [item.provider for item in results] == ["openlibrary"]
     assert results[0].success is True
+
+
+def test_first_usable_stops_after_google_success(monkeypatch):
+    settings = [
+        setting("google_books", retries=0, priority=1),
+        setting("openlibrary", retries=0, priority=2),
+    ]
+    monkeypatch.setattr(manager, "get_enabled_provider_settings", lambda _db: settings)
+    FakeAsyncClient.events = [response(200, google_payload())]
+
+    result = asyncio.run(manager.fetch_first_usable_provider_result(object(), ISBN))
+
+    assert result.provider == "google_books"
+    assert result.data["title"] == "Google title"
+    assert len(FakeAsyncClient.calls) == 1
+
+
+def test_first_usable_falls_through_google_no_result(monkeypatch):
+    settings = [
+        setting("google_books", retries=0, priority=1),
+        setting("openlibrary", retries=0, priority=2),
+    ]
+    monkeypatch.setattr(manager, "get_enabled_provider_settings", lambda _db: settings)
+    FakeAsyncClient.events = [
+        response(200, {"items": []}),
+        response(200, openlibrary_payload()),
+    ]
+
+    result = asyncio.run(manager.fetch_first_usable_provider_result(object(), ISBN))
+
+    assert result.provider == "openlibrary"
+    assert result.data["title"] == "OpenLibrary title"
+    assert len(FakeAsyncClient.calls) == 2
+
+
+def test_first_usable_falls_through_google_nonretryable_failure(monkeypatch):
+    settings = [
+        setting("google_books", retries=3, priority=1),
+        setting("openlibrary", retries=0, priority=2),
+    ]
+    monkeypatch.setattr(manager, "get_enabled_provider_settings", lambda _db: settings)
+    FakeAsyncClient.events = [
+        response(404),
+        response(200, openlibrary_payload()),
+    ]
+
+    result = asyncio.run(manager.fetch_first_usable_provider_result(object(), ISBN))
+
+    assert result.provider == "openlibrary"
+    assert len(FakeAsyncClient.calls) == 2
+
+
+def test_first_usable_falls_through_exhausted_retryable_failure(monkeypatch):
+    settings = [
+        setting("google_books", retries=2, priority=1),
+        setting("openlibrary", retries=0, priority=2),
+    ]
+    monkeypatch.setattr(manager, "get_enabled_provider_settings", lambda _db: settings)
+    FakeAsyncClient.events = [
+        response(503),
+        response(503),
+        response(503),
+        response(200, openlibrary_payload()),
+    ]
+
+    result = asyncio.run(manager.fetch_first_usable_provider_result(object(), ISBN))
+
+    assert result.provider == "openlibrary"
+    assert len(FakeAsyncClient.calls) == 4
+
+
+def test_first_usable_respects_priority(monkeypatch):
+    settings = [
+        setting("openlibrary", retries=0, priority=2),
+        setting("google_books", retries=0, priority=1),
+    ]
+    monkeypatch.setattr(manager, "get_enabled_provider_settings", lambda _db: settings)
+    FakeAsyncClient.events = [response(200, google_payload())]
+
+    result = asyncio.run(manager.fetch_first_usable_provider_result(object(), ISBN))
+
+    assert result.provider == "google_books"
+    assert len(FakeAsyncClient.calls) == 1
+
+
+def test_first_usable_skips_disabled_and_unknown_providers(monkeypatch):
+    settings = [
+        setting("google_books", retries=0, priority=1, enabled=False),
+        setting("unknown", retries=0, priority=2),
+        setting("openlibrary", retries=0, priority=3),
+    ]
+    monkeypatch.setattr(manager, "get_enabled_provider_settings", lambda _db: settings)
+    FakeAsyncClient.events = [response(200, openlibrary_payload())]
+
+    result = asyncio.run(manager.fetch_first_usable_provider_result(object(), ISBN))
+
+    assert result.provider == "openlibrary"
+    assert len(FakeAsyncClient.calls) == 1
+
+
+def test_all_provider_results_still_collects_all_known_providers(monkeypatch):
+    settings = [
+        setting("google_books", retries=0, priority=1),
+        setting("openlibrary", retries=0, priority=2),
+    ]
+    monkeypatch.setattr(manager, "get_enabled_provider_settings", lambda _db: settings)
+    FakeAsyncClient.events = [
+        response(200, google_payload()),
+        response(200, openlibrary_payload()),
+    ]
+
+    results = asyncio.run(manager.fetch_all_provider_results(object(), ISBN))
+    aggregated = aggregate_metadata(results)
+
+    assert [result.provider for result in results] == [
+        "google_books",
+        "openlibrary",
+    ]
+    assert all(result.success for result in results)
+    assert aggregated["title"] == "Google title"
+    assert len(FakeAsyncClient.calls) == 2

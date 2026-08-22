@@ -17,9 +17,6 @@ from app.services.providers.types import (
     ProviderResult,
 )
 
-from app.services.providers.aggregator import (
-    aggregate_metadata,
-)
 from app.services.isbn_validation import normalize_isbn
 
 PROVIDER_MAP = {
@@ -28,16 +25,18 @@ PROVIDER_MAP = {
 }
 
 
-async def fetch_all_provider_results(
+def _get_enabled_providers(
     db: Session,
-    isbn: str,
-) -> list[ProviderResult]:
-    isbn = normalize_isbn(isbn)
-    provider_settings = get_enabled_provider_settings(db)
+):
+    settings = sorted(
+        get_enabled_provider_settings(db),
+        key=lambda setting: setting.priority,
+    )
 
-    results: list[ProviderResult] = []
+    for setting in settings:
+        if not setting.enabled:
+            continue
 
-    for setting in provider_settings:
         provider_class = PROVIDER_MAP.get(
             setting.provider_name
         )
@@ -45,72 +44,95 @@ async def fetch_all_provider_results(
         if not provider_class:
             continue
 
-        provider = provider_class(
-            setting
+        yield setting, provider_class(setting)
+
+
+async def _fetch_provider_result(
+    setting,
+    provider,
+    isbn: str,
+) -> ProviderResult:
+    start = time.perf_counter()
+
+    try:
+        result = await provider.fetch_book_by_isbn(
+            isbn
         )
 
-        start = time.perf_counter()
-
-        try:
-            result = (
-                await provider.fetch_book_by_isbn(
-                    isbn
-                )
-            )
-
-            duration_ms = int(
-                (
-                    time.perf_counter()
-                    - start
-                )
+        provider_result = ProviderResult(
+            provider=setting.provider_name,
+            success=result is not None,
+            isbn=isbn,
+            duration_ms=int(
+                (time.perf_counter() - start)
                 * 1000
-            )
+            ),
+            data=result,
+            error=None,
+        )
 
-            provider_result = (
-                ProviderResult(
-                    provider=setting.provider_name,
-                    success=result is not None,
-                    isbn=isbn,
-                    duration_ms=duration_ms,
-                    data=result,
-                    error=None,
-                )
-            )
+        logger.info(
+            "Provider result: %s",
+            provider_result,
+        )
 
-            logger.info(
-                "Provider result: %s",
-                provider_result,
-            )
+        return provider_result
 
-            results.append(
-                provider_result
-            )
-
-        except Exception:
-            duration_ms = int(
-                (
-                    time.perf_counter()
-                    - start
-                )
+    except Exception:
+        provider_result = ProviderResult(
+            provider=setting.provider_name,
+            success=False,
+            isbn=isbn,
+            duration_ms=int(
+                (time.perf_counter() - start)
                 * 1000
-            )
+            ),
+            data=None,
+            error="Provider request failed",
+        )
 
-            provider_result = (
-                ProviderResult(
-                    provider=setting.provider_name,
-                    success=False,
-                    isbn=isbn,
-                    duration_ms=duration_ms,
-                    data=None,
-                    error="Provider request failed",
-                )
-            )
+        logger.error(
+            "Provider %s request failed",
+            setting.provider_name,
+        )
 
-            logger.error("Provider %s request failed", setting.provider_name)
+        return provider_result
 
-            results.append(
-                provider_result
+
+async def fetch_first_usable_provider_result(
+    db: Session,
+    isbn: str,
+) -> ProviderResult | None:
+    isbn = normalize_isbn(isbn)
+
+    for setting, provider in _get_enabled_providers(db):
+        provider_result = await _fetch_provider_result(
+            setting,
+            provider,
+            isbn,
+        )
+
+        if provider_result.success and provider_result.data:
+            return provider_result
+
+    return None
+
+
+async def fetch_all_provider_results(
+    db: Session,
+    isbn: str,
+) -> list[ProviderResult]:
+    isbn = normalize_isbn(isbn)
+    results: list[ProviderResult] = []
+
+    for setting, provider in _get_enabled_providers(db):
+        results.append(
+            await _fetch_provider_result(
+                setting,
+                provider,
+                isbn,
             )
+        )
 
     return results
 
@@ -119,28 +141,25 @@ async def fetch_book_by_isbn(
     db: Session,
     isbn: str,
 ) -> dict | None:
-    provider_results = (
-        await fetch_all_provider_results(
+    provider_result = (
+        await fetch_first_usable_provider_result(
             db,
             isbn,
         )
     )
 
-    aggregated = aggregate_metadata(
-        provider_results
-    )
-
-    if not aggregated:
+    if not provider_result or not provider_result.data:
         logger.warning(
-            "Aggregation failed for ISBN %s",
+            "No provider metadata found for ISBN %s",
             isbn,
         )
 
         return None
 
     logger.info(
-        "Aggregated metadata for ISBN %s",
+        "Fast preview metadata for ISBN %s from %s",
         isbn,
+        provider_result.provider,
     )
 
-    return aggregated
+    return provider_result.data
