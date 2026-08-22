@@ -96,7 +96,7 @@ export function BookPanel({
           fixed top-4 right-4 z-50
 
           h-[calc(100vh-2rem)]
-          ${editing ? "w-[1180px]" : "w-[900px]"}
+          w-[900px]
           max-w-[calc(100vw-2rem)]
 
           rounded-3xl

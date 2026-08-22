@@ -253,12 +253,14 @@ export function BookEdit({
   return (
     <>
       <div className="mx-auto w-full max-w-[1120px]">
-        <div className="grid items-start gap-5 md:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)]">
+        <div className="grid gap-5">
+          <div className="grid items-start gap-5 md:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)]">
           <aside className="mx-auto w-full max-w-[190px] md:mx-0">
             <button
               type="button"
               onClick={() => setCoverModalOpen(true)}
-              className="group block aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/10 bg-[#091624] shadow-[0_18px_40px_rgba(0,0,0,0.35)] transition hover:border-blue-400/35"
+              aria-label={`Change cover for ${editData?.title || "book"}`}
+              className="group relative block aspect-[2/3] w-full overflow-hidden rounded-xl border border-white/10 bg-[#091624] shadow-[0_18px_40px_rgba(0,0,0,0.35)] transition hover:border-blue-400/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60"
             >
               <img
                 src={
@@ -269,20 +271,13 @@ export function BookEdit({
                 alt={"Cover of " + (editData?.title || "book")}
                 className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
               />
+              <span className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-black/65 px-3 py-2 text-xs font-medium text-white opacity-100 backdrop-blur-sm transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-visible:opacity-100">
+                <Image size={14} aria-hidden="true" />
+                Change Cover
+              </span>
             </button>
-            <button
-              type="button"
-              onClick={() => setCoverModalOpen(true)}
-              className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] text-xs font-medium text-slate-200 transition hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-300"
-            >
-              <Image size={14} /> Change Cover
-            </button>
-            <p className="mt-2 text-center text-[11px] leading-relaxed text-slate-500">
-              Choose a provider cover or upload your own image.
-            </p>
           </aside>
 
-          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(250px,0.85fr)]">
             <section className={sectionClass}>
               <SectionHeading icon={<BookText size={16} />}>
                 Core Details
@@ -302,55 +297,14 @@ export function BookEdit({
                 </div>
               </div>
             </section>
+          </div>
 
-            <section className={sectionClass}>
-              <SectionHeading icon={<CalendarDays size={16} />}>
-                Publication
-              </SectionHeading>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <FieldLabel>Publisher</FieldLabel>
-                  <input value={editData?.publisher || ""} onChange={(e) => setEditData({ ...editData!, publisher: e.target.value })} className={inputClass} />
-                </div>
-                <div>
-                  <FieldLabel>Year</FieldLabel>
-                  <input value={editData?.year || ""} onChange={(e) => setEditData({ ...editData!, year: Number(e.target.value) })} className={inputClass} />
-                </div>
-                <div>
-                  <FieldLabel>Language</FieldLabel>
-                  <input value={editData?.language || ""} onChange={(e) => setEditData({ ...editData!, language: e.target.value })} className={inputClass} />
-                </div>
-                <div>
-                  <FieldLabel>Page Count</FieldLabel>
-                  <input value={editData?.page_count || ""} onChange={(e) => setEditData({ ...editData!, page_count: Number(e.target.value) })} className={inputClass} />
-                </div>
-                <div>
-                  <FieldLabel>ISBN</FieldLabel>
-                  <input value={editData?.isbn || ""} onChange={(e) => setEditData({ ...editData!, isbn: e.target.value })} className={inputClass} />
-                </div>
-              </div>
-            </section>
-
-            <section className={sectionClass}>
-              <SectionHeading icon={<BookOpen size={16} />}>
-                Synopsis
-              </SectionHeading>
-              <FieldLabel>Description</FieldLabel>
-              <textarea
-                ref={textareaRef}
-                rows={8}
-                value={editData?.description || ""}
-                onChange={(e) => setEditData({ ...editData!, description: e.target.value })}
-                className="min-h-[190px] w-full resize-none rounded-lg border border-white/10 bg-[#091624] p-3 text-sm leading-relaxed text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10"
-              />
-            </section>
-
-            <div className="grid gap-4">
+          <div className="w-full">
               <section className={sectionClass}>
                 <SectionHeading icon={<Library size={16} />}>
                   Library
                 </SectionHeading>
-                <div className="space-y-3">
+                <div className="grid gap-3 md:grid-cols-3">
                   <CategoryTreeSelector
                     categories={categories}
                     selectedCategoryId={selectedCategoryId}
@@ -381,7 +335,54 @@ export function BookEdit({
                 </div>
               </section>
 
-              <section className={sectionClass}>
+          </div>
+
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(250px,0.9fr)]">
+            <section className={sectionClass}>
+              <SectionHeading icon={<BookOpen size={16} />}>
+                Synopsis
+              </SectionHeading>
+              <FieldLabel>Description</FieldLabel>
+              <textarea
+                ref={textareaRef}
+                rows={8}
+                value={editData?.description || ""}
+                onChange={(e) => setEditData({ ...editData!, description: e.target.value })}
+                className="min-h-[190px] w-full resize-none rounded-lg border border-white/10 bg-[#091624] p-3 text-sm leading-relaxed text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10"
+              />
+            </section>
+
+                                      <div className="grid gap-4">
+
+            <section className={sectionClass}>
+              <SectionHeading icon={<CalendarDays size={16} />}>
+                Publication
+              </SectionHeading>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <FieldLabel>Publisher</FieldLabel>
+                  <input value={editData?.publisher || ""} onChange={(e) => setEditData({ ...editData!, publisher: e.target.value })} className={inputClass} />
+                </div>
+                <div>
+                  <FieldLabel>Year</FieldLabel>
+                  <input value={editData?.year || ""} onChange={(e) => setEditData({ ...editData!, year: Number(e.target.value) })} className={inputClass} />
+                </div>
+                <div>
+                  <FieldLabel>Language</FieldLabel>
+                  <input value={editData?.language || ""} onChange={(e) => setEditData({ ...editData!, language: e.target.value })} className={inputClass} />
+                </div>
+                <div>
+                  <FieldLabel>Page Count</FieldLabel>
+                  <input value={editData?.page_count || ""} onChange={(e) => setEditData({ ...editData!, page_count: Number(e.target.value) })} className={inputClass} />
+                </div>
+                <div>
+                  <FieldLabel>ISBN</FieldLabel>
+                  <input value={editData?.isbn || ""} onChange={(e) => setEditData({ ...editData!, isbn: e.target.value })} className={inputClass} />
+                </div>
+              </div>
+            </section>
+
+<section className={sectionClass}>
                 <SectionHeading icon={<RefreshCw size={16} />}>
                   Metadata
                 </SectionHeading>
