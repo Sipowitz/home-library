@@ -87,18 +87,6 @@ export function BookEdit({
   const { preferences } = usePreferencesContext();
 
   // -------------------
-  // 📏 AUTO RESIZE
-  // -------------------
-
-  useEffect(() => {
-    if (!textareaRef.current) return;
-
-    textareaRef.current.style.height = "auto";
-
-    textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
-  }, [editData?.description, textareaRef]);
-
-  // -------------------
   // 📥 PROVIDERS
   // -------------------
 
@@ -338,7 +326,7 @@ export function BookEdit({
           </div>
 
           <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(250px,0.9fr)]">
-            <section className={sectionClass}>
+            <section className={sectionClass + " flex min-h-0 flex-col"}>
               <SectionHeading icon={<BookOpen size={16} />}>
                 Synopsis
               </SectionHeading>
@@ -348,7 +336,7 @@ export function BookEdit({
                 rows={8}
                 value={editData?.description || ""}
                 onChange={(e) => setEditData({ ...editData!, description: e.target.value })}
-                className="min-h-[190px] w-full resize-none rounded-lg border border-white/10 bg-[#091624] p-3 text-sm leading-relaxed text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10"
+                className="min-h-0 flex-1 w-full resize-none overflow-y-auto rounded-lg border border-white/10 bg-[#091624] p-3 text-sm leading-relaxed text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10"
               />
             </section>
 
