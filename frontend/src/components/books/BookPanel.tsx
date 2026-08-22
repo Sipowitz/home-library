@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocations } from "../../context/LocationContext";
 import { useCategories } from "../../context/CategoryContext";
 
-import { BookView } from "./BookView";
+import { BookView, resolveCoverUrl } from "./BookView";
 import { BookEdit } from "./BookEdit";
 import { DeleteModal } from "./DeleteModal";
 
@@ -44,6 +44,7 @@ export function BookPanel({
   const { categories } = useCategories();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [failedBackdropUrl, setFailedBackdropUrl] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -101,7 +102,6 @@ export function BookPanel({
           rounded-3xl
           border border-white/10
 
-          bg-[#07111f]/95
 
           shadow-[0_0_80px_rgba(0,0,0,0.45)]
 
@@ -112,6 +112,36 @@ export function BookPanel({
         `}
         onClick={(e) => e.stopPropagation()}
       >
+        {(() => {
+          const resolvedCoverUrl = resolveCoverUrl(book.cover_url);
+          const showBackdrop = Boolean(
+            resolvedCoverUrl && failedBackdropUrl !== resolvedCoverUrl,
+          );
+
+          return (
+            <>
+              {showBackdrop && (
+                <img
+                  key={`backdrop-panel-${resolvedCoverUrl}`}
+                  src={resolvedCoverUrl!}
+                  alt=""
+                  aria-hidden="true"
+                  onError={() => setFailedBackdropUrl(resolvedCoverUrl)}
+                  className="pointer-events-none absolute -inset-2 z-0 h-[calc(100%+1rem)] w-[calc(100%+1rem)] object-cover object-[center_34%] opacity-80 blur-[4px] md:object-[center_40%]"
+                />
+              )}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-r from-[#06111e]/75 via-[#071421]/82 to-[#071421]/92"
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-[#06101c]/70 via-black/5 to-black/20"
+              />
+            </>
+          );
+        })()}
+
         {/* CONTROLS */}
 
         <div className="absolute right-3 top-3 z-[70] flex items-center gap-2">
@@ -140,7 +170,7 @@ export function BookPanel({
 
         <div
           className={`
-            flex-1 overflow-y-auto
+            relative z-20 flex-1 overflow-y-auto
             ${
               editing
                 ? "px-5 pb-4 pt-14 sm:py-5 sm:pl-6 sm:pr-16"

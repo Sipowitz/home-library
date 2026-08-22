@@ -240,8 +240,8 @@ export default function App() {
         />
 
         {/* SEARCH + FILTERS */}
-        <div className="sticky top-4 z-40 mt-4 bg-gray-950/90 backdrop-blur">
-          <div>
+        <div className="sticky top-4 z-40 mt-4">
+          <div className="md:mx-auto md:w-[calc(100%_-_3rem)]">
             <SearchBar
               searchInput={searchInput}
               onSearchChange={setSearchInput}

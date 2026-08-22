@@ -39,7 +39,7 @@ type LibraryFact = HeroFact;
 
 const FALLBACK_COVER = "/fallback-cover.png";
 
-function resolveCoverUrl(value: string | undefined) {
+export function resolveCoverUrl(value: string | undefined) {
   const trimmed = value?.trim();
   if (!trimmed) return null;
 
@@ -94,7 +94,6 @@ function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: Re
 export function BookView({ book, locations, categories }: Props) {
   const { preferences } = usePreferences();
   const [failedForegroundUrl, setFailedForegroundUrl] = useState<string | null>(null);
-  const [failedBackdropUrl, setFailedBackdropUrl] = useState<string | null>(null);
 
   const locationMap = useMemo(() => buildTreeMap(locations), [locations]);
   const categoryMap = useMemo(() => buildTreeMap(categories), [categories]);
@@ -111,9 +110,6 @@ export function BookView({ book, locations, categories }: Props) {
     resolvedCoverUrl && failedForegroundUrl !== resolvedCoverUrl
       ? resolvedCoverUrl
       : FALLBACK_COVER;
-  const showBackdrop = Boolean(
-    resolvedCoverUrl && failedBackdropUrl !== resolvedCoverUrl,
-  );
 
   const heroFacts = ([
     book.year ? { label: "Published", value: book.year, icon: CalendarDays } : null,
@@ -177,28 +173,8 @@ export function BookView({ book, locations, categories }: Props) {
   const hasSynopsis = Boolean(book.description?.trim());
 
   return (
-    <div className="min-w-0 bg-[#07111f]">
-      <section className="relative isolate overflow-hidden border-b border-white/10 bg-[#081421]">
-        {showBackdrop && (
-          <img
-            key={`backdrop-banner-${resolvedCoverUrl}`}
-            src={resolvedCoverUrl!}
-            alt=""
-            aria-hidden="true"
-            onError={() => setFailedBackdropUrl(resolvedCoverUrl)}
-            className="pointer-events-none absolute -inset-2 z-0 h-[calc(100%+1rem)] w-[calc(100%+1rem)] object-cover object-[center_34%] opacity-80 blur-[4px] md:object-[center_40%]"
-          />
-        )}
-
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-r from-[#06111e]/75 via-[#071421]/82 to-[#071421]/92"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-[#06101c]/70 via-black/5 to-black/20"
-        />
-
+    <div className="min-w-0">
+      <section className="relative isolate overflow-hidden border-b border-white/10">
         <div className="relative z-20 mx-auto flex max-w-[980px] flex-col gap-7 px-5 pb-8 pt-7 sm:px-8 md:flex-row md:items-start md:gap-8 md:px-10 md:pb-6 md:pt-6 lg:px-12">
           <div className="mx-auto w-44 shrink-0 sm:w-48 md:mx-0 md:w-44">
             <div className="aspect-[2/3] overflow-hidden rounded-xl border border-white/15 bg-gray-900 shadow-[0_18px_45px_rgba(0,0,0,0.5)]">
