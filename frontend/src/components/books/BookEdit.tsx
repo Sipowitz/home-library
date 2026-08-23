@@ -424,11 +424,12 @@ export function BookEdit({
           onRefreshMetadata={handleRefreshMetadata}
           isRefreshing={isRefreshing}
           coverUrl={editData?.cover_url}
-          onAdoptField={(field, value) => {
+          onApplySelectedMetadata={(selections) => {
             setEditData({
               ...editData!,
-              [field]: value,
+              ...selections,
             });
+            setShowMetadataPanel(false);
           }}
         />
       )}

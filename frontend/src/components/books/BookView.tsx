@@ -237,11 +237,7 @@ export function BookView({ book, locations, categories }: Props) {
 
       {(hasSynopsis || libraryFacts.length > 0) && (
         <div
-          className={`grid gap-4 p-4 sm:p-5 lg:p-6 ${
-            hasSynopsis && libraryFacts.length > 0
-              ? "lg:grid-cols-[1.15fr_1fr]"
-              : "grid-cols-1"
-          }`}
+          className="grid gap-4 p-4 sm:p-5 lg:p-6"
         >
           {hasSynopsis && (
             <section className="rounded-xl border border-white/10 bg-[#0a1726]/80 p-5 sm:p-6">
@@ -255,7 +251,7 @@ export function BookView({ book, locations, categories }: Props) {
           {libraryFacts.length > 0 && (
             <section className="rounded-xl border border-white/10 bg-[#0a1726]/80 p-5 sm:p-6">
               <SectionTitle icon={Folder}>Library Details</SectionTitle>
-              <div className="mt-4 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <div className="mt-4 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
                 {libraryFacts.map((fact) => (
                   <LibraryDetail key={fact.label} fact={fact} />
                 ))}
