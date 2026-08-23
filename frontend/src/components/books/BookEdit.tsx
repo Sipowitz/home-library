@@ -57,6 +57,23 @@ type Props = {
   onBookUpdated: (book: Book) => void;
 };
 
+function mergeProviderResults(
+  previous: ProviderResult[],
+  refreshed: ProviderResult[],
+): ProviderResult[] {
+  const merged = new Map(previous.map((result) => [result.provider, result]));
+
+  for (const result of refreshed) {
+    if (result.success && result.data) {
+      merged.set(result.provider, result);
+    } else if (!merged.has(result.provider)) {
+      merged.set(result.provider, result);
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
 type CoverCandidate = {
   provider: string;
 
@@ -190,7 +207,9 @@ export function BookEdit({
 
       const results = await refreshMetadata(editData.id);
 
-      setProviders(results);
+      const mergedResults = mergeProviderResults(providers, results);
+
+      setProviders(mergedResults);
 
       const updatedBook = await getBook(editData.id);
 
@@ -201,6 +220,7 @@ export function BookEdit({
       const successful = results.filter((r) => r.success).length;
 
       const failed = results.length - successful;
+      const failedProviders = results.filter((result) => !result.success).map((result) => result.provider.replaceAll("_", " ")).join(", ");
 
       if (failed === 0) {
         toast.success(
@@ -208,13 +228,13 @@ export function BookEdit({
         );
       } else {
         toast(
-          `Refreshed from ${successful} provider${successful === 1 ? "" : "s"} • ${failed} failed`,
+          `Refreshed from ${successful} provider${successful === 1 ? "" : "s"} • ${failed} failed (${failedProviders}); previous data retained`,
         );
       }
 
       setShowMetadataPanel(true);
 
-      return results;
+      return mergedResults;
     } catch (err) {
       console.error(err);
 

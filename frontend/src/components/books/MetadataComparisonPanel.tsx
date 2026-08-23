@@ -35,6 +35,23 @@ const FIELDS = [
   { key: "description", label: "Description" },
 ];
 
+function mergeProviderResults(
+  previous: ProviderResult[],
+  refreshed: ProviderResult[],
+): ProviderResult[] {
+  const merged = new Map(previous.map((result) => [result.provider, result]));
+
+  for (const result of refreshed) {
+    if (result.success && result.data) {
+      merged.set(result.provider, result);
+    } else if (!merged.has(result.provider)) {
+      merged.set(result.provider, result);
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
 function formatProviderName(name: string) {
   return name.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -68,10 +85,11 @@ export function MetadataComparisonPanel({
     const results = await onRefreshMetadata();
 
     if (results) {
-      setProviders(results);
+      const mergedResults = mergeProviderResults(providers, results);
+      setProviders(mergedResults);
       setSelections((current) => {
         const available = new Set(
-          results.flatMap((provider) =>
+          mergedResults.flatMap((provider) =>
             provider.success && provider.data
               ? FIELDS.map((field) => field.key + ":" + String(provider.data?.[field.key]))
               : [],
