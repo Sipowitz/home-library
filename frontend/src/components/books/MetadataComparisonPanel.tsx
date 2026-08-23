@@ -184,8 +184,9 @@ export function MetadataComparisonPanel({
           max-h-[90vh]
           relative
           isolate
-          overflow-y-auto
-          overflow-x-hidden
+          flex
+          flex-col
+          overflow-hidden
           rounded-3xl
           border border-white/10
           bg-[#071421]/90
@@ -203,6 +204,8 @@ export function MetadataComparisonPanel({
         )}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-r from-[#06111e]/75 via-[#071421]/82 to-[#071421]/92" />
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-[#06101c]/70 via-black/5 to-black/20" />
+
+        <div className="relative z-20 min-h-0 flex-1 overflow-y-auto">
 
         {/* HEADER */}
 
@@ -368,6 +371,8 @@ export function MetadataComparisonPanel({
               </div>
             );
           })}
+        </div>
+
         </div>
 
         <div className="sticky bottom-0 z-20 flex justify-end border-t border-white/10 bg-[#071421]/90 px-6 py-4 backdrop-blur">
