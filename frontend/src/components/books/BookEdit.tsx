@@ -8,7 +8,6 @@ import {
   Library,
   RefreshCw,
   Save,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 
@@ -48,9 +47,12 @@ type Props = {
 
   onSave: () => void;
 
-  onCancel: () => void;
 
   onDelete: () => void;
+
+  onComparisonClose?: () => void;
+
+  onComparisonOpenChange?: (open: boolean) => void;
 
   onBookUpdated: (book: Book) => void;
 };
@@ -70,8 +72,9 @@ export function BookEdit({
   locations,
   textareaRef,
   onSave,
-  onCancel,
   onDelete,
+  onComparisonClose,
+  onComparisonOpenChange,
   onBookUpdated,
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
@@ -81,6 +84,10 @@ export function BookEdit({
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    onComparisonOpenChange?.(showMetadataPanel);
+  }, [onComparisonOpenChange, showMetadataPanel]);
 
   const selectedCategoryId = editData?.category_id ?? null;
 
@@ -206,6 +213,8 @@ export function BookEdit({
       }
 
       setShowMetadataPanel(true);
+
+      return results;
     } catch (err) {
       console.error(err);
 
@@ -240,9 +249,9 @@ export function BookEdit({
 
   return (
     <>
-      <div className="mx-auto w-full max-w-[1120px]">
+      <div className="relative mx-auto w-full max-w-[1120px]">
         <div className="grid gap-5">
-          <div className="grid items-start gap-5 md:grid-cols-[180px_minmax(0,1fr)] lg:grid-cols-[190px_minmax(0,1fr)]">
+          <div className="grid items-start gap-5 md:grid-cols-[180px_minmax(0,1fr)_150px] lg:grid-cols-[190px_minmax(0,1fr)_155px]">
           <aside className="mx-auto w-full max-w-[190px] md:mx-0">
             <button
               type="button"
@@ -285,6 +294,12 @@ export function BookEdit({
                 </div>
               </div>
             </section>
+
+            <div className="flex min-w-0 flex-col gap-2">
+              <button type="button" onClick={() => setShowMetadataPanel(true)} className="flex h-10 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-slate-200 transition hover:border-blue-500/25 hover:text-blue-300">Compare Metadata</button>
+              <button type="button" onClick={onSave} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)] transition hover:bg-blue-500"><Save size={15} /> Save Changes</button>
+              <button type="button" onClick={onDelete} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.08] px-3 text-xs font-medium text-red-300 transition hover:bg-red-500/15"><Trash2 size={15} /> Delete Book</button>
+            </div>
           </div>
 
           <div className="w-full">
@@ -395,41 +410,6 @@ export function BookEdit({
           </div>
         </div>
 
-        <section className={sectionClass + " mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"}>
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
-              <Sparkles size={17} />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-100">
-                Metadata Comparison
-              </h3>
-              <p className="mt-0.5 text-xs leading-relaxed text-slate-400">
-                Compare available provider metadata with the current book and choose individual values.
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={() => setShowMetadataPanel(true)} className="h-9 shrink-0 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 text-xs font-medium text-blue-300 transition hover:bg-blue-500/20">
-            Compare Metadata
-          </button>
-        </section>
-
-        <footer className="mt-5 flex flex-col gap-3 border-t border-white/[0.08] pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <button type="button" onClick={onDelete} className="flex h-10 items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.08] px-4 text-xs font-medium text-red-300 transition hover:bg-red-500/15">
-            <Trash2 size={15} /> Delete Book
-          </button>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button type="button" onClick={onCancel} className="h-10 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-xs font-medium text-slate-300 transition hover:bg-white/[0.08]">Cancel</button>
-            <button type="button" onClick={() => setShowMetadataPanel(true)} className="flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 text-xs font-medium text-slate-200 transition hover:border-blue-500/25 hover:text-blue-300"><Sparkles size={15} /> Compare</button>
-            <button type="button" onClick={handleRefreshMetadata} disabled={isRefreshing} className="flex h-10 items-center justify-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/[0.08] px-4 text-xs font-medium text-violet-300 transition hover:bg-violet-500/15 disabled:cursor-not-allowed disabled:opacity-50">
-              <RefreshCw size={15} className={isRefreshing ? "animate-spin" : ""} />
-              {isRefreshing ? "Refreshing..." : "Refresh Metadata"}
-            </button>
-            <button type="button" onClick={onSave} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-xs font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)] transition hover:bg-blue-500">
-              <Save size={15} /> Save Changes
-            </button>
-          </div>
-        </footer>
       </div>
 
       {/* ===================================== */}
@@ -440,7 +420,10 @@ export function BookEdit({
         <MetadataComparisonPanel
           bookId={editData.id}
           currentData={editData || {}}
-          onClose={() => setShowMetadataPanel(false)}
+          onClose={onComparisonClose ?? (() => setShowMetadataPanel(false))}
+          onRefreshMetadata={handleRefreshMetadata}
+          isRefreshing={isRefreshing}
+          coverUrl={editData?.cover_url}
           onAdoptField={(field, value) => {
             setEditData({
               ...editData!,
