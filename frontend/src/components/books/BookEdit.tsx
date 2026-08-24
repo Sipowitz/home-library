@@ -315,10 +315,13 @@ export function BookEdit({
               </div>
             </section>
 
-            <div className="flex min-w-0 flex-col gap-2">
-              <button type="button" onClick={() => setShowMetadataPanel(true)} className="flex h-10 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-slate-200 transition hover:border-blue-500/25 hover:text-blue-300">Compare Metadata</button>
+            <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-white/[0.08] bg-[#0a1625]/80 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm">
+              <h3 className="px-1 pb-1 text-[13px] font-semibold tracking-wide text-slate-100">Actions</h3>
               <button type="button" onClick={onSave} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)] transition hover:bg-blue-500"><Save size={15} /> Save Changes</button>
-              <button type="button" onClick={onDelete} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.08] px-3 text-xs font-medium text-red-300 transition hover:bg-red-500/15"><Trash2 size={15} /> Delete Book</button>
+              <button type="button" onClick={() => setShowMetadataPanel(true)} className="flex h-10 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-slate-200 transition hover:border-blue-500/25 hover:text-blue-300">Compare Metadata</button>
+              <div className="mt-1 border-t border-white/[0.08] pt-2">
+                <button type="button" onClick={onDelete} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.08] px-3 text-xs font-medium text-red-300 transition hover:bg-red-500/15"><Trash2 size={15} /> Delete Book</button>
+              </div>
             </div>
           </div>
 
