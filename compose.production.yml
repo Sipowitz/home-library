@@ -1,0 +1,85 @@
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.production}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - library_prod_postgres_data:/var/lib/postgresql/data
+    networks:
+      - library_prod_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  migration:
+    build:
+      context: ./backend
+    restart: "no"
+    command: ["alembic", "-c", "alembic.ini", "upgrade", "head"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.production}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env.production}
+      CORS_ORIGINS: "${CORS_ORIGINS:-[]}"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - library_prod_network
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.production}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env.production}
+      CORS_ORIGINS: "${CORS_ORIGINS:-[]}"
+      COVERS_DIR: ${COVERS_DIR:-/app/covers}
+      BACKUP_STAGING_DIR: /tmp/library-app-backups
+    volumes:
+      - library_prod_covers:${COVERS_DIR:-/app/covers}
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+    networks:
+      - library_prod_network
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.production
+    restart: unless-stopped
+    ports:
+      - "${LIBRARY_HTTP_PORT:-8088}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - library_prod_network
+
+volumes:
+  library_prod_postgres_data:
+    name: library_prod_postgres_data
+  library_prod_covers:
+    name: library_prod_covers
+
+networks:
+  library_prod_network:
+    name: library_prod_network
+    driver: bridge

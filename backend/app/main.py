@@ -37,6 +37,8 @@ from .core.error_handlers import (
     general_exception_handler,
 )
 
+from .core.config import settings
+
 app = FastAPI()
 
 # ---------------------------
@@ -45,7 +47,7 @@ app = FastAPI()
 
 app.mount(
     "/covers",
-    StaticFiles(directory="covers"),
+    StaticFiles(directory=settings.COVERS_DIR),
     name="covers",
 )
 
@@ -55,7 +57,7 @@ app.mount(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -111,3 +113,8 @@ def root():
     return {
         "message": "Library API is running"
     }
+
+
+@app.get("/health", include_in_schema=False)
+def health():
+    return {"status": "ok"}
