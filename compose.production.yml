@@ -65,11 +65,26 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.production
     restart: unless-stopped
-    ports:
-      - "${LIBRARY_HTTP_PORT:-8088}:80"
     depends_on:
       backend:
         condition: service_healthy
+    networks:
+      - library_prod_network
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      LIBRARY_HOSTNAME: ${LIBRARY_HOSTNAME:-library.home}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile.production:/etc/caddy/Caddyfile:ro
+      - library_prod_caddy_data:/data
+      - library_prod_caddy_config:/config
+    depends_on:
+      - frontend
     networks:
       - library_prod_network
 
@@ -78,6 +93,10 @@ volumes:
     name: library_prod_postgres_data
   library_prod_covers:
     name: library_prod_covers
+  library_prod_caddy_data:
+    name: library_prod_caddy_data
+  library_prod_caddy_config:
+    name: library_prod_caddy_config
 
 networks:
   library_prod_network:

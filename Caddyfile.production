@@ -1,0 +1,4 @@
+{$LIBRARY_HOSTNAME:library.home} {
+    tls internal
+    reverse_proxy frontend:80
+}
