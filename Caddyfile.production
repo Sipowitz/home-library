@@ -1,4 +1,4 @@
-{$LIBRARY_HOSTNAME:library.home} {
+https://{$LIBRARY_HOSTNAME:library.home}:8443 {
     tls internal
     reverse_proxy frontend:80
 }
