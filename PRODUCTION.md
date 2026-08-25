@@ -20,7 +20,7 @@ file selector.
    URL. Its host must remain `db`.
 4. Keep `CORS_ORIGINS=[]` for the normal same-origin deployment. If another
    trusted browser origin is required, use a JSON list such as
-   `["https://library.home:8443"]`.
+   `["https://library.home:9443"]`.
 5. Set `LIBRARY_HOSTNAME` to the local hostname clients will use (the default is
    `library.home`). Configure local DNS so that hostname resolves to the OMV
    server LAN address. Do not expose this internal-CA deployment directly to
@@ -33,18 +33,18 @@ Do not reuse development secrets, database credentials, volumes, or cover paths.
 Production traffic follows this path:
 
 ```text
-Browser -> HTTPS :8443 -> Caddy :8443 -> frontend:80 (Nginx)
+Browser -> HTTPS :9443 -> Caddy :9443 -> frontend:80 (Nginx)
                                 |-> /api -> backend:8000
                                 `-> /covers -> backend:8000
 ```
 
-The Library App Caddy publishes only host TCP port 8443 (`8443:8443`). It does
+The Library App Caddy publishes only host TCP port 9443 (`9443:9443`). It does
 not publish ports 80 or 443 because another Caddy instance on the OMV server owns
 port 443. The frontend remains reachable to Caddy as `frontend:80` on
 `library_prod_network`, but it no longer publishes a host HTTP port. PostgreSQL
 and FastAPI also remain internal.
 
-Open the application at `https://library.home:8443`, replacing `library.home` with
+Open the application at `https://library.home:9443`, replacing `library.home` with
 the configured `LIBRARY_HOSTNAME`. Every client must resolve that hostname to
 the OMV server, normally through the LAN DNS server or a client hosts-file entry.
 
@@ -98,8 +98,8 @@ The first account registered in an empty database becomes the administrator.
 For the first launch, first ensure the administrator device trusts the Caddy root
 CA, then:
 
-1. Keep port 8443 restricted to the trusted LAN.
-2. Open `https://${LIBRARY_HOSTNAME}:8443` and immediately register the intended
+1. Keep port 9443 restricted to the trusted LAN.
+2. Open `https://${LIBRARY_HOSTNAME}:9443` and immediately register the intended
    administrator (substitute the configured hostname if needed).
 3. Log in and verify that the account has administrator access.
 4. Only then make the HTTPS service generally reachable on the trusted LAN.
@@ -240,7 +240,7 @@ Verify login, a book cover, metadata search, and `/health` after restoration.
 
 The source checkout is not runtime storage. PostgreSQL and FastAPI are not
 published to the host. The Nginx frontend is also no longer published directly;
-only the Library App Caddy publishes host port 8443; it does not publish ports 80
+only the Library App Caddy publishes host port 9443; it does not publish ports 80
 or 443.
 
 ## Updating an existing OMV Compose stack
@@ -256,7 +256,7 @@ Back up production first, then update the live stack as follows:
    updates** above.
 5. Export the generated `root.crt` with the command in **HTTPS architecture and
    client trust**, install it on each client, and open
-   `https://library.home:8443` (substituting the configured hostname if needed).
+   `https://library.home:9443` (substituting the configured hostname if needed).
 6. Verify login, API operations, cover images, metadata search, and SPA routes.
 
 The repository deliberately keeps portable relative build contexts (`./backend`

@@ -77,7 +77,7 @@ services:
     environment:
       LIBRARY_HOSTNAME: ${LIBRARY_HOSTNAME:-library.home}
     ports:
-      - "8443:8443"
+      - "9443:9443"
     volumes:
       - ./Caddyfile.production:/etc/caddy/Caddyfile:ro
       - library_prod_caddy_data:/data
