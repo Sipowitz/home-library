@@ -30,6 +30,10 @@ from ..services.providers.types import (
 from ..services.providers.metadata_snapshot_service import (
     persist_provider_result,
 )
+from ..services.providers.cover_snapshot_service import persist_cover_result
+from ..services.providers.evidence_service import (
+    update_metadata_evidence_signature, update_cover_evidence_signature,
+)
 
 from ..services.providers.refresh_metadata_service import (
     refresh_book_metadata,
@@ -514,11 +518,18 @@ async def create_book_from_isbn_endpoint(
                 provider_result=provider_result,
             )
 
+            persist_cover_result(
+                db=db, book_id=created_book.id, provider_result=provider_result,
+            )
+
         except Exception as exc:
             logger.exception(
                 "Failed to persist provider result during book creation: %s",
                 exc,
             )
+
+    update_metadata_evidence_signature(db, created_book)
+    update_cover_evidence_signature(db, created_book)
 
     db.commit()
 

@@ -51,12 +51,16 @@ async def _fetch_provider_result(
     setting,
     provider,
     isbn: str,
+    *,
+    evidence_kind: str | None = None,
 ) -> ProviderResult:
     start = time.perf_counter()
 
     try:
-        result = await provider.fetch_book_by_isbn(
-            isbn
+        result = (
+            await provider.refresh_metadata(isbn) if evidence_kind == "metadata"
+            else await provider.refresh_covers(isbn) if evidence_kind == "covers"
+            else await provider.fetch_book_by_isbn(isbn)
         )
 
         provider_result = ProviderResult(
@@ -163,3 +167,17 @@ async def fetch_book_by_isbn(
     )
 
     return provider_result.data
+
+async def fetch_all_metadata_results(db: Session, isbn: str) -> list[ProviderResult]:
+    isbn = normalize_isbn(isbn)
+    results = []
+    for setting, provider in _get_enabled_providers(db):
+        results.append(await _fetch_provider_result(setting, provider, isbn, evidence_kind="metadata"))
+    return results
+
+async def fetch_all_cover_results(db: Session, isbn: str) -> list[ProviderResult]:
+    isbn = normalize_isbn(isbn)
+    results = []
+    for setting, provider in _get_enabled_providers(db):
+        results.append(await _fetch_provider_result(setting, provider, isbn, evidence_kind="covers"))
+    return results

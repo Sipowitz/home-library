@@ -42,5 +42,20 @@ class BookProvider(ABC):
     async def fetch_book_by_isbn(
         self,
         isbn: str,
+        *,
+        force_refresh: bool = False,
     ) -> dict | None:
         pass
+
+    async def refresh_metadata(self, isbn: str) -> dict | None:
+        data = await self.fetch_book_by_isbn(isbn, force_refresh=True)
+        if data is None:
+            return None
+        keys = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description")
+        return {key: data.get(key) for key in keys}
+
+    async def refresh_covers(self, isbn: str) -> dict | None:
+        data = await self.fetch_book_by_isbn(isbn, force_refresh=True)
+        if data is None:
+            return None
+        return {"cover_candidates": data.get("cover_candidates", []) or []}

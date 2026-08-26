@@ -310,7 +310,13 @@ def test_from_isbn_frontend_payload_persists_owned_book_and_metadata(client, db,
     assert len(book.metadata_snapshots) == 1
     snapshot = book.metadata_snapshots[0]
     assert snapshot.provider == "google_books"
-    assert snapshot.raw_json["cover_candidates"][0]["label"] == "thumbnail"
+    assert "cover_candidates" not in snapshot.raw_json
+    assert len(book.cover_snapshots) == 1
+    assert book.cover_snapshots[0].candidates_json[0]["label"] == "thumbnail"
+    assert book.metadata_review_signature is None
+    assert book.cover_review_signature is None
+    assert book.metadata_evidence_signature.startswith("metadata:v1:")
+    assert book.cover_evidence_signature.startswith("covers:v1:")
     candidates = client.get(
         f"/books/{book.id}/metadata-candidates", headers=headers(owner)
     )

@@ -103,6 +103,8 @@ class GoogleBooksProvider(BookProvider):
     async def fetch_book_by_isbn(
         self,
         raw_isbn: str,
+        *,
+        force_refresh: bool = False,
     ) -> dict | None:
         isbn = clean_isbn(
             raw_isbn
@@ -111,7 +113,7 @@ class GoogleBooksProvider(BookProvider):
         if not isbn:
             return None
 
-        if isbn in cache:
+        if not force_refresh and isbn in cache:
             return cache[isbn]
 
         data = (
@@ -120,8 +122,10 @@ class GoogleBooksProvider(BookProvider):
             )
         )
 
-        if not data or not isinstance(data.get("items"), list) or not data["items"]:
+        if data is None:
             return None
+        if not isinstance(data.get("items"), list) or not data["items"]:
+            return {} if force_refresh else None
 
         valid_items = []
 
@@ -161,7 +165,7 @@ class GoogleBooksProvider(BookProvider):
                     break
 
         if not valid_items:
-            return None
+            return {} if force_refresh else None
 
         best_match = sorted(
             valid_items,
@@ -188,7 +192,7 @@ class GoogleBooksProvider(BookProvider):
         )
 
         if not title or not authors:
-            return None
+            return {} if force_refresh else None
 
         identifiers = (
             book.get(

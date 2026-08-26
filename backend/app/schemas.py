@@ -326,6 +326,16 @@ class CreateBookFromIsbnBook(BaseModel):
 class BookResponse(BookBase):
     id: int
 
+    last_cover_refresh_at: Optional[datetime] = None
+    metadata_evidence_signature: Optional[str] = None
+    metadata_evidence_changed_at: Optional[datetime] = None
+    metadata_review_signature: Optional[str] = None
+    metadata_reviewed_at: Optional[datetime] = None
+    cover_evidence_signature: Optional[str] = None
+    cover_evidence_changed_at: Optional[datetime] = None
+    cover_review_signature: Optional[str] = None
+    cover_reviewed_at: Optional[datetime] = None
+
     warning: Optional[str] = None
 
     class Config:

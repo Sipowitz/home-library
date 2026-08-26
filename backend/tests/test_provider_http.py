@@ -367,3 +367,31 @@ def test_all_provider_results_still_collects_all_known_providers(monkeypatch):
     assert all(result.success for result in results)
     assert aggregated["title"] == "Google title"
     assert len(FakeAsyncClient.calls) == 2
+
+
+def test_google_normal_lookup_uses_cache_but_explicit_refresh_bypasses_it():
+    provider = provider_case(GoogleBooksProvider)
+    first = google_payload()
+    changed = google_payload()
+    changed["items"][0]["volumeInfo"]["title"] = "Fresh title"
+    FakeAsyncClient.events = [response(200, first), response(200, changed)]
+
+    cached_first = asyncio.run(provider.fetch_book_by_isbn(ISBN))
+    cached_second = asyncio.run(provider.fetch_book_by_isbn(ISBN))
+    refreshed = asyncio.run(provider.refresh_metadata(ISBN))
+
+    assert cached_first == cached_second
+    assert len(FakeAsyncClient.calls) == 2
+    assert refreshed["title"] == "Fresh title"
+
+
+@pytest.mark.parametrize("provider_class", [GoogleBooksProvider, OpenLibraryProvider])
+def test_explicit_refresh_distinguishes_successful_empty_from_failure(provider_class):
+    empty = {"items": []} if provider_class is GoogleBooksProvider else {"docs": []}
+    FakeAsyncClient.events = [response(200, empty), response(503)]
+    provider = provider_case(provider_class)
+    assert asyncio.run(provider.refresh_metadata(ISBN)) == {
+        "title": None, "subtitle": None, "author": None, "publisher": None,
+        "page_count": None, "language": None, "year": None, "description": None,
+    }
+    assert asyncio.run(provider.refresh_metadata(ISBN)) is None

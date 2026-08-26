@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 
 from app import models
+from app.services.providers.evidence_service import (
+    update_metadata_evidence_signature, update_cover_evidence_signature,
+)
 from app.models import Book
 
 
@@ -205,6 +208,9 @@ def create_book(db: Session, user_id: int, data: dict):
     new_book.owner_id = user_id
 
     db.add(new_book)
+    db.flush()
+    update_metadata_evidence_signature(db, new_book)
+    update_cover_evidence_signature(db, new_book)
     db.commit()
 
     return (
@@ -227,6 +233,8 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
         return None
 
     _validate_required_fields(data, partial=True)
+
+    old_isbn = book.isbn
 
     # ✅ CATEGORY UPDATE (single)
     if "category_id" in data:
@@ -274,6 +282,10 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
     for key, value in data.items():
         if key not in ("category_id", "location_id", "read", "read_at"):
             setattr(book, key, value)
+
+    if "isbn" in data and book.isbn != old_isbn:
+        update_metadata_evidence_signature(db, book)
+        update_cover_evidence_signature(db, book)
 
     db.commit()
 

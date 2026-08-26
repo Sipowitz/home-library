@@ -373,6 +373,16 @@ class Book(Base):
         index=True,
     )
 
+    last_cover_refresh_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    metadata_evidence_signature = Column(String(80), nullable=True)
+    metadata_evidence_changed_at = Column(DateTime(timezone=True), nullable=True)
+    metadata_review_signature = Column(String(80), nullable=True)
+    metadata_reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    cover_evidence_signature = Column(String(80), nullable=True)
+    cover_evidence_changed_at = Column(DateTime(timezone=True), nullable=True)
+    cover_review_signature = Column(String(80), nullable=True)
+    cover_reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
     owner_id = Column(
         Integer,
         ForeignKey("users.id"),
@@ -392,6 +402,10 @@ class Book(Base):
         "ProviderMetadataSnapshot",
         back_populates="book",
         cascade="all, delete-orphan",
+    )
+
+    cover_snapshots = relationship(
+        "ProviderCoverSnapshot", back_populates="book", cascade="all, delete-orphan"
     )
 
 
@@ -479,6 +493,23 @@ class ProviderMetadataSnapshot(Base):
         back_populates="snapshot",
         cascade="all, delete-orphan",
     )
+
+
+# -------------------
+# 🖼 PROVIDER COVER SNAPSHOTS
+# -------------------
+
+class ProviderCoverSnapshot(Base):
+    __tablename__ = "provider_cover_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String, nullable=False, index=True)
+    isbn_query = Column(String, nullable=False, index=True)
+    candidates_json = Column(JSONB, nullable=False)
+    fetched_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    book = relationship("Book", back_populates="cover_snapshots")
 
 
 # -------------------
