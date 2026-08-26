@@ -151,7 +151,7 @@ export function BookPanel({
         {/* CONTROLS */}
 
         {!metadataComparisonOpen && (
-        <div className="absolute right-3 top-3 z-[70] flex items-center gap-2">
+        <div className="absolute inset-x-3 top-3 z-[70] flex items-center gap-2 sm:left-auto sm:right-3">
           {!editing && (
             <button
               type="button"
@@ -167,7 +167,7 @@ export function BookPanel({
             type="button"
             onClick={editing ? handleCancel : onClose}
             aria-label="Close book details"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/40 text-gray-200 backdrop-blur-md transition hover:bg-black/50 hover:text-white"
+            className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/40 sm:ml-0 text-gray-200 backdrop-blur-md transition hover:bg-black/50 hover:text-white"
           >
             <X size={20} />
           </button>

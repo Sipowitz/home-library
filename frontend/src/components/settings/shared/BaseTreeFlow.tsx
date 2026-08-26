@@ -47,6 +47,8 @@ type Props<T extends TreeItem<T>> = {
 
   nodeComponent: ComponentType<any>;
 
+  minZoom?: number;
+
   onFocus: (id: number) => void;
 
   onRename: (id: number, name: string) => Promise<void>;
@@ -140,6 +142,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
 
   nodeComponent,
 
+  minZoom,
+
   onFocus,
 
   onRename,
@@ -174,7 +178,11 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
       nodeType,
     );
 
-    return getLayoutedElements(tree.nodes, tree.edges);
+    return getLayoutedElements(
+      tree.nodes,
+      tree.edges,
+      nodeType === "locationNode",
+    );
   }, [
     items,
 
@@ -317,6 +325,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
         nodes={animatedNodes}
         edges={layouted.edges}
         nodeTypes={nodeTypes}
+        nodeOrigin={nodeType === "locationNode" ? [0.5, 0] : undefined}
+        minZoom={minZoom}
         nodesDraggable
         nodesConnectable={false}
         elementsSelectable

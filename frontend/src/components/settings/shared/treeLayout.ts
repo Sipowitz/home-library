@@ -117,6 +117,9 @@ export function buildTreeElements<
 
         type: "smoothstep",
 
+        pathOptions:
+          nodeType === "locationNode" ? { borderRadius: 0 } : undefined,
+
         animated: focused,
 
         style: {
@@ -174,10 +177,51 @@ export function buildTreeElements<
 
 // ================= LAYOUT =================
 
+function alignParentCentersToChildren(nodes: Node[], edges: Edge[]) {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const childIdsByParent = new Map<string, string[]>();
+
+  edges.forEach((edge) => {
+    const childIds = childIdsByParent.get(edge.source) ?? [];
+
+    childIds.push(edge.target);
+    childIdsByParent.set(edge.source, childIds);
+  });
+
+  const deepestNodesFirst = [...nodes].sort(
+    (first, second) => second.position.y - first.position.y,
+  );
+
+  deepestNodesFirst.forEach((parent) => {
+    const childCenters = (childIdsByParent.get(parent.id) ?? [])
+      .map((childId) => nodeById.get(childId))
+      .filter((child): child is Node => Boolean(child))
+      .map((child) => child.position.x)
+      .sort((first, second) => first - second);
+
+    if (childCenters.length === 0) return;
+
+    const middleIndex = Math.floor(childCenters.length / 2);
+    const trunkX =
+      childCenters.length % 2 === 1
+        ? childCenters[middleIndex]
+        : (childCenters[middleIndex - 1] + childCenters[middleIndex]) / 2;
+
+    parent.position = {
+      ...parent.position,
+      x: trunkX,
+    };
+  });
+
+  return nodes;
+}
+
 export function getLayoutedElements(
   nodes: Node[],
 
   edges: Edge[],
+
+  alignParentsToChildren = false,
 ) {
   const dagreGraph = new dagre.graphlib.Graph();
 
@@ -205,20 +249,24 @@ export function getLayoutedElements(
 
   dagre.layout(dagreGraph);
 
+  const layoutedNodes = nodes.map((node) => {
+    const position = dagreGraph.node(node.id);
+
+    return {
+      ...node,
+
+      position: {
+        x: alignParentsToChildren ? position.x : position.x - NODE_WIDTH / 2,
+
+        y: position.y - NODE_HEIGHT / 2,
+      },
+    };
+  });
+
   return {
-    nodes: nodes.map((node) => {
-      const position = dagreGraph.node(node.id);
-
-      return {
-        ...node,
-
-        position: {
-          x: position.x - NODE_WIDTH / 2,
-
-          y: position.y - NODE_HEIGHT / 2,
-        },
-      };
-    }),
+    nodes: alignParentsToChildren
+      ? alignParentCentersToChildren(layoutedNodes, edges)
+      : layoutedNodes,
 
     edges,
   };

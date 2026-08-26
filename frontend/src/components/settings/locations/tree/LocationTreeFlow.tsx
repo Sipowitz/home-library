@@ -49,6 +49,7 @@ export function LocationTreeFlow({
       searchTargetId={searchTargetId}
       nodeType="locationNode"
       nodeComponent={LocationTreeNode}
+      minZoom={0.35}
       onFocus={onFocus}
       onRename={onRename}
       onAddChild={onAddChild}
