@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import { previewBookByISBN } from "../api/books";
+import type { ReviewIntent } from "../api/books";
 
 import { fetchProviderResultsByISBN } from "../api/providerResults";
 
@@ -29,7 +30,7 @@ type Params = {
 
   removeBook: (id: number) => Promise<void>;
 
-  saveBook: (b: Book) => Promise<Book>;
+  saveBook: (b: Book, reviewIntent?: ReviewIntent) => Promise<Book>;
 
   setSelectedBook: (b: Book | null) => void;
 
@@ -236,7 +237,7 @@ export function useBookActions({
   // 💾 SAVE
   // -------------------
 
-  async function handleSave() {
+  async function handleSave(reviewIntent: ReviewIntent = {}) {
     if (!editData) return;
 
     const payload = {
@@ -298,7 +299,7 @@ export function useBookActions({
     // ✏️ UPDATE EXISTING
     // -------------------
 
-    const updated = await saveBook(payload as Book);
+    const updated = await saveBook(payload as Book, reviewIntent);
 
     await Promise.all([reloadCategories(), reloadLocations()]);
 

@@ -9,6 +9,7 @@ import { BookEdit } from "./BookEdit";
 import { DeleteModal } from "./DeleteModal";
 
 import type { Book } from "../../types/book";
+import type { ReviewIntent } from "../../api/books";
 
 type Props = {
   book: Book | null;
@@ -21,11 +22,10 @@ type Props = {
 
   onClose: () => void;
 
-  onSave: () => void;
+  onSave: (reviewIntent?: ReviewIntent) => void;
 
   onDelete: (id: number) => void;
 
-  onBookUpdated: (book: Book) => void;
 };
 
 export function BookPanel({
@@ -36,8 +36,7 @@ export function BookPanel({
   setEditData,
   onClose,
   onSave,
-  onDelete,
-  onBookUpdated,
+  onDelete
 }: Props) {
   const { locations } = useLocations();
 
@@ -65,7 +64,6 @@ export function BookPanel({
 
   function handleComparisonClose() {
     setMetadataComparisonOpen(false);
-    handleCancel();
   }
 
   function handleCancel() {
@@ -205,7 +203,6 @@ export function BookPanel({
               textareaRef={textareaRef}
               onSave={onSave}
               onDelete={() => setConfirmDelete(true)}
-              onBookUpdated={onBookUpdated}
               onComparisonClose={handleComparisonClose}
               onComparisonOpenChange={setMetadataComparisonOpen}
             />

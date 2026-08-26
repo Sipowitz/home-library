@@ -63,6 +63,9 @@ type BookUpdateInput = {
   cover_url?: string;
 
   category_id?: number | null;
+
+  mark_metadata_reviewed?: boolean;
+  mark_cover_reviewed?: boolean;
 };
 
 type CreateBookFromISBNPayload = {
@@ -77,6 +80,20 @@ export type CoverCandidate = {
   label: string;
 
   url: string;
+};
+
+export type ReviewIntent = {
+  mark_metadata_reviewed?: boolean;
+  mark_cover_reviewed?: boolean;
+};
+
+export type CoverCandidatesResponse = {
+  candidates: CoverCandidate[];
+  cover_review: import("../types/book").ReviewStatus;
+};
+
+export type CoverRefreshResponse = CoverCandidatesResponse & {
+  provider_results: ProviderResult[];
 };
 
 export async function getBooks(
@@ -145,6 +162,16 @@ export async function refreshMetadata(
 ): Promise<ProviderResult[]> {
   const res = await client.post(`/books/${bookId}/refresh-metadata`);
 
+  return res.data;
+}
+
+export async function getCoverCandidates(bookId: number): Promise<CoverCandidatesResponse> {
+  const res = await client.get(`/books/${bookId}/cover-candidates`);
+  return res.data;
+}
+
+export async function refreshCovers(bookId: number): Promise<CoverRefreshResponse> {
+  const res = await client.post(`/books/${bookId}/refresh-covers`);
   return res.data;
 }
 

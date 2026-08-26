@@ -109,7 +109,7 @@ export function MetadataComparisonPanel({
   );
 
   const handleApply = () => {
-    if (isApplying || !Object.keys(applicableSelections).length) return;
+    if (isApplying) return;
 
     setIsApplying(true);
     onApplySelectedMetadata?.(applicableSelections);
@@ -397,10 +397,10 @@ export function MetadataComparisonPanel({
           <button
             type="button"
             onClick={handleApply}
-            disabled={!onApplySelectedMetadata || !Object.keys(applicableSelections).length || isApplying}
+            disabled={!onApplySelectedMetadata || isApplying}
             className="h-10 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isApplying ? "Applying..." : "Apply Selected Metadata"}
+            {isApplying ? "Applying..." : "Done — Mark Metadata Reviewed"}
           </button>
         </div>
       </div>

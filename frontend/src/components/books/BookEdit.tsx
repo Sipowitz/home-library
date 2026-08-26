@@ -11,7 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import type { Book } from "../../types/book";
+import type { Book, ReviewStatus } from "../../types/book";
 import type { Category } from "../../types/category";
 import type { Location } from "../../types/location";
 import type { ProviderResult } from "../../types/provider";
@@ -26,7 +26,8 @@ import { CoverBrowserModal } from "./CoverBrowserModal";
 
 import { fetchMetadataCandidates } from "../../api/metadataCandidates";
 
-import { getBook, refreshMetadata } from "../../api/books";
+import { getBook, getCoverCandidates, refreshMetadata } from "../../api/books";
+import type { CoverCandidate, CoverRefreshResponse, ReviewIntent } from "../../api/books";
 
 import toast from "react-hot-toast";
 
@@ -45,7 +46,7 @@ type Props = {
 
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 
-  onSave: () => void;
+  onSave: (reviewIntent?: ReviewIntent) => void;
 
 
   onDelete: () => void;
@@ -54,8 +55,21 @@ type Props = {
 
   onComparisonOpenChange?: (open: boolean) => void;
 
-  onBookUpdated: (book: Book) => void;
 };
+
+function reviewLabel(status: ReviewStatus | undefined, pending: boolean) {
+  if (pending) return "Review pending save";
+  if (status?.state === "current") return "Reviewed";
+  if (status?.state === "changed") return "Changed since review";
+  return "Never reviewed";
+}
+
+function reviewTone(status: ReviewStatus | undefined, pending: boolean) {
+  if (pending) return "border-blue-500/25 bg-blue-500/10 text-blue-300";
+  if (status?.state === "current") return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+  if (status?.state === "changed") return "border-amber-500/20 bg-amber-500/10 text-amber-300";
+  return "border-white/10 bg-white/[0.04] text-slate-400";
+}
 
 function mergeProviderResults(
   previous: ProviderResult[],
@@ -74,14 +88,6 @@ function mergeProviderResults(
   return Array.from(merged.values());
 }
 
-type CoverCandidate = {
-  provider: string;
-
-  label: string;
-
-  url: string;
-};
-
 export function BookEdit({
   editData,
   setEditData,
@@ -91,8 +97,7 @@ export function BookEdit({
   onSave,
   onDelete,
   onComparisonClose,
-  onComparisonOpenChange,
-  onBookUpdated,
+  onComparisonOpenChange
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
@@ -101,6 +106,10 @@ export function BookEdit({
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [providerCoverCandidates, setProviderCoverCandidates] = useState<CoverCandidate[]>([]);
+  const [metadataReviewPending, setMetadataReviewPending] = useState(false);
+  const [coverReviewPending, setCoverReviewPending] = useState(false);
 
   useEffect(() => {
     onComparisonOpenChange?.(showMetadataPanel);
@@ -132,6 +141,20 @@ export function BookEdit({
 
   // -------------------
   // 🖼️ COVERS
+
+  useEffect(() => {
+    let mounted = true;
+    if (!editData?.id) return;
+    getCoverCandidates(editData.id)
+      .then((response) => {
+        if (!mounted) return;
+        setProviderCoverCandidates(response.candidates);
+      })
+      .catch((error) => console.error(error));
+    return () => { mounted = false; };
+  }, [editData?.id]);
+
+
   // -------------------
 
   const allCoverCandidates = useMemo(() => {
@@ -139,12 +162,7 @@ export function BookEdit({
 
     const merged: CoverCandidate[] = [];
 
-    for (const provider of providers) {
-      const data = provider.data || {};
-
-      const covers = data.cover_candidates || [];
-
-      for (const cover of covers) {
+    for (const cover of providerCoverCandidates) {
         if (!cover.url || seen.has(cover.url)) {
           continue;
         }
@@ -152,7 +170,6 @@ export function BookEdit({
         seen.add(cover.url);
 
         merged.push(cover);
-      }
     }
 
     for (const cover of editData?.uploaded_cover_candidates_json || []) {
@@ -166,7 +183,7 @@ export function BookEdit({
     }
 
     return merged;
-  }, [providers, editData?.uploaded_cover_candidates_json]);
+  }, [providerCoverCandidates, editData?.uploaded_cover_candidates_json]);
 
   // -------------------
   // 🏷️ CATEGORY
@@ -202,6 +219,12 @@ export function BookEdit({
       return;
     }
 
+    if (!editData.isbn) {
+      toast.error("Add an ISBN before refreshing metadata");
+      return;
+    }
+    setMetadataReviewPending(false);
+
     try {
       setIsRefreshing(true);
 
@@ -213,16 +236,20 @@ export function BookEdit({
 
       const updatedBook = await getBook(editData.id);
 
-      setEditData(updatedBook);
-
-      onBookUpdated(updatedBook);
+      setEditData({
+        ...editData,
+        last_metadata_refresh_at: updatedBook.last_metadata_refresh_at,
+        metadata_review: updatedBook.metadata_review,
+      });
 
       const successful = results.filter((r) => r.success).length;
 
       const failed = results.length - successful;
       const failedProviders = results.filter((result) => !result.success).map((result) => result.provider.replaceAll("_", " ")).join(", ");
 
-      if (failed === 0) {
+      if (successful === 0) {
+        toast.error("Metadata refresh failed for all providers; previous data was retained");
+      } else if (failed === 0) {
         toast.success(
           `Metadata refreshed from ${successful} provider${successful === 1 ? "" : "s"}`,
         );
@@ -317,8 +344,12 @@ export function BookEdit({
 
             <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-white/[0.08] bg-[#0a1625]/80 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm">
               <h3 className="px-1 pb-1 text-[13px] font-semibold tracking-wide text-slate-100">Actions</h3>
-              <button type="button" onClick={onSave} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)] transition hover:bg-blue-500"><Save size={15} /> Save Changes</button>
+              <button type="button" onClick={() => onSave({ mark_metadata_reviewed: metadataReviewPending, mark_cover_reviewed: coverReviewPending })} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)] transition hover:bg-blue-500"><Save size={15} /> Save Changes</button>
               <button type="button" onClick={() => setShowMetadataPanel(true)} className="flex h-10 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-slate-200 transition hover:border-blue-500/25 hover:text-blue-300">Compare Metadata</button>
+              <div className="grid gap-1.5 pt-1 text-[11px]">
+                <div className="flex items-center justify-between gap-2"><span className="text-slate-500">Metadata</span><span className={`rounded-full border px-2 py-0.5 ${reviewTone(editData?.metadata_review, metadataReviewPending)}`}>{reviewLabel(editData?.metadata_review, metadataReviewPending)}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="text-slate-500">Covers</span><span className={`rounded-full border px-2 py-0.5 ${reviewTone(editData?.cover_review, coverReviewPending)}`}>{reviewLabel(editData?.cover_review, coverReviewPending)}</span></div>
+              </div>
               <div className="mt-1 border-t border-white/[0.08] pt-2">
                 <button type="button" onClick={onDelete} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.08] px-3 text-xs font-medium text-red-300 transition hover:bg-red-500/15"><Trash2 size={15} /> Delete Book</button>
               </div>
@@ -443,7 +474,7 @@ export function BookEdit({
         <MetadataComparisonPanel
           bookId={editData.id}
           currentData={editData || {}}
-          onClose={onComparisonClose ?? (() => setShowMetadataPanel(false))}
+          onClose={() => { setShowMetadataPanel(false); onComparisonClose?.(); }}
           onRefreshMetadata={handleRefreshMetadata}
           isRefreshing={isRefreshing}
           coverUrl={editData?.cover_url}
@@ -452,6 +483,7 @@ export function BookEdit({
               ...editData!,
               ...selections,
             });
+            setMetadataReviewPending(true);
             setShowMetadataPanel(false);
           }}
         />
@@ -468,6 +500,12 @@ export function BookEdit({
         covers={allCoverCandidates}
         bookId={editData?.id}
         selectedCoverUrl={editData?.cover_url}
+        onRefreshStarted={() => setCoverReviewPending(false)}
+        onCoversRefreshed={(response: CoverRefreshResponse) => {
+          setProviderCoverCandidates(response.candidates);
+          setEditData({ ...editData!, cover_review: response.cover_review, last_cover_refresh_at: response.cover_review.last_refresh_at });
+        }}
+        onMarkReviewed={() => { setCoverReviewPending(true); setCoverModalOpen(false); }}
         onCoverUploaded={(cover) => {
           setEditData({
             ...editData!,
@@ -478,14 +516,11 @@ export function BookEdit({
           });
         }}
         onSelectCover={(cover) => {
-          console.log("SELECTED COVER URL", cover.url);
-
           setEditData({
             ...editData!,
             cover_url: cover.url,
           });
 
-          setCoverModalOpen(false);
         }}
       />
     </>

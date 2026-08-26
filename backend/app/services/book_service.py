@@ -226,6 +226,7 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
         db.query(Book)
         .filter(Book.id == book_id)
         .filter(Book.owner_id == user_id)
+        .with_for_update()
         .first()
     )
 
@@ -233,6 +234,9 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
         return None
 
     _validate_required_fields(data, partial=True)
+
+    mark_metadata_reviewed = bool(data.pop("mark_metadata_reviewed", False))
+    mark_cover_reviewed = bool(data.pop("mark_cover_reviewed", False))
 
     old_isbn = book.isbn
 
@@ -286,6 +290,18 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
     if "isbn" in data and book.isbn != old_isbn:
         update_metadata_evidence_signature(db, book)
         update_cover_evidence_signature(db, book)
+
+    review_time = datetime.now(timezone.utc)
+    if mark_metadata_reviewed:
+        if book.metadata_evidence_signature is None:
+            update_metadata_evidence_signature(db, book)
+        book.metadata_review_signature = book.metadata_evidence_signature
+        book.metadata_reviewed_at = review_time
+    if mark_cover_reviewed:
+        if book.cover_evidence_signature is None:
+            update_cover_evidence_signature(db, book)
+        book.cover_review_signature = book.cover_evidence_signature
+        book.cover_reviewed_at = review_time
 
     db.commit()
 

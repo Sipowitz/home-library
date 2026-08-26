@@ -390,3 +390,45 @@ def test_normal_book_creation_remains_available(client, db, users):
     )
     assert response.status_code == 200
     assert db.get(models.Book, response.json()["id"]).owner_id == owner.id
+
+
+def test_book_update_review_intent_is_write_only_and_owner_scoped(client, db, users):
+    owner, other = users
+    book = models.Book(title="Review me", author="Author", isbn="9780306406157", owner_id=owner.id, read=False)
+    db.add(book); db.flush()
+    from app.services.providers.evidence_service import update_metadata_evidence_signature, update_cover_evidence_signature
+    update_metadata_evidence_signature(db, book)
+    update_cover_evidence_signature(db, book)
+    db.commit()
+
+    denied = client.put(f"/books/{book.id}", json={"mark_metadata_reviewed": True}, headers=headers(other))
+    assert denied.status_code == 404
+
+    response = client.put(f"/books/{book.id}", json={"description": "Atomic", "mark_metadata_reviewed": True, "mark_cover_reviewed": True}, headers=headers(owner))
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["description"] == "Atomic"
+    assert payload["metadata_review"]["state"] == "current"
+    assert payload["cover_review"]["state"] == "current"
+    assert "metadata_review_signature" not in payload
+    assert "cover_review_signature" not in payload
+    assert "mark_metadata_reviewed" not in payload
+
+
+def test_cover_candidates_are_owner_scoped_and_keep_manual_state_separate(client, db, users):
+    owner, other = users
+    book = models.Book(title="Covers", author="Author", isbn="9780306406157", owner_id=owner.id, read=False,
+        cover_url="/covers/active.jpg", uploaded_cover_candidates_json=[{"provider": "upload", "label": "Manual", "url": "/covers/manual.jpg"}])
+    db.add(book); db.flush()
+    db.add(models.ProviderCoverSnapshot(book_id=book.id, provider="google_books", isbn_query=book.isbn,
+        candidates_json=[{"provider": "google_books", "label": "L", "url": "https://example.test/provider.jpg"}]))
+    db.commit()
+
+    assert client.get(f"/books/{book.id}/cover-candidates", headers=headers(other)).status_code == 404
+    response = client.get(f"/books/{book.id}/cover-candidates", headers=headers(owner))
+    assert response.status_code == 200
+    assert response.json()["candidates"] == [{"provider": "google_books", "label": "L", "url": "https://example.test/provider.jpg"}]
+    assert all(candidate["provider"] != "upload" for candidate in response.json()["candidates"])
+    db.refresh(book)
+    assert book.cover_url == "/covers/active.jpg"
+    assert book.uploaded_cover_candidates_json[0]["url"] == "/covers/manual.jpg"

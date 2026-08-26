@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_core import PydanticCustomError
 
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 
 from datetime import datetime
 from app.services.domain_validation import required_text
@@ -268,6 +268,9 @@ class BookUpdate(BaseModel):
 
     category_id: Optional[int] = None
 
+    mark_metadata_reviewed: bool = False
+    mark_cover_reviewed: bool = False
+
     @field_validator("title", "author", mode="before")
     @classmethod
     def validate_required_text(cls, value):
@@ -323,18 +326,40 @@ class CreateBookFromIsbnBook(BaseModel):
             raise PydanticCustomError("invalid_isbn", "Invalid ISBN") from exc
 
 
+class ReviewStatusResponse(BaseModel):
+    state: Literal["never_reviewed", "current", "changed"]
+    reviewed_at: Optional[datetime] = None
+    evidence_changed_at: Optional[datetime] = None
+    has_evidence: Optional[bool] = None
+    candidate_count: Optional[int] = None
+    last_refresh_at: Optional[datetime] = None
+
+
+class CoverCandidateResponse(BaseModel):
+    provider: str
+    label: Optional[str] = None
+    url: str
+
+
+class CoverCandidatesResponse(BaseModel):
+    candidates: List[CoverCandidateResponse] = Field(default_factory=list)
+    cover_review: ReviewStatusResponse
+
+
+class CoverRefreshResponse(CoverCandidatesResponse):
+    provider_results: List[Any] = Field(default_factory=list)
+
+
 class BookResponse(BookBase):
     id: int
 
     last_cover_refresh_at: Optional[datetime] = None
-    metadata_evidence_signature: Optional[str] = None
     metadata_evidence_changed_at: Optional[datetime] = None
-    metadata_review_signature: Optional[str] = None
     metadata_reviewed_at: Optional[datetime] = None
-    cover_evidence_signature: Optional[str] = None
     cover_evidence_changed_at: Optional[datetime] = None
-    cover_review_signature: Optional[str] = None
     cover_reviewed_at: Optional[datetime] = None
+    metadata_review: ReviewStatusResponse
+    cover_review: ReviewStatusResponse
 
     warning: Optional[str] = None
 

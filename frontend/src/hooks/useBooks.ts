@@ -11,6 +11,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 import type { Book } from "../types/book";
+import type { ReviewIntent } from "../api/books";
 
 import type { ProviderResult } from "../types/provider";
 
@@ -174,6 +175,7 @@ export function useBooks() {
       location_id: book.location_id ?? null,
 
       category_id: book.category_id ?? null,
+
     });
 
     await loadBooks(true);
@@ -227,7 +229,7 @@ export function useBooks() {
   // 💾 SAVE
   // -------------------
 
-  async function saveBook(book: Book) {
+  async function saveBook(book: Book, reviewIntent: ReviewIntent = {}) {
     const updated = await updateBook(book.id, {
       title: book.title,
 
@@ -254,6 +256,8 @@ export function useBooks() {
       cover_url: book.cover_url,
 
       category_id: book.category_id ?? null,
+
+      ...reviewIntent,
     });
 
     await loadBooks(true);

@@ -82,3 +82,86 @@ def test_cover_evidence_is_independent_of_active_and_manual_covers(db, book):
     book.uploaded_cover_candidates_json = [{"provider": "uploaded", "url": "/covers/manual.jpg"}]
     update_cover_evidence_signature(db, book)
     assert book.cover_evidence_signature == signature
+
+
+def test_atomic_book_update_marks_both_current_and_sets_timestamps(db, book):
+    persist_provider_result(db, book.id, result({"title": "Evidence"}))
+    persist_cover_result(db, book.id, result({"cover_candidates": [{"provider": "google_books", "label": "L", "url": "https://example/a"}]}))
+    update_metadata_evidence_signature(db, book)
+    update_cover_evidence_signature(db, book)
+    db.commit()
+
+    updated = book_service.update_book(db, book.owner_id, book.id, {
+        "description": "Saved atomically",
+        "mark_metadata_reviewed": True,
+        "mark_cover_reviewed": True,
+    })
+
+    assert updated.description == "Saved atomically"
+    assert updated.metadata_review_signature == updated.metadata_evidence_signature
+    assert updated.cover_review_signature == updated.cover_evidence_signature
+    assert updated.metadata_reviewed_at is not None and updated.cover_reviewed_at is not None
+    assert updated.metadata_review["state"] == "current"
+    assert updated.cover_review["state"] == "current"
+
+
+def test_no_review_flags_leave_review_state_unchanged(db, book):
+    book.metadata_review_signature = "metadata:v1:unchanged"
+    book.cover_review_signature = "covers:v1:unchanged"
+    db.commit()
+    book_service.update_book(db, book.owner_id, book.id, {"description": "Only a field"})
+    assert book.metadata_review_signature == "metadata:v1:unchanged"
+    assert book.cover_review_signature == "covers:v1:unchanged"
+    assert book.metadata_reviewed_at is None and book.cover_reviewed_at is None
+
+
+def test_save_copies_current_server_signature_not_client_value(db, book):
+    persist_provider_result(db, book.id, result({"title": "Newest evidence"}))
+    update_metadata_evidence_signature(db, book)
+    expected = book.metadata_evidence_signature
+    db.commit()
+    updated = book_service.update_book(db, book.owner_id, book.id, {"mark_metadata_reviewed": True})
+    assert updated.metadata_review_signature == expected
+
+
+def test_no_isbn_refreshes_are_rejected(db):
+    user = models.User(username="no-isbn", email="no-isbn@example.test", hashed_password="x", is_active=True)
+    db.add(user); db.commit()
+    no_isbn = book_service.create_book(db, user.id, {"title": "No ISBN", "author": "Author"})
+    from app.services.providers.refresh_metadata_service import refresh_book_metadata
+    from app.services.providers.refresh_cover_service import refresh_book_covers
+    import asyncio
+    with pytest.raises(ValueError, match="has no ISBN"):
+        asyncio.run(refresh_book_metadata(db, no_isbn.id))
+    with pytest.raises(ValueError, match="has no ISBN"):
+        asyncio.run(refresh_book_covers(db, no_isbn.id))
+
+
+def test_metadata_and_cover_refreshes_are_isolated(db, book, monkeypatch):
+    import asyncio
+    import app.services.providers.refresh_metadata_service as metadata_refresh
+    import app.services.providers.refresh_cover_service as cover_refresh
+
+    book.cover_url = "/covers/active.jpg"
+    book.uploaded_cover_candidates_json = [{"provider": "upload", "label": "Manual", "url": "/covers/manual.jpg"}]
+    persist_cover_result(db, book.id, result({"cover_candidates": [{"provider": "google_books", "label": "old", "url": "https://example/old"}]}))
+    update_cover_evidence_signature(db, book)
+    old_cover_signature = book.cover_evidence_signature
+    db.commit()
+
+    async def metadata_results(_db, isbn):
+        return [result({"title": "Fresh metadata"})]
+    monkeypatch.setattr(metadata_refresh, "fetch_all_metadata_results", metadata_results)
+    asyncio.run(metadata_refresh.refresh_book_metadata(db, book.id))
+    assert book.cover_evidence_signature == old_cover_signature
+    assert book.cover_url == "/covers/active.jpg"
+    assert book.uploaded_cover_candidates_json[0]["url"] == "/covers/manual.jpg"
+    metadata_signature = book.metadata_evidence_signature
+
+    async def cover_results(_db, isbn):
+        return [result({"cover_candidates": [{"provider": "google_books", "label": "new", "url": "https://example/new"}]})]
+    monkeypatch.setattr(cover_refresh, "fetch_all_cover_results", cover_results)
+    asyncio.run(cover_refresh.refresh_book_covers(db, book.id))
+    assert book.metadata_evidence_signature == metadata_signature
+    assert book.cover_url == "/covers/active.jpg"
+    assert book.uploaded_cover_candidates_json[0]["url"] == "/covers/manual.jpg"

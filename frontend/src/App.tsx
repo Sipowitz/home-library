@@ -35,7 +35,6 @@ export default function App() {
     addBookFromISBN,
     removeBook,
     saveBook,
-    updateBookInState,
     updateFilters,
     isLoading,
     loadError,
@@ -374,13 +373,6 @@ export default function App() {
           onClose={() => setSelectedBook(null)}
           onSave={handleSave}
           onDelete={handleDelete}
-          onBookUpdated={(updatedBook) => {
-            updateBookInState(updatedBook);
-
-            setSelectedBook(updatedBook);
-
-            setEditData(updatedBook);
-          }}
         />
       </div>
     </div>

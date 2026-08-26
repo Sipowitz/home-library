@@ -408,6 +408,29 @@ class Book(Base):
         "ProviderCoverSnapshot", back_populates="book", cascade="all, delete-orphan"
     )
 
+    def _current_cover_candidates(self):
+        from app.services.providers.evidence_service import normalized_book_isbn
+        isbn = normalized_book_isbn(self)
+        latest = {}
+        for snapshot in sorted(self.cover_snapshots, key=lambda item: (item.fetched_at, item.id), reverse=True):
+            if snapshot.isbn_query == isbn:
+                latest.setdefault(snapshot.provider, snapshot)
+        return [candidate for snapshot in latest.values() for candidate in (snapshot.candidates_json or [])]
+
+
+    @property
+    def metadata_review(self):
+        from app.services.providers.evidence_signatures import derive_review_state, metadata_evidence_signature
+        empty = metadata_evidence_signature([])
+        return {"state": derive_review_state(self.metadata_review_signature, self.metadata_evidence_signature), "reviewed_at": self.metadata_reviewed_at, "evidence_changed_at": self.metadata_evidence_changed_at, "has_evidence": bool(self.metadata_evidence_signature and self.metadata_evidence_signature != empty), "last_refresh_at": self.last_metadata_refresh_at}
+
+
+    @property
+    def cover_review(self):
+        from app.services.providers.evidence_signatures import derive_review_state
+        candidates = self._current_cover_candidates()
+        return {"state": derive_review_state(self.cover_review_signature, self.cover_evidence_signature), "reviewed_at": self.cover_reviewed_at, "evidence_changed_at": self.cover_evidence_changed_at, "candidate_count": len(candidates), "last_refresh_at": self.last_cover_refresh_at}
+
 
 # -------------------
 # 📦 PROVIDER METADATA SNAPSHOTS

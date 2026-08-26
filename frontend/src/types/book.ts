@@ -8,6 +8,17 @@ export type CoverCandidate = {
   url: string;
 };
 
+export type ReviewState = "never_reviewed" | "current" | "changed";
+
+export type ReviewStatus = {
+  state: ReviewState;
+  reviewed_at?: string | null;
+  evidence_changed_at?: string | null;
+  has_evidence?: boolean;
+  candidate_count?: number;
+  last_refresh_at?: string | null;
+};
+
 export type Book = {
   id: number;
 
@@ -48,6 +59,10 @@ export type Book = {
   date_added?: string;
 
   last_metadata_refresh_at?: string | null;
+
+  last_cover_refresh_at?: string | null;
+  metadata_review?: ReviewStatus;
+  cover_review?: ReviewStatus;
 
   warning?: string;
 };
