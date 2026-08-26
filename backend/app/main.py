@@ -37,8 +37,13 @@ from .core.error_handlers import (
     validation_exception_handler,
     general_exception_handler,
 )
+from .services.maintenance_jobs import recover_interrupted_jobs
 
 app = FastAPI()
+
+@app.on_event("startup")
+def recover_maintenance_jobs_on_startup():
+    recover_interrupted_jobs()
 
 # ---------------------------
 # ✅ STATIC COVER STORAGE

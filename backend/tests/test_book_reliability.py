@@ -324,6 +324,38 @@ def test_from_isbn_frontend_payload_persists_owned_book_and_metadata(client, db,
     assert candidates.json()[0]["data"]["title"] == "Provider title"
 
 
+def test_from_isbn_rejects_duplicate_for_owner_with_context(client, db, users):
+    owner, _ = users
+    payload = isbn_payload()
+    first = client.post("/books/from-isbn", json=payload, headers=headers(owner))
+    assert first.status_code == 200, first.text
+
+    duplicate = client.post("/books/from-isbn", json=payload, headers=headers(owner))
+    assert duplicate.status_code == 409
+    detail = duplicate.json()
+    assert detail["code"] == "DUPLICATE_BOOK"
+    assert detail["book"]["title"] == "Frontend title"
+    assert db.query(models.Book).filter_by(owner_id=owner.id).count() == 1
+
+    allowed = dict(payload, allow_duplicate=True)
+    second = client.post("/books/from-isbn", json=allowed, headers=headers(owner))
+    assert second.status_code == 200, second.text
+    assert db.query(models.Book).filter_by(owner_id=owner.id).count() == 2
+
+
+def test_maintenance_bulk_endpoints_are_wired_to_job_service(client, users):
+    owner, _ = users
+    started = client.post("/maintenance/refresh-metadata", headers=headers(owner))
+    assert started.status_code == 202, started.text
+    job_id = started.json()["id"]
+    current = client.get("/maintenance/jobs/active", headers=headers(owner))
+    assert current.status_code == 200
+    detail = client.get(f"/maintenance/jobs/{job_id}", headers=headers(owner))
+    assert detail.status_code == 200
+    cancelled = client.post(f"/maintenance/jobs/{job_id}/cancel", headers=headers(owner))
+    assert cancelled.status_code == 200
+
+
 @pytest.mark.parametrize("field", ["id", "owner_id", "date_added", "last_metadata_refresh_at", "metadata_snapshots", "unsupported"])
 def test_from_isbn_rejects_internal_and_unknown_book_fields(client, users, field):
     owner, _ = users

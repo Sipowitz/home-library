@@ -125,6 +125,7 @@ class GoogleBooksProvider(BookProvider):
         if data is None:
             return None
         if not isinstance(data.get("items"), list) or not data["items"]:
+            self.last_error = "No Google Books results for ISBN"
             return {} if force_refresh else None
 
         valid_items = []
@@ -165,6 +166,7 @@ class GoogleBooksProvider(BookProvider):
                     break
 
         if not valid_items:
+            self.last_error = "No exact ISBN match in Google Books response"
             return {} if force_refresh else None
 
         best_match = sorted(
@@ -192,6 +194,7 @@ class GoogleBooksProvider(BookProvider):
         )
 
         if not title or not authors:
+            self.last_error = "Exact Google Books match is missing title or author"
             return {} if force_refresh else None
 
         identifiers = (

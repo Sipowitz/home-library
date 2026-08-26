@@ -210,6 +210,56 @@ def test_google_api_key_is_passed_as_a_parameter_and_not_returned_or_logged(capl
     assert secret not in caplog.text
 
 
+def test_google_lookup_and_forced_refreshes_keep_request_semantics_and_bypass_cache():
+    provider = GoogleBooksProvider(setting("google_books", retries=0, api_key="configured-key"))
+    FakeAsyncClient.events = [
+        response(200, google_payload()),
+        response(200, google_payload()),
+        response(200, google_payload()),
+    ]
+
+    lookup = asyncio.run(provider.fetch_book_by_isbn(ISBN))
+    cached_lookup = asyncio.run(provider.fetch_book_by_isbn(ISBN))
+    metadata = asyncio.run(provider.refresh_metadata(ISBN))
+    covers = asyncio.run(provider.refresh_covers(ISBN))
+
+    assert lookup == cached_lookup
+    assert metadata["title"] == "Google title"
+    assert covers == {"cover_candidates": []}
+    assert len(FakeAsyncClient.calls) == 3
+    assert all(call[0] == google_books.GOOGLE_BOOKS_URL for call in FakeAsyncClient.calls)
+    assert all(call[1] == {"q": f"isbn:{ISBN}", "key": "configured-key"} for call in FakeAsyncClient.calls)
+
+
+@pytest.mark.parametrize(
+    "event,expected",
+    [
+        (response(400, {"error": {"message": "bad query"}}), "Bad request (HTTP 400)"),
+        (response(403, {"error": {"message": "key blocked", "errors": [{"reason": "forbidden"}]}}), "API key rejected or forbidden (HTTP 403)"),
+        (response(429, {"error": {"message": "quota"}}, content=None), "Quota or rate limit exceeded (HTTP 429)"),
+        (response(503, {"error": {"message": "unavailable", "errors": [{"reason": "backendFailed"}]}}), "Upstream server failure (HTTP 503)"),
+        (httpx.ReadTimeout("timeout", request=httpx.Request("GET", "https://example.test")), "Transport error (ReadTimeout)"),
+    ],
+)
+def test_google_failures_retain_safe_diagnostics(event, expected):
+    FakeAsyncClient.events = [event]
+    provider = provider_case(GoogleBooksProvider, retries=0)
+
+    assert asyncio.run(provider.fetch_book_by_isbn(ISBN)) is None
+    assert expected in provider.last_error
+
+
+def test_google_no_exact_match_and_malformed_response_are_distinct():
+    provider = provider_case(GoogleBooksProvider, retries=0)
+    FakeAsyncClient.events = [response(200, {"items": []})]
+    assert asyncio.run(provider.fetch_book_by_isbn(ISBN)) is None
+    assert provider.last_error == "No Google Books results for ISBN"
+
+    FakeAsyncClient.events = [response(200, content=b"{")]
+    assert asyncio.run(provider.fetch_book_by_isbn(ISBN, force_refresh=True)) is None
+    assert provider.last_error == "Malformed JSON response (HTTP 200)"
+
+
 def test_manager_continues_to_second_provider_after_retry_exhaustion(monkeypatch, caplog):
     secret = "fallback-secret-key"
     settings = [

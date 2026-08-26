@@ -73,6 +73,41 @@ class BackupValidationSession(Base):
     consumed_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
 
+class MaintenanceJob(Base):
+    __tablename__ = "maintenance_jobs"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = Column(String(32), nullable=False)
+    status = Column(String(16), nullable=False, default="pending", index=True)
+    total = Column(Integer, nullable=False, default=0)
+    processed = Column(Integer, nullable=False, default=0)
+    succeeded = Column(Integer, nullable=False, default=0)
+    unchanged = Column(Integer, nullable=False, default=0)
+    changed = Column(Integer, nullable=False, default=0)
+    partially_succeeded = Column(Integer, nullable=False, default=0)
+    failed = Column(Integer, nullable=False, default=0)
+    skipped = Column(Integer, nullable=False, default=0)
+    cancellation_requested = Column(Boolean, nullable=False, default=False)
+    error_summary = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    items = relationship("MaintenanceJobItem", back_populates="job", cascade="all, delete-orphan")
+
+
+class MaintenanceJobItem(Base):
+    __tablename__ = "maintenance_job_items"
+    id = Column(Integer, primary_key=True)
+    job_id = Column(Integer, ForeignKey("maintenance_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(16), nullable=False, default="pending")
+    changed = Column(Boolean, nullable=False, default=False)
+    error_summary = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    job = relationship("MaintenanceJob", back_populates="items")
+
+
 # -------------------
 # ⚙️ USER PREFERENCES
 # -------------------

@@ -16,6 +16,10 @@ class BookProvider(ABC):
         settings: ProviderSetting | None = None,
     ):
         self.settings = settings
+        self.last_error: str | None = None
+
+    def record_request_failure(self, detail: str) -> None:
+        self.last_error = detail
 
     def get_timeout_seconds(self) -> float:
         value = getattr(self.settings, "timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
@@ -31,11 +35,13 @@ class BookProvider(ABC):
         *,
         params: dict | None = None,
     ) -> dict | None:
+        self.last_error = None
         return await get_json(
             url,
             params=params,
             timeout_seconds=self.get_timeout_seconds(),
             max_retries=self.get_max_retries(),
+            on_failure=self.record_request_failure,
         )
 
     @abstractmethod

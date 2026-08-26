@@ -72,7 +72,7 @@ async def _fetch_provider_result(
                 * 1000
             ),
             data=result,
-            error=None,
+            error=getattr(provider, "last_error", None),
         )
 
         logger.info(
@@ -82,7 +82,7 @@ async def _fetch_provider_result(
 
         return provider_result
 
-    except Exception:
+    except Exception as exc:
         provider_result = ProviderResult(
             provider=setting.provider_name,
             success=False,
@@ -92,12 +92,13 @@ async def _fetch_provider_result(
                 * 1000
             ),
             data=None,
-            error="Provider request failed",
+            error=f"Provider exception ({type(exc).__name__})",
         )
 
-        logger.error(
-            "Provider %s request failed",
+        logger.exception(
+            "Provider %s request raised %s",
             setting.provider_name,
+            type(exc).__name__,
         )
 
         return provider_result

@@ -513,6 +513,27 @@ async def create_book_from_isbn_endpoint(
             detail="ISBN is required",
         )
 
+    existing_book = (
+        db.query(models.Book)
+        .filter(models.Book.owner_id == current_user.id)
+        .filter(models.Book.isbn == isbn)
+        .first()
+    )
+    if existing_book and not payload.allow_duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "DUPLICATE_BOOK",
+                "message": "This book is already in your library.",
+                "book": {
+                    "id": existing_book.id,
+                    "title": existing_book.title,
+                    "author": existing_book.author,
+                    "isbn": existing_book.isbn,
+                },
+            },
+        )
+
     # -------------------
     # 📚 CREATE BOOK
     # -------------------

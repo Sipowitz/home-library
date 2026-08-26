@@ -490,6 +490,29 @@ class ReviewQueueResponse(BaseModel):
     summary: ReviewQueueSummaryResponse
 
 
+class MaintenanceJobResponse(BaseModel):
+    id: int
+    kind: str
+    status: str
+    total: int
+    processed: int
+    succeeded: int
+    unchanged: int
+    changed: int
+    partially_succeeded: int
+    failed: int
+    skipped: int
+    cancellation_requested: bool
+    error_summary: Optional[str] = None
+    current_title: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # -------------------
 # 📍 LOCATION SCHEMAS
 # -------------------
