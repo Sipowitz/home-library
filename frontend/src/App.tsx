@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { login as loginApi } from "./api/auth";
 
@@ -72,6 +72,12 @@ export default function App() {
 
   const [showSettings, setShowSettings] = useState(false);
 
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [isSearchPanelSticky, setIsSearchPanelSticky] = useState(false);
+
+  const scrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchPanelRef = useRef<HTMLDivElement | null>(null);
+
   const {
     isFetching,
     handleSearch,
@@ -142,6 +148,66 @@ export default function App() {
 
     return () => window.removeEventListener("scroll", handleScroll);
   }, [hasMore, isLoading, books]);
+
+  useEffect(() => {
+    function isPanelAtStickyThreshold() {
+      const panel = searchPanelRef.current;
+
+      if (!panel) return false;
+
+      const stickyTop = Number.parseFloat(window.getComputedStyle(panel).top);
+      const topOffset = Number.isFinite(stickyTop) ? stickyTop : 0;
+
+      return panel.getBoundingClientRect().top <= topOffset + 0.5;
+    }
+
+    function restorePanel() {
+      setIsSearchPanelSticky(false);
+      setIsScrolling(false);
+
+      if (scrollEndTimerRef.current) {
+        clearTimeout(scrollEndTimerRef.current);
+        scrollEndTimerRef.current = null;
+      }
+    }
+
+    function handleScrollActivity() {
+      if (!isPanelAtStickyThreshold()) {
+        restorePanel();
+        return;
+      }
+
+      setIsSearchPanelSticky(true);
+      setIsScrolling(true);
+
+      if (scrollEndTimerRef.current) {
+        clearTimeout(scrollEndTimerRef.current);
+      }
+
+      scrollEndTimerRef.current = setTimeout(() => {
+        setIsScrolling(false);
+        scrollEndTimerRef.current = null;
+      }, 3000);
+    }
+
+    function handleResize() {
+      if (!isPanelAtStickyThreshold()) {
+        restorePanel();
+      }
+    }
+
+    window.addEventListener("scroll", handleScrollActivity, { passive: true });
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("scroll", handleScrollActivity);
+      window.removeEventListener("resize", handleResize);
+
+      if (scrollEndTimerRef.current) {
+        clearTimeout(scrollEndTimerRef.current);
+      }
+    };
+  }, []);
 
   // -------------------
   // 🔐 LOGIN
@@ -240,11 +306,14 @@ export default function App() {
         />
 
         {/* SEARCH + FILTERS */}
-        <div className="sticky top-4 z-40 mt-4">
+        <div ref={searchPanelRef} className="sticky top-4 z-40 mt-4">
           <div className="md:mx-auto md:w-[calc(100%_-_3rem)]">
             <SearchBar
               searchInput={searchInput}
               onSearchChange={setSearchInput}
+              isScrolling={
+                viewMode === "grid" && isSearchPanelSticky && isScrolling
+              }
               selectedLocation={selectedLocation}
               onLocationChange={handleLocationFilterChange}
               selectedCategory={selectedCategory}

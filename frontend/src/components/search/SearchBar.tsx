@@ -1,4 +1,4 @@
-import { type ChangeEvent } from "react";
+import { type ChangeEvent, useState } from "react";
 
 import type { Location } from "../../types/location";
 import type { Category } from "../../types/category";
@@ -9,6 +9,7 @@ import { CategoryTreeSelector } from "../books/CategoryTreeSelector";
 type Props = {
   searchInput: string;
   onSearchChange: (value: string) => void;
+  isScrolling: boolean;
 
   selectedLocation: number | null;
   onLocationChange: (value: number | null) => void;
@@ -23,6 +24,7 @@ type Props = {
 export function SearchBar({
   searchInput,
   onSearchChange,
+  isScrolling,
   selectedLocation,
   onLocationChange,
   selectedCategory,
@@ -30,8 +32,33 @@ export function SearchBar({
   locations,
   categories,
 }: Props) {
+  const [hasFocusWithin, setHasFocusWithin] = useState(false);
+  const [isPointerInteracting, setIsPointerInteracting] = useState(false);
+
+  const shouldFade =
+    isScrolling &&
+    searchInput.trim().length === 0 &&
+    !hasFocusWithin &&
+    !isPointerInteracting;
+
   return (
-    <div>
+    <div
+      className={
+        shouldFade
+          ? "pointer-events-none opacity-0 transition-opacity duration-150 motion-reduce:duration-0"
+          : "opacity-100 transition-opacity duration-150 motion-reduce:duration-0"
+      }
+      onFocusCapture={() => setHasFocusWithin(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setHasFocusWithin(false);
+        }
+      }}
+      onPointerDownCapture={() => setIsPointerInteracting(true)}
+      onPointerUpCapture={() => setIsPointerInteracting(false)}
+      onPointerCancelCapture={() => setIsPointerInteracting(false)}
+      onPointerLeave={() => setIsPointerInteracting(false)}
+    >
       <div
         className="
           bg-gray-950/95
