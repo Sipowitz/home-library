@@ -30,22 +30,27 @@ import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 
 import { PendingUsersPanel } from "./users/PendingUsersPanel";
 import { useAuth } from "../../context/AuthContext";
+import { MaintenanceSettings, type ReviewTarget } from "./maintenance/MaintenanceSettings";
 
 type Props = {
   isOpen: boolean;
 
   onClose: () => void;
+  onReviewBook: (bookId: number, target: ReviewTarget) => void;
+  onReviewSequenceComplete: () => void;
+  reviewSaved?: { bookId: number; nonce: number } | null;
 };
 
 type Section =
   | "locations"
   | "categories"
   | "providers"
+  | "maintenance"
   | "backup"
   | "preferences"
   | "users";
 
-export function SettingsModal({ isOpen, onClose }: Props) {
+export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, reviewSaved }: Props) {
   const { user } = useAuth();
   const { locations, deleteLocation } = useLocations();
 
@@ -306,6 +311,15 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             )}
 
             {/* PROVIDERS */}
+
+            {activeSection === "maintenance" && (
+              <MaintenanceSettings
+                active={isOpen}
+                reviewSaved={reviewSaved}
+                onReview={onReviewBook}
+                onReviewSequenceComplete={onReviewSequenceComplete}
+              />
+            )}
 
             {activeSection === "providers" && user?.is_admin && (
               <div className="max-w-4xl">

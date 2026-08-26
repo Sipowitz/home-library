@@ -29,6 +29,7 @@ from .routers import (
     preferences,
     provider_settings,
     admin_users,
+    maintenance,
 )
 
 from .core.error_handlers import (
@@ -104,6 +105,7 @@ app.include_router(
     provider_settings.router
 )
 app.include_router(admin_users.router)
+app.include_router(maintenance.router)
 
 
 @app.get("/")

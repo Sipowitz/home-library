@@ -25,6 +25,8 @@ import toast from "react-hot-toast";
 
 import type { Book, BookDraft } from "./types/book";
 import type { LibraryViewMode } from "./types/preferences";
+import { getBook } from "./api/books";
+import type { ReviewTarget } from "./components/settings/maintenance/MaintenanceSettings";
 
 export default function App() {
   const {
@@ -70,6 +72,9 @@ export default function App() {
   const [editData, setEditData] = useState<Book | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
+  const [maintenanceReviewActive, setMaintenanceReviewActive] = useState(false);
+  const [reviewSaved, setReviewSaved] = useState<{ bookId: number; nonce: number } | null>(null);
 
   const [isScrolling, setIsScrolling] = useState(false);
   const [isSearchPanelSticky, setIsSearchPanelSticky] = useState(false);
@@ -238,6 +243,27 @@ export default function App() {
     setNewBook({});
   }
 
+  async function openMaintenanceReview(bookId: number, target: ReviewTarget) {
+    try {
+      const book = await getBook(bookId);
+      setSelectedBook(book);
+      setEditData(book);
+      setReviewTarget(target);
+      setMaintenanceReviewActive(true);
+      setEditing(true);
+    } catch (err) {
+      console.error("Failed to open review", err);
+      toast.error("Book could not be opened for review");
+    }
+  }
+
+  async function saveAndContinueReview(reviewIntent = {}) {
+    const updated = await handleSave(reviewIntent);
+    if (updated && maintenanceReviewActive) {
+      setReviewSaved({ bookId: updated.id, nonce: Date.now() });
+    }
+  }
+
   // -------------------
   // 🧱 RENDER
   // -------------------
@@ -292,6 +318,14 @@ export default function App() {
         <SettingsModal
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
+          onReviewBook={openMaintenanceReview}
+          reviewSaved={reviewSaved}
+          onReviewSequenceComplete={() => {
+            setSelectedBook(null);
+            setEditing(false);
+            setMaintenanceReviewActive(false);
+            setReviewTarget(null);
+          }}
         />
 
         <TopPanels
@@ -346,6 +380,7 @@ export default function App() {
             books={books}
             onSelect={(book) => {
               setSelectedBook(book);
+              setReviewTarget(null);
 
               setEditing(false);
             }}
@@ -358,6 +393,7 @@ export default function App() {
             showCovers={showCoversInList}
             onSelect={(book) => {
               setSelectedBook(book);
+              setReviewTarget(null);
 
               setEditing(false);
             }}
@@ -370,9 +406,14 @@ export default function App() {
           editData={editData}
           setEditing={setEditing}
           setEditData={(b) => setEditData(b)}
-          onClose={() => setSelectedBook(null)}
-          onSave={handleSave}
+          onClose={() => {
+            setSelectedBook(null);
+            setMaintenanceReviewActive(false);
+            setReviewTarget(null);
+          }}
+          onSave={saveAndContinueReview}
           onDelete={handleDelete}
+          initialReviewTarget={reviewTarget}
         />
       </div>
     </div>

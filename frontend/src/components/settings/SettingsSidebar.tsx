@@ -2,6 +2,7 @@ type Section =
   | "locations"
   | "categories"
   | "providers"
+  | "maintenance"
   | "backup"
   | "preferences"
   | "users";
@@ -30,6 +31,10 @@ const items: {
   {
     id: "providers",
     label: "Providers",
+  },
+  {
+    id: "maintenance",
+    label: "Maintenance",
   },
   { id: "users", label: "Users" },
 

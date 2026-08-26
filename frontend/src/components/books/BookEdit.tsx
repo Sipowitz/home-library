@@ -34,6 +34,7 @@ import toast from "react-hot-toast";
 import { usePreferencesContext } from "../../context/PreferencesContext";
 
 import { formatDateTime } from "../../utils/dateFormatters";
+import type { ReviewTarget } from "../settings/maintenance/MaintenanceSettings";
 
 type Props = {
   editData: Book | null;
@@ -54,6 +55,8 @@ type Props = {
   onComparisonClose?: () => void;
 
   onComparisonOpenChange?: (open: boolean) => void;
+
+  initialReviewTarget?: ReviewTarget | null;
 
 };
 
@@ -97,7 +100,8 @@ export function BookEdit({
   onSave,
   onDelete,
   onComparisonClose,
-  onComparisonOpenChange
+  onComparisonOpenChange,
+  initialReviewTarget,
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
@@ -110,6 +114,13 @@ export function BookEdit({
   const [providerCoverCandidates, setProviderCoverCandidates] = useState<CoverCandidate[]>([]);
   const [metadataReviewPending, setMetadataReviewPending] = useState(false);
   const [coverReviewPending, setCoverReviewPending] = useState(false);
+
+  useEffect(() => {
+    setMetadataReviewPending(false);
+    setCoverReviewPending(false);
+    setShowMetadataPanel(initialReviewTarget === "metadata");
+    setCoverModalOpen(initialReviewTarget === "covers");
+  }, [editData?.id, initialReviewTarget]);
 
   useEffect(() => {
     onComparisonOpenChange?.(showMetadataPanel);

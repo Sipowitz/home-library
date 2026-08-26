@@ -10,6 +10,7 @@ import { DeleteModal } from "./DeleteModal";
 
 import type { Book } from "../../types/book";
 import type { ReviewIntent } from "../../api/books";
+import type { ReviewTarget } from "../settings/maintenance/MaintenanceSettings";
 
 type Props = {
   book: Book | null;
@@ -26,6 +27,8 @@ type Props = {
 
   onDelete: (id: number) => void;
 
+  initialReviewTarget?: ReviewTarget | null;
+
 };
 
 export function BookPanel({
@@ -36,7 +39,8 @@ export function BookPanel({
   setEditData,
   onClose,
   onSave,
-  onDelete
+  onDelete,
+  initialReviewTarget,
 }: Props) {
   const { locations } = useLocations();
 
@@ -86,7 +90,7 @@ export function BookPanel({
 
       <div
         className="
-          fixed inset-0 z-40
+          fixed inset-0 z-[80]
           bg-black/50
           backdrop-blur-sm
         "
@@ -97,7 +101,7 @@ export function BookPanel({
 
       <div
         className={`
-          fixed top-4 right-4 z-50
+          fixed top-4 right-4 z-[90]
 
           h-[calc(100vh-2rem)]
           w-[900px]
@@ -205,6 +209,7 @@ export function BookPanel({
               onDelete={() => setConfirmDelete(true)}
               onComparisonClose={handleComparisonClose}
               onComparisonOpenChange={setMetadataComparisonOpen}
+              initialReviewTarget={initialReviewTarget}
             />
           )}
         </div>

@@ -285,7 +285,7 @@ export function useBookActions({
 
         setProviderResults([]);
 
-        return;
+        return created;
       } catch (err) {
         console.error("ADD ERROR:", err);
 
@@ -310,6 +310,7 @@ export function useBookActions({
     setEditing(false);
 
     toast.success("Book updated");
+    return updated;
   }
 
   return {

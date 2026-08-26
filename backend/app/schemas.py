@@ -462,6 +462,34 @@ class BookListResponse(BaseModel):
         from_attributes = True
 
 
+class ReviewQueueBookResponse(BaseModel):
+    id: int
+    title: str
+    subtitle: Optional[str] = None
+    author: str
+    isbn: Optional[str] = None
+    cover_url: Optional[str] = None
+    date_added: Optional[datetime] = None
+    metadata_review: ReviewStatusResponse
+    cover_review: ReviewStatusResponse
+
+
+class ReviewQueueSummaryResponse(BaseModel):
+    total: int
+    metadata_never_reviewed: int
+    metadata_changed: int
+    cover_never_reviewed: int
+    cover_changed: int
+
+
+class ReviewQueueResponse(BaseModel):
+    items: List[ReviewQueueBookResponse]
+    total: int
+    skip: int
+    limit: int
+    summary: ReviewQueueSummaryResponse
+
+
 # -------------------
 # 📍 LOCATION SCHEMAS
 # -------------------
