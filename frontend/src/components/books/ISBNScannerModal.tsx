@@ -22,38 +22,45 @@ export function ISBNScannerModal({
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col">
-      <div className="flex justify-between items-center p-4 border-b border-gray-800">
-        <h2 className="text-white text-lg">Scan ISBN</h2>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 sm:p-4">
+      <div
+        className="flex h-full w-full flex-col overflow-hidden bg-gray-950 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[560px] sm:rounded-2xl sm:border sm:border-gray-700"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="isbn-scanner-title"
+      >
+        <div className="flex items-center justify-between border-b border-gray-800 p-4">
+          <h2 id="isbn-scanner-title" className="text-lg text-white">Scan ISBN</h2>
 
-        <div className="flex items-center gap-2">
-          {torchSupported && (
+          <div className="flex items-center gap-2">
+            {torchSupported && (
+              <ActionButton
+                variant="icon"
+                size="icon"
+                onClick={onToggleTorch}
+                aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"}
+              >
+                {torchOn ? <FlashlightOff size={20} /> : <Flashlight size={20} />}
+              </ActionButton>
+            )}
+
             <ActionButton
               variant="icon"
               size="icon"
-              onClick={onToggleTorch}
-              aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"}
+              onClick={onClose}
+              aria-label="Close ISBN scanner"
             >
-              {torchOn ? <FlashlightOff size={20} /> : <Flashlight size={20} />}
+              <X size={20} />
             </ActionButton>
-          )}
-
-          <ActionButton
-            variant="icon"
-            size="icon"
-            onClick={onClose}
-            aria-label="Close ISBN scanner"
-          >
-            <X size={20} />
-          </ActionButton>
+          </div>
         </div>
-      </div>
 
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div
-          id={scannerRegionId}
-          className="w-full max-w-md overflow-hidden rounded-2xl"
-        />
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-black p-3 sm:flex-none sm:p-4">
+          <div
+            id={scannerRegionId}
+            className="w-full overflow-hidden rounded-xl bg-black [&_video]:!h-auto [&_video]:!w-full"
+          />
+        </div>
       </div>
     </div>,
     document.body,
