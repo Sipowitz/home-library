@@ -238,7 +238,7 @@ export default function App() {
       scrollEndTimerRef.current = setTimeout(() => {
         setIsScrolling(false);
         scrollEndTimerRef.current = null;
-      }, 3000);
+      }, 750);
     }
 
     function handleResize() {

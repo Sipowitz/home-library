@@ -74,53 +74,54 @@ export function SearchBar({
           shadow-lg
         "
       >
-        <div className="flex flex-col gap-2">
-          {/* SEARCH */}
-          <input
-            placeholder="Search title or author..."
-            className="
-              px-3 py-2.5
-              bg-gray-800
-              rounded-xl
-              w-full
-              outline-none
-              border border-gray-700
-              focus:border-blue-500
-              focus:ring-2 focus:ring-blue-500/20
-              transition
-            "
-            value={searchInput}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              onSearchChange(e.target.value)
-            }
-          />
+        <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_10rem] lg:items-stretch">
+          <div className="flex min-w-0 flex-col gap-2">
+            {/* SEARCH */}
+            <input
+              placeholder="Search title or author..."
+              className="
+                px-3 py-2.5
+                bg-gray-800
+                rounded-xl
+                w-full
+                outline-none
+                border border-gray-700
+                focus:border-blue-500
+                focus:ring-2 focus:ring-blue-500/20
+                transition
+              "
+              value={searchInput}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                onSearchChange(e.target.value)
+              }
+            />
 
-          {/* FILTERS */}
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch">
+            {/* FILTERS */}
             <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
-            {/* LOCATION */}
-            <div>
-              <LocationTreeSelector
-                locations={locations}
-                selectedLocationId={selectedLocation}
-                onSelect={onLocationChange}
-              />
-            </div>
+              {/* LOCATION */}
+              <div>
+                <LocationTreeSelector
+                  locations={locations}
+                  selectedLocationId={selectedLocation}
+                  onSelect={onLocationChange}
+                />
+              </div>
 
-            {/* CATEGORY */}
-            <div>
-              <CategoryTreeSelector
-                categories={categories}
-                selectedCategoryId={selectedCategory}
-                onSelect={onCategoryChange}
-                showSpecialOptions
-              />
+              {/* CATEGORY */}
+              <div>
+                <CategoryTreeSelector
+                  categories={categories}
+                  selectedCategoryId={selectedCategory}
+                  onSelect={onCategoryChange}
+                  showSpecialOptions
+                />
+              </div>
             </div>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-gray-800 pt-2 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0">
-              <ActionButton variant="secondary" onClick={onCheckLibrary} className="flex-1 sm:flex-none">Check Library</ActionButton>
-              <ActionButton variant="addPrimary" onClick={onAddBook} className="flex-1 sm:flex-none">+ Add Book</ActionButton>
-            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-gray-800 pt-2 lg:grid lg:grid-rows-2 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0">
+            <ActionButton variant="secondary" onClick={onCheckLibrary} className="flex-1 sm:flex-none lg:h-auto lg:w-full">Check Library</ActionButton>
+            <ActionButton variant="addPrimary" onClick={onAddBook} className="flex-1 sm:flex-none lg:h-auto lg:w-full">+ Add Book</ActionButton>
           </div>
         </div>
       </div>
