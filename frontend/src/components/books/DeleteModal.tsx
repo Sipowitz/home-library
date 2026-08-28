@@ -1,3 +1,5 @@
+import { ActionButton } from "../ui/ActionButton";
+
 export function DeleteModal({ open, book, onClose, onDelete }: any) {
   if (!open) return null;
 
@@ -13,16 +15,17 @@ export function DeleteModal({ open, book, onClose, onDelete }: any) {
         </p>
 
         <div className="flex gap-2">
-          <button
+          <ActionButton
             onClick={() => onDelete(book.id)}
-            className="bg-red-600 flex-1 py-2 rounded"
+            variant="dangerStrong"
+            className="flex-1"
           >
             Delete
-          </button>
+          </ActionButton>
 
-          <button onClick={onClose} className="bg-gray-600 flex-1 py-2 rounded">
+          <ActionButton onClick={onClose} variant="tertiary" className="flex-1">
             Cancel
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

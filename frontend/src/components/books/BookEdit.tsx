@@ -6,7 +6,6 @@ import {
   CalendarDays,
   Image,
   Library,
-  RefreshCw,
   Save,
   Trash2,
 } from "lucide-react";
@@ -23,6 +22,7 @@ import { FieldLabel } from "./FieldLabel";
 import { MetadataComparisonPanel } from "./MetadataComparisonPanel";
 
 import { CoverBrowserModal } from "./CoverBrowserModal";
+import { ActionButton } from "../ui/ActionButton";
 
 import { fetchMetadataCandidates } from "../../api/metadataCandidates";
 
@@ -30,11 +30,8 @@ import { getBook, getCoverCandidates, refreshMetadata } from "../../api/books";
 import type { CoverCandidate, CoverRefreshResponse, ReviewIntent } from "../../api/books";
 
 import toast from "react-hot-toast";
-
 import { usePreferencesContext } from "../../context/PreferencesContext";
-
-import { formatDateTime } from "../../utils/dateFormatters";
-import type { ReviewTarget } from "../settings/maintenance/MaintenanceSettings";
+import { formatDate } from "../../utils/dateFormatters";
 
 type Props = {
   editData: Book | null;
@@ -55,8 +52,6 @@ type Props = {
   onComparisonClose?: () => void;
 
   onComparisonOpenChange?: (open: boolean) => void;
-
-  initialReviewTarget?: ReviewTarget | null;
 
 };
 
@@ -101,7 +96,6 @@ export function BookEdit({
   onDelete,
   onComparisonClose,
   onComparisonOpenChange,
-  initialReviewTarget,
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
@@ -118,16 +112,16 @@ export function BookEdit({
   useEffect(() => {
     setMetadataReviewPending(false);
     setCoverReviewPending(false);
-    setShowMetadataPanel(initialReviewTarget === "metadata");
-    setCoverModalOpen(initialReviewTarget === "covers");
-  }, [editData?.id, initialReviewTarget]);
+    setShowMetadataPanel(false);
+    setCoverModalOpen(false);
+  }, [editData?.id]);
+
 
   useEffect(() => {
     onComparisonOpenChange?.(showMetadataPanel);
   }, [onComparisonOpenChange, showMetadataPanel]);
 
   const selectedCategoryId = editData?.category_id ?? null;
-
   const { preferences } = usePreferencesContext();
 
   // -------------------
@@ -193,8 +187,22 @@ export function BookEdit({
       merged.push(cover);
     }
 
+    const activeCoverUrl = editData?.cover_url?.trim();
+
+    if (activeCoverUrl && !seen.has(activeCoverUrl)) {
+      merged.push({
+        provider: "current",
+        label: "Current cover",
+        url: activeCoverUrl,
+      });
+    }
+
     return merged;
-  }, [providerCoverCandidates, editData?.uploaded_cover_candidates_json]);
+  }, [
+    providerCoverCandidates,
+    editData?.uploaded_cover_candidates_json,
+    editData?.cover_url,
+  ]);
 
   // -------------------
   // 🏷️ CATEGORY
@@ -283,7 +291,7 @@ export function BookEdit({
   }
 
   const inputClass =
-    "h-10 w-full rounded-lg border border-white/10 bg-[#091624] px-3 text-sm text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10";
+    "h-9 w-full rounded-lg border border-white/10 bg-[#091624] px-3 text-sm text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10";
 
   const sectionClass =
     "rounded-xl border border-white/[0.08] bg-[#0a1625]/80 p-4 shadow-[0_12px_30px_rgba(0,0,0,0.12)]";
@@ -307,10 +315,9 @@ export function BookEdit({
 
   return (
     <>
-      <div className="relative mx-auto w-full max-w-[1120px]">
-        <div className="grid gap-5">
-          <div className="grid items-start gap-5 md:grid-cols-[180px_minmax(0,1fr)_150px] lg:grid-cols-[190px_minmax(0,1fr)_155px]">
-          <aside className="mx-auto w-full max-w-[190px] md:mx-0">
+      <div className="relative mx-auto w-full">
+        <div className="grid items-start gap-5 px-5 pb-3 pt-7 sm:px-8 md:grid-cols-[176px_minmax(0,1fr)_minmax(0,1fr)] md:px-10 md:pb-2 md:pt-6 lg:px-12">
+          <aside className="mx-auto w-44 md:mx-0">
             <button
               type="button"
               onClick={() => setCoverModalOpen(true)}
@@ -333,11 +340,11 @@ export function BookEdit({
             </button>
           </aside>
 
-            <section className={sectionClass}>
+            <section className={sectionClass + " md:h-[264px]"}>
               <SectionHeading icon={<BookText size={16} />}>
                 Core Details
               </SectionHeading>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div>
                   <FieldLabel>Title</FieldLabel>
                   <input value={editData?.title || ""} onChange={(e) => setEditData({ ...editData!, title: e.target.value })} className={inputClass} />
@@ -353,21 +360,36 @@ export function BookEdit({
               </div>
             </section>
 
-            <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-white/[0.08] bg-[#0a1625]/80 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm">
-              <h3 className="px-1 pb-1 text-[13px] font-semibold tracking-wide text-slate-100">Actions</h3>
-              <button type="button" onClick={() => onSave({ mark_metadata_reviewed: metadataReviewPending, mark_cover_reviewed: coverReviewPending })} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)] transition hover:bg-blue-500"><Save size={15} /> Save Changes</button>
-              <button type="button" onClick={() => setShowMetadataPanel(true)} className="flex h-10 w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-slate-200 transition hover:border-blue-500/25 hover:text-blue-300">Compare Metadata</button>
-              <div className="grid gap-1.5 pt-1 text-[11px]">
-                <div className="flex items-center justify-between gap-2"><span className="text-slate-500">Metadata</span><span className={`rounded-full border px-2 py-0.5 ${reviewTone(editData?.metadata_review, metadataReviewPending)}`}>{reviewLabel(editData?.metadata_review, metadataReviewPending)}</span></div>
-                <div className="flex items-center justify-between gap-2"><span className="text-slate-500">Covers</span><span className={`rounded-full border px-2 py-0.5 ${reviewTone(editData?.cover_review, coverReviewPending)}`}>{reviewLabel(editData?.cover_review, coverReviewPending)}</span></div>
+            <section className={sectionClass + " md:mr-4 md:h-[264px]"}>
+              <SectionHeading icon={<CalendarDays size={16} />}>
+                Publication
+              </SectionHeading>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <FieldLabel>Publisher</FieldLabel>
+                  <input value={editData?.publisher || ""} onChange={(e) => setEditData({ ...editData!, publisher: e.target.value })} className={inputClass} />
+                </div>
+                <div>
+                  <FieldLabel>Year</FieldLabel>
+                  <input value={editData?.year || ""} onChange={(e) => setEditData({ ...editData!, year: Number(e.target.value) })} className={inputClass} />
+                </div>
+                <div>
+                  <FieldLabel>Language</FieldLabel>
+                  <input value={editData?.language || ""} onChange={(e) => setEditData({ ...editData!, language: e.target.value })} className={inputClass} />
+                </div>
+                <div>
+                  <FieldLabel>Page Count</FieldLabel>
+                  <input value={editData?.page_count || ""} onChange={(e) => setEditData({ ...editData!, page_count: Number(e.target.value) })} className={inputClass} />
+                </div>
+                <div>
+                  <FieldLabel>ISBN</FieldLabel>
+                  <input value={editData?.isbn || ""} onChange={(e) => setEditData({ ...editData!, isbn: e.target.value })} className={inputClass} />
+                </div>
               </div>
-              <div className="mt-1 border-t border-white/[0.08] pt-2">
-                <button type="button" onClick={onDelete} className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.08] px-3 text-xs font-medium text-red-300 transition hover:bg-red-500/15"><Trash2 size={15} /> Delete Book</button>
-              </div>
-            </div>
+            </section>
           </div>
 
-          <div className="w-full">
+          <div className="grid gap-4 px-4 pb-4 pt-2 sm:px-5 sm:pb-5 lg:px-6 lg:pb-6">
               <section className={sectionClass}>
                 <SectionHeading icon={<Library size={16} />}>
                   Library
@@ -403,78 +425,42 @@ export function BookEdit({
                 </div>
               </section>
 
-          </div>
+          <section className={sectionClass + " flex min-h-0 flex-col"}>
+            <SectionHeading icon={<BookOpen size={16} />}>
+              Synopsis
+            </SectionHeading>
+            <FieldLabel>Description</FieldLabel>
+            <textarea
+              ref={textareaRef}
+              rows={8}
+              value={editData?.description || ""}
+              onChange={(e) => setEditData({ ...editData!, description: e.target.value })}
+              className="min-h-0 w-full resize-y overflow-y-auto rounded-lg border border-white/10 bg-[#091624] p-3 text-sm leading-relaxed text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10"
+            />
+          </section>
 
-          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(250px,0.9fr)]">
-            <section className={sectionClass + " flex min-h-0 flex-col"}>
-              <SectionHeading icon={<BookOpen size={16} />}>
-                Synopsis
-              </SectionHeading>
-              <FieldLabel>Description</FieldLabel>
-              <textarea
-                ref={textareaRef}
-                rows={8}
-                value={editData?.description || ""}
-                onChange={(e) => setEditData({ ...editData!, description: e.target.value })}
-                className="min-h-0 flex-1 w-full resize-none overflow-y-auto rounded-lg border border-white/10 bg-[#091624] p-3 text-sm leading-relaxed text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10"
-              />
-            </section>
-
-                                      <div className="grid gap-4">
-
-            <section className={sectionClass}>
-              <SectionHeading icon={<CalendarDays size={16} />}>
-                Publication
-              </SectionHeading>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <FieldLabel>Publisher</FieldLabel>
-                  <input value={editData?.publisher || ""} onChange={(e) => setEditData({ ...editData!, publisher: e.target.value })} className={inputClass} />
-                </div>
-                <div>
-                  <FieldLabel>Year</FieldLabel>
-                  <input value={editData?.year || ""} onChange={(e) => setEditData({ ...editData!, year: Number(e.target.value) })} className={inputClass} />
-                </div>
-                <div>
-                  <FieldLabel>Language</FieldLabel>
-                  <input value={editData?.language || ""} onChange={(e) => setEditData({ ...editData!, language: e.target.value })} className={inputClass} />
-                </div>
-                <div>
-                  <FieldLabel>Page Count</FieldLabel>
-                  <input value={editData?.page_count || ""} onChange={(e) => setEditData({ ...editData!, page_count: Number(e.target.value) })} className={inputClass} />
-                </div>
-                <div>
-                  <FieldLabel>ISBN</FieldLabel>
-                  <input value={editData?.isbn || ""} onChange={(e) => setEditData({ ...editData!, isbn: e.target.value })} className={inputClass} />
-                </div>
-              </div>
-            </section>
-
-<section className={sectionClass}>
-                <SectionHeading icon={<RefreshCw size={16} />}>
-                  Metadata
-                </SectionHeading>
-                <dl className="space-y-2.5 text-xs">
-                  <div className="flex items-start justify-between gap-3">
-                    <dt className="text-slate-500">Date added</dt>
-                    <dd className="text-right text-slate-200">
-                      {editData?.date_added ? formatDateTime(editData.date_added, preferences) : "—"}
-                    </dd>
-                  </div>
-                  <div className="flex items-start justify-between gap-3">
-                    <dt className="text-slate-500">Last refresh</dt>
-                    <dd className="text-right text-slate-200">
-                      {editData?.last_metadata_refresh_at
-                        ? formatDateTime(editData.last_metadata_refresh_at, preferences)
-                        : "Never"}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
+          <section className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-white/[0.08] bg-[#0a1625]/65 px-4 py-3 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.1)]">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="font-medium text-slate-300">Metadata</span>
+              <span className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] ${reviewTone(editData?.metadata_review, metadataReviewPending)}`}>{reviewLabel(editData?.metadata_review, metadataReviewPending)}</span>
             </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="font-medium text-slate-300">Covers</span>
+              <span className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] ${reviewTone(editData?.cover_review, coverReviewPending)}`}>{reviewLabel(editData?.cover_review, coverReviewPending)}</span>
+            </div>
+            <div className="text-[11px] text-slate-500">
+              {editData?.last_metadata_refresh_at
+                ? `Refreshed ${formatDate(editData.last_metadata_refresh_at, preferences)}`
+                : "Never refreshed"}
+            </div>
+            <ActionButton variant="secondary" size="sm" onClick={() => setShowMetadataPanel(true)} className="sm:ml-auto">Compare Metadata</ActionButton>
+          </section>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-white/[0.08] pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <ActionButton variant="danger" onClick={onDelete}><Trash2 size={15} /> Delete Book</ActionButton>
+            <ActionButton variant="primary" onClick={() => onSave({ mark_metadata_reviewed: metadataReviewPending, mark_cover_reviewed: coverReviewPending })}><Save size={15} /> Save Changes</ActionButton>
           </div>
         </div>
-
       </div>
 
       {/* ===================================== */}
@@ -516,7 +502,10 @@ export function BookEdit({
           setProviderCoverCandidates(response.candidates);
           setEditData({ ...editData!, cover_review: response.cover_review, last_cover_refresh_at: response.cover_review.last_refresh_at });
         }}
-        onMarkReviewed={() => { setCoverReviewPending(true); setCoverModalOpen(false); }}
+        onMarkReviewed={() => {
+          setCoverReviewPending(true);
+          setCoverModalOpen(false);
+        }}
         onCoverUploaded={(cover) => {
           setEditData({
             ...editData!,

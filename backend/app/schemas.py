@@ -462,6 +462,19 @@ class BookListResponse(BaseModel):
         from_attributes = True
 
 
+class LibraryCheckMatch(BaseModel):
+    classification: Literal["exact", "likely", "possible"]
+    score: float
+    book: BookResponse
+
+
+class LibraryCheckResponse(BaseModel):
+    normalized_isbn: Optional[str] = None
+    exact_matches: List[LibraryCheckMatch] = Field(default_factory=list)
+    likely_matches: List[LibraryCheckMatch] = Field(default_factory=list)
+    possible_matches: List[LibraryCheckMatch] = Field(default_factory=list)
+
+
 class ReviewQueueBookResponse(BaseModel):
     id: int
     title: str

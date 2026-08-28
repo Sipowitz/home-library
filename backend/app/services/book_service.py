@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, asc, desc, func
+from difflib import SequenceMatcher
+import re
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -150,6 +152,75 @@ def get_book(db: Session, user_id: int, book_id: int):
         .filter(Book.owner_id == user_id)
         .first()
     )
+
+
+def _identity_text(value: str | None) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", (value or "").casefold()))
+
+
+def _text_similarity(query: str | None, value: str | None) -> float:
+    query_text = _identity_text(query)
+    value_text = _identity_text(value)
+    if not query_text:
+        return 0.0
+    if query_text == value_text:
+        return 1.0
+    if query_text in value_text or value_text in query_text:
+        return 0.88
+    return SequenceMatcher(None, query_text, value_text).ratio()
+
+
+def check_library(
+    db: Session,
+    user_id: int,
+    isbn: str | None = None,
+    title: str | None = None,
+    author: str | None = None,
+):
+    """Return a small, ranked and strictly owner-scoped ownership check."""
+    query = db.query(Book).filter(Book.owner_id == user_id)
+    filters = []
+    if isbn:
+        filters.append(Book.isbn == isbn)
+    if title:
+        filters.append(Book.title.ilike(f"%{title.strip()}%"))
+    if author:
+        filters.append(Book.author.ilike(f"%{author.strip()}%"))
+
+    # Exact ISBNs must always be included. For fuzzy spelling, inspect a bounded
+    # owner-only candidate set instead of transferring the whole library.
+    direct = query.filter(or_(*filters)).limit(50).all() if filters else []
+    candidates = direct
+    if (title or author) and len(candidates) < 50:
+        seen = {book.id for book in candidates}
+        for book in query.order_by(Book.id.desc()).limit(250).all():
+            if book.id not in seen:
+                candidates.append(book)
+
+    matches = []
+    for book in candidates:
+        if isbn and book.isbn == isbn:
+            matches.append({"classification": "exact", "score": 1.0, "book": book})
+            continue
+
+        title_score = _text_similarity(title, book.title) if title else 0.0
+        author_score = _text_similarity(author, book.author) if author else 0.0
+        if title and author and title_score >= 0.88 and author_score >= 0.88:
+            matches.append({
+                "classification": "likely",
+                "score": round((title_score + author_score) / 2, 3),
+                "book": book,
+            })
+            continue
+
+        provided_scores = [score for supplied, score in ((title, title_score), (author, author_score)) if supplied]
+        score = sum(provided_scores) / len(provided_scores) if provided_scores else 0.0
+        if score >= 0.5 or title_score >= 0.68 or author_score >= 0.68:
+            matches.append({"classification": "possible", "score": round(score, 3), "book": book})
+
+    priority = {"exact": 0, "likely": 1, "possible": 2}
+    matches.sort(key=lambda item: (priority[item["classification"]], -item["score"], item["book"].id))
+    return matches[:20]
 
 
 def create_book(db: Session, user_id: int, data: dict):

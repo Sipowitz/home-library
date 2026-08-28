@@ -26,6 +26,8 @@ type Params = {
     book: any;
 
     provider_results: ProviderResult[];
+
+    allow_duplicate?: boolean;
   }) => Promise<Book>;
 
   removeBook: (id: number) => Promise<void>;
@@ -175,8 +177,8 @@ export function useBookActions({
   // ➕ OPEN DRAFT BOOK
   // -------------------
 
-  async function handleAddBook() {
-    if (!newBook.title || !newBook.author) return;
+  function draftFromNewBook(): Book | null {
+    if (!newBook.title || !newBook.author) return null;
 
     const draftBook: Book = {
       id: 0,
@@ -210,13 +212,49 @@ export function useBookActions({
       date_added: new Date().toISOString(),
     };
 
-    setSelectedBook(draftBook);
+    return draftBook;
+  }
 
+  async function handleAddBook() {
+    const draftBook = draftFromNewBook();
+    if (!draftBook) return;
+
+    setSelectedBook(draftBook);
     setEditData(draftBook);
 
     setEditing(true);
 
     setNewBook({});
+  }
+
+  async function handleQuickAdd(allowDuplicate = false) {
+    const draftBook = draftFromNewBook();
+    if (!draftBook) return;
+    if (!draftBook.isbn) throw new Error("Search for an ISBN match before adding to the library");
+    const created = await createBookFromISBNMatch(draftBook, allowDuplicate);
+    setProviderResults([]);
+    resetAddBook();
+    toast.success("Book added to library");
+    return created;
+  }
+
+  async function handleAddAndReview(allowDuplicate = false) {
+    const draftBook = draftFromNewBook();
+    if (!draftBook) return;
+    if (!draftBook.isbn) throw new Error("Search for an ISBN match before adding to the library");
+    const created = await createBookFromISBNMatch(draftBook, allowDuplicate);
+    setProviderResults([]);
+    return created;
+  }
+
+  async function createBookFromISBNMatch(draftBook: Book, allowDuplicate = false) {
+    const { id: _id, date_added: _dateAdded, ...book } = draftBook;
+    return addBookFromISBN({
+      book,
+      provider_results: providerResults,
+
+      allow_duplicate: allowDuplicate,
+    });
   }
 
   // -------------------
@@ -319,6 +357,8 @@ export function useBookActions({
     handleAddBookISBNChange,
     handleSearch,
     handleAddBook,
+    handleQuickAdd,
+    handleAddAndReview,
     handleDelete,
     handleSave,
   };

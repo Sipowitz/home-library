@@ -5,6 +5,7 @@ import type { Category } from "../../types/category";
 
 import { LocationTreeSelector } from "../books/LocationTreeSelector";
 import { CategoryTreeSelector } from "../books/CategoryTreeSelector";
+import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
   searchInput: string;
@@ -19,6 +20,8 @@ type Props = {
 
   locations: Location[];
   categories: Category[];
+  onCheckLibrary: () => void;
+  onAddBook: () => void;
 };
 
 export function SearchBar({
@@ -31,6 +34,8 @@ export function SearchBar({
   onCategoryChange,
   locations,
   categories,
+  onCheckLibrary,
+  onAddBook,
 }: Props) {
   const [hasFocusWithin, setHasFocusWithin] = useState(false);
   const [isPointerInteracting, setIsPointerInteracting] = useState(false);
@@ -91,7 +96,8 @@ export function SearchBar({
           />
 
           {/* FILTERS */}
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch">
+            <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
             {/* LOCATION */}
             <div>
               <LocationTreeSelector
@@ -109,6 +115,11 @@ export function SearchBar({
                 onSelect={onCategoryChange}
                 showSpecialOptions
               />
+            </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-800 pt-2 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0">
+              <ActionButton variant="secondary" onClick={onCheckLibrary} className="flex-1 sm:flex-none">Check Library</ActionButton>
+              <ActionButton variant="addPrimary" onClick={onAddBook} className="flex-1 sm:flex-none">+ Add Book</ActionButton>
             </div>
           </div>
         </div>

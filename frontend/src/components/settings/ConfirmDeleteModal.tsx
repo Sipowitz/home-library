@@ -1,5 +1,7 @@
 // frontend/src/components/settings/ConfirmDeleteModal.tsx
 
+import { ActionButton } from "../ui/ActionButton";
+
 type Props = {
   open: boolean;
   title: string;
@@ -53,23 +55,21 @@ export function ConfirmDeleteModal({
         )}
 
         <div className="flex gap-3">
-          <button
+          <ActionButton
             onClick={onCancel}
-            className="flex-1 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition"
+            variant="tertiary"
+            className="flex-1"
           >
             {cancelText}
-          </button>
+          </ActionButton>
 
-          <button
+          <ActionButton
             onClick={onConfirm}
-            className={`flex-1 py-2 rounded-lg transition ${
-              danger
-                ? "bg-red-600 hover:bg-red-500"
-                : "bg-blue-600 hover:bg-blue-500"
-            }`}
+            variant={danger ? "dangerStrong" : "primary"}
+            className="flex-1"
           >
             {confirmText}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

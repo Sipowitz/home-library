@@ -1,3 +1,5 @@
+import { ActionButton } from "../../ui/ActionButton";
+
 export type BackupValidationSummary = {
   books: number;
   categories: number;
@@ -38,10 +40,10 @@ export function ConfirmRestoreModal({ open, restoring, file, summary, onConfirm,
           {rows.map(([label, value]) => <div key={label} className="flex justify-between gap-4"><dt className="text-gray-400">{label}</dt><dd className="text-gray-100 text-right">{value}</dd></div>)}
         </dl>
         <div className="flex gap-2">
-          <button disabled={restoring} onClick={onConfirm} className={`flex-1 py-2 rounded ${restoring ? "bg-yellow-800 cursor-not-allowed" : "bg-yellow-600 hover:bg-yellow-700"}`}>
+          <ActionButton variant="warningStrong" disabled={restoring} onClick={onConfirm} className="flex-1">
             {restoring ? "Restoring..." : "Replace library"}
-          </button>
-          <button disabled={restoring} onClick={onCancel} className="bg-gray-600 flex-1 py-2 rounded disabled:opacity-60">Cancel</button>
+          </ActionButton>
+          <ActionButton variant="tertiary" disabled={restoring} onClick={onCancel} className="flex-1">Cancel</ActionButton>
         </div>
       </div>
     </div>

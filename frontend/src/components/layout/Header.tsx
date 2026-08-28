@@ -1,4 +1,5 @@
 import { Book as BookIcon, LogOut, Settings } from "lucide-react";
+import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
   onOpenSettings: () => void;
@@ -13,12 +14,12 @@ export function Header({ onOpenSettings, onLogout }: Props) {
       </h1>
 
       <div className="flex gap-3">
-        <button onClick={onOpenSettings}>
+        <ActionButton variant="icon" size="icon" onClick={onOpenSettings}>
           <Settings size={20} />
-        </button>
-        <button onClick={onLogout}>
-          <LogOut />
-        </button>
+        </ActionButton>
+        <ActionButton variant="icon" size="icon" onClick={onLogout}>
+          <LogOut size={20} />
+        </ActionButton>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { Flashlight, FlashlightOff, X } from "lucide-react";
+import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
   open: boolean;
@@ -26,20 +27,24 @@ export function ISBNScannerModal({
 
         <div className="flex items-center gap-2">
           {torchSupported && (
-            <button
+            <ActionButton
+              variant="icon"
+              size="icon"
               onClick={onToggleTorch}
-              className="text-white p-2 rounded-lg hover:bg-gray-800"
+              aria-label={torchOn ? "Turn flashlight off" : "Turn flashlight on"}
             >
               {torchOn ? <FlashlightOff size={20} /> : <Flashlight size={20} />}
-            </button>
+            </ActionButton>
           )}
 
-          <button
+          <ActionButton
+            variant="icon"
+            size="icon"
             onClick={onClose}
-            className="text-white p-2 rounded-lg hover:bg-gray-800"
+            aria-label="Close ISBN scanner"
           >
             <X size={20} />
-          </button>
+          </ActionButton>
         </div>
       </div>
 

@@ -189,6 +189,8 @@ export function useBooks() {
     book: BookCreateInput;
 
     provider_results: ProviderResult[];
+
+    allow_duplicate?: boolean;
   }) {
     const data = await createBookFromISBN({
       book: {
@@ -200,6 +202,8 @@ export function useBooks() {
       },
 
       provider_results: payload.provider_results,
+
+      allow_duplicate: payload.allow_duplicate,
     });
 
     await loadBooks(true);

@@ -413,6 +413,28 @@ def get_metadata_snapshot(
 # 📖 GET SINGLE BOOK
 # -------------------
 
+@router.get("/check-library", response_model=schemas.LibraryCheckResponse)
+def check_library(
+    isbn: str | None = Query(None, max_length=32),
+    title: str | None = Query(None, max_length=500),
+    author: str | None = Query(None, max_length=500),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    isbn = normalize_isbn(isbn) if isbn and isbn.strip() else None
+    title = title.strip() if title and title.strip() else None
+    author = author.strip() if author and author.strip() else None
+    if not any((isbn, title, author)):
+        raise HTTPException(status_code=400, detail="Provide an ISBN, title, or author")
+
+    matches = book_service.check_library(db, current_user.id, isbn, title, author)
+    return {
+        "normalized_isbn": isbn,
+        "exact_matches": [match for match in matches if match["classification"] == "exact"],
+        "likely_matches": [match for match in matches if match["classification"] == "likely"],
+        "possible_matches": [match for match in matches if match["classification"] == "possible"],
+    }
+
 @router.get(
     "/{book_id}",
     response_model=schemas.BookResponse,

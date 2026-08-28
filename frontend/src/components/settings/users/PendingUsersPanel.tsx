@@ -4,6 +4,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 
 import client from "../../../api/client";
+import { ActionButton } from "../../ui/ActionButton";
 
 type PendingUser = { id: number; username: string; email: string };
 type UserAction = "approve" | "reject";
@@ -81,12 +82,12 @@ export function PendingUsersPanel() {
           <div key={user.id} className="flex items-center justify-between bg-gray-900/60 border border-gray-800 rounded-xl p-4">
             <div><div className="font-medium">{user.username}</div><div className="text-sm text-gray-400">{user.email}</div></div>
             <div className="flex gap-2">
-              <button type="button" disabled={approving} className="px-3 py-2 rounded bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => runAction(user.id, "approve")}>
+              <ActionButton variant="primary" size="sm" disabled={approving} onClick={() => runAction(user.id, "approve")}>
                 {approving ? "Approving..." : "Approve"}
-              </button>
-              <button type="button" disabled={rejecting} className="px-3 py-2 rounded bg-red-800 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => runAction(user.id, "reject")}>
+              </ActionButton>
+              <ActionButton variant="danger" size="sm" disabled={rejecting} onClick={() => runAction(user.id, "reject")}>
                 {rejecting ? "Rejecting..." : "Reject"}
-              </button>
+              </ActionButton>
             </div>
           </div>
         );

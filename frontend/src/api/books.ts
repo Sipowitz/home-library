@@ -72,6 +72,8 @@ type CreateBookFromISBNPayload = {
   book: BookCreateInput;
 
   provider_results: ProviderResult[];
+
+  allow_duplicate?: boolean;
 };
 
 export type CoverCandidate = {
@@ -85,6 +87,19 @@ export type CoverCandidate = {
 export type ReviewIntent = {
   mark_metadata_reviewed?: boolean;
   mark_cover_reviewed?: boolean;
+};
+
+export type LibraryCheckMatch = {
+  classification: "exact" | "likely" | "possible";
+  score: number;
+  book: Book;
+};
+
+export type LibraryCheckResponse = {
+  normalized_isbn?: string | null;
+  exact_matches: LibraryCheckMatch[];
+  likely_matches: LibraryCheckMatch[];
+  possible_matches: LibraryCheckMatch[];
 };
 
 export type CoverCandidatesResponse = {
@@ -134,6 +149,11 @@ export async function getBooks(
 export async function getBook(id: number): Promise<Book> {
   const res = await client.get(`/books/${id}`);
 
+  return res.data;
+}
+
+export async function checkLibrary(params: { isbn?: string; title?: string; author?: string }): Promise<LibraryCheckResponse> {
+  const res = await client.get("/books/check-library", { params });
   return res.data;
 }
 

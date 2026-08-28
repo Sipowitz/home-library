@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { useProviderSettings } from "../../../hooks/useProviderSettings";
+import { ActionButton } from "../../ui/ActionButton";
 
 export function ProviderSettingsPanel() {
   const { providers, loading, refreshProviders, updateProvider } =
@@ -160,8 +161,10 @@ export function ProviderSettingsPanel() {
                 "
               />
 
-              <button
+              <ActionButton
                 type="button"
+                variant="icon"
+                size="iconSm"
                 onClick={() =>
                   setShowApiKeys((prev) => ({
                     ...prev,
@@ -170,11 +173,9 @@ export function ProviderSettingsPanel() {
                 }
                 className="
                   absolute
-                  right-3
+                  right-1
                   top-1/2
                   -translate-y-1/2
-                  text-gray-400
-                  hover:text-white
                 "
               >
                 {showApiKeys[provider.id] ? (
@@ -182,16 +183,16 @@ export function ProviderSettingsPanel() {
                 ) : (
                   <Eye size={18} />
                 )}
-              </button>
+              </ActionButton>
             </div>
             <div className="flex gap-2 mt-2">
-              <button type="button" className="px-3 py-2 rounded bg-gray-800" onClick={async () => {
+              <ActionButton variant="secondary" size="sm" onClick={async () => {
                 const value = apiKeyValues[provider.id]?.trim();
                 if (!value) return;
                 await updateProvider(provider.id, { api_key: value });
                 setApiKeyValues((prev) => ({ ...prev, [provider.id]: "" }));
-              }}>Save key</button>
-              {provider.has_api_key && <button type="button" className="px-3 py-2 rounded bg-red-900" onClick={() => updateProvider(provider.id, { clear_api_key: true })}>Remove key</button>}
+              }}>Save key</ActionButton>
+              {provider.has_api_key && <ActionButton variant="danger" size="sm" onClick={() => updateProvider(provider.id, { clear_api_key: true })}>Remove key</ActionButton>}
             </div>
           </div>
         </div>

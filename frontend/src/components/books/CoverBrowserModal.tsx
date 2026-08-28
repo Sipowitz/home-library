@@ -3,6 +3,7 @@ import { RefreshCw, X } from "lucide-react";
 import { refreshCovers, uploadCover } from "../../api/books";
 import type { CoverCandidate, CoverRefreshResponse } from "../../api/books";
 import toast from "react-hot-toast";
+import { ActionButton } from "../ui/ActionButton";
 
 const MAX_COVER_UPLOAD_BYTES = 15 * 1024 * 1024;
 
@@ -80,12 +81,12 @@ export function CoverBrowserModal({
             {title && <p className="mt-1 truncate text-sm text-gray-400">{title}</p>}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
-            <button type="button" onClick={handleRefresh} disabled={!bookId || isRefreshing} className="flex h-10 items-center gap-2 rounded-lg border border-violet-500/25 bg-violet-500/10 px-3 text-sm text-violet-200 transition hover:bg-violet-500/20 disabled:opacity-50">
+            <ActionButton variant="utility" onClick={handleRefresh} disabled={!bookId || isRefreshing} className="px-3">
               <RefreshCw size={15} className={isRefreshing ? "animate-spin" : ""} />
               {isRefreshing ? "Refreshing..." : "Refresh Covers"}
-            </button>
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="h-10 rounded-lg bg-blue-600 px-3 text-sm transition hover:bg-blue-500">Upload Cover</button>
-            <button type="button" onClick={onClose} aria-label="Close cover browser" className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-800 transition hover:bg-gray-700"><X size={18} /></button>
+            </ActionButton>
+            <ActionButton variant="secondary" onClick={() => fileInputRef.current?.click()} className="px-3">Upload Cover</ActionButton>
+            <ActionButton variant="icon" size="icon" onClick={onClose} aria-label="Close cover browser"><X size={18} /></ActionButton>
           </div>
         </div>
 
@@ -117,9 +118,9 @@ export function CoverBrowserModal({
         </div>
 
         <div className="flex justify-end border-t border-gray-800 bg-gray-900 px-4 py-4 sm:px-6">
-          <button type="button" onClick={onMarkReviewed} className="min-h-10 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-500">
+          <ActionButton variant="primary" onClick={onMarkReviewed} className="px-5 font-semibold">
             Done — Mark Cover Reviewed
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

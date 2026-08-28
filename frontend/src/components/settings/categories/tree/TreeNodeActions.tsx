@@ -1,5 +1,6 @@
 import { MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { ActionButton } from "../../../ui/ActionButton";
 
 type Props = {
   label?: string;
@@ -11,7 +12,7 @@ type Props = {
   onDelete: () => void;
 };
 
-function ActionButton({
+function TreeIconButton({
   label,
   onClick,
   children,
@@ -23,33 +24,18 @@ function ActionButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
+    <ActionButton
+      variant="icon"
+      size="iconSm"
       aria-label={label}
       onClick={(e) => {
         e.stopPropagation();
 
         onClick();
       }}
-      className="
-        h-8 w-8
-        rounded-lg
-
-        bg-black/40
-        hover:bg-black/70
-
-        border border-white/10
-
-        flex items-center justify-center
-
-        text-gray-300
-        hover:text-white
-
-        transition
-      "
     >
       {children}
-    </button>
+    </ActionButton>
   );
 }
 
@@ -69,18 +55,18 @@ export function TreeNodeActions({
   return (
     <>
       <div className="relative shrink-0 lg:hidden">
-        <button
-          type="button"
+        <ActionButton
+          variant="icon"
+          size="icon"
           aria-label={`Actions for ${label}`}
           aria-expanded={mobileOpen}
           onClick={(event) => {
             event.stopPropagation();
             setMobileOpen((open) => !open);
           }}
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-black/40 text-gray-200"
         >
           <MoreVertical size={20} aria-hidden="true" />
-        </button>
+        </ActionButton>
 
         {mobileOpen && (
           <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-xl border border-gray-700 bg-gray-950 shadow-xl">
@@ -123,17 +109,17 @@ export function TreeNodeActions({
           lg:flex items-center gap-2
         "
       >
-        <ActionButton label={`Add child to ${label}`} onClick={onAdd}>
+        <TreeIconButton label={`Add child to ${label}`} onClick={onAdd}>
           <Plus size={15} />
-        </ActionButton>
+        </TreeIconButton>
 
-        <ActionButton label={`Rename ${label}`} onClick={onEdit}>
+        <TreeIconButton label={`Rename ${label}`} onClick={onEdit}>
           <Pencil size={15} />
-        </ActionButton>
+        </TreeIconButton>
 
-        <ActionButton label={`Delete ${label}`} onClick={onDelete}>
+        <TreeIconButton label={`Delete ${label}`} onClick={onDelete}>
           <Trash2 size={15} />
-        </ActionButton>
+        </TreeIconButton>
       </div>
     </>
   );

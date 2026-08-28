@@ -7,6 +7,7 @@ import { fetchMetadataCandidates } from "../../api/metadataCandidates";
 import type { ProviderResult } from "../../types/provider";
 
 import { resolveCoverUrl } from "./BookView";
+import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
   bookId: number;
@@ -179,14 +180,6 @@ export function MetadataComparisonPanel({
     return <div className="p-6 text-sm text-red-400">{error}</div>;
   }
 
-  if (!successfulProviders.length) {
-    return (
-      <div className="p-6 text-sm text-gray-400">
-        No provider metadata found.
-      </div>
-    );
-  }
-
   return (
     <div
       className="
@@ -249,30 +242,35 @@ export function MetadataComparisonPanel({
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <button
+            <ActionButton
               type="button"
+              variant="utility"
               onClick={handleRefresh}
               disabled={!onRefreshMetadata || isRefreshing}
-              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-violet-500/25 bg-violet-500/10 px-4 text-sm font-medium text-violet-200 transition hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw size={15} className={isRefreshing ? "animate-spin" : ""} />
               {isRefreshing ? "Refreshing..." : "Refresh Metadata"}
-            </button>
-            <button
+            </ActionButton>
+            <ActionButton
               type="button"
+              variant="icon"
+              size="icon"
               onClick={onClose}
               aria-label="Close metadata comparison"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/40 text-gray-200 backdrop-blur-md transition hover:bg-black/50 hover:text-white"
             >
               <X size={20} />
-            </button>
+            </ActionButton>
           </div>
         </div>
 
         {/* CONTENT */}
 
         <div className="relative z-20 space-y-10 p-6">
-          {FIELDS.map((field) => {
+          {!successfulProviders.length ? (
+            <p className="text-sm text-gray-400">
+              No provider metadata found. You can still acknowledge this review.
+            </p>
+          ) : FIELDS.map((field) => {
             const values = successfulProviders.map((provider) => ({
               provider: provider.provider,
 
@@ -348,39 +346,20 @@ export function MetadataComparisonPanel({
                         {/* ACTION */}
 
                         <div className="flex justify-end">
-                          <button
+                          <ActionButton
                             type="button"
+                            variant="secondary"
+                            size="sm"
                             onClick={() =>
                               setSelections((current) => ({
                                 ...current,
                                 [field.key]: entry.value,
                               }))
                             }
-                            className={`
-                              rounded-xl
-                              px-3 py-2
-                              text-sm
-                              font-medium
-                              transition
-                              ${
-                                selected
-                                  ? `
-                                    bg-blue-500/20
-                                    text-blue-300
-                                    border border-blue-500/30
-                                  `
-                                  : `
-                                    border border-gray-700
-                                    text-gray-400
-                                    hover:border-blue-500/30
-                                    hover:bg-blue-500/10
-                                    hover:text-blue-300
-                                  `
-                              }
-                            `}
+                            className={selected ? "border-blue-400/60 bg-blue-500/20 text-blue-200 ring-1 ring-blue-500/25" : "border-gray-700 bg-transparent text-gray-400"}
                           >
                             {selected ? "Selected" : "Select"}
-                          </button>
+                          </ActionButton>
                         </div>
                       </div>
                     );
@@ -394,14 +373,15 @@ export function MetadataComparisonPanel({
         </div>
 
         <div className="sticky bottom-0 z-20 flex justify-end border-t border-white/10 bg-[#071421]/90 px-6 py-4 backdrop-blur">
-          <button
+          <ActionButton
             type="button"
+            variant="primary"
             onClick={handleApply}
             disabled={!onApplySelectedMetadata || isApplying}
-            className="h-10 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.22)] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="px-5 font-semibold"
           >
             {isApplying ? "Applying..." : "Done — Mark Metadata Reviewed"}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

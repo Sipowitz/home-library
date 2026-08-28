@@ -31,14 +31,15 @@ import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 import { PendingUsersPanel } from "./users/PendingUsersPanel";
 import { useAuth } from "../../context/AuthContext";
 import { MaintenanceSettings, type ReviewTarget } from "./maintenance/MaintenanceSettings";
+import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
   isOpen: boolean;
 
   onClose: () => void;
-  onReviewBook: (bookId: number, target: ReviewTarget) => void;
+  onReviewBook: (bookId: number, target: ReviewTarget, guided?: boolean, followUp?: ReviewTarget | null) => void;
   onReviewSequenceComplete: () => void;
-  reviewSaved?: { bookId: number; nonce: number } | null;
+  reviewSaved?: { bookId: number; nonce: number; guided?: boolean } | null;
 };
 
 type Section =
@@ -258,16 +259,13 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
             />
 
             <div className="mt-2 lg:mt-auto lg:pt-4">
-              <button
+              <ActionButton
                 onClick={onClose}
-                className="
-                  w-full py-2 rounded-lg
-                  bg-gray-800 hover:bg-gray-700
-                  transition
-                "
+                variant="tertiary"
+                className="w-full"
               >
                 Close
-              </button>
+              </ActionButton>
             </div>
           </div>
 

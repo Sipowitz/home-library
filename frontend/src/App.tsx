@@ -16,10 +16,14 @@ import { ViewModeSwitcher } from "./components/books/views/ViewModeSwitcher";
 
 import { SettingsModal } from "./components/settings/SettingsModal";
 import { BookPanel } from "./components/books/BookPanel";
+import { MaintenanceReviewSession } from "./components/settings/maintenance/MaintenanceReviewSession";
 
 import { SearchBar } from "./components/search/SearchBar";
 import { TopPanels } from "./components/layout/TopPanels";
 import { Header } from "./components/layout/Header";
+import { ActionButton } from "./components/ui/ActionButton";
+import { AddBookDialog } from "./components/books/AddBookDialog";
+import { CheckLibraryDialog } from "./components/books/CheckLibraryDialog";
 
 import toast from "react-hot-toast";
 
@@ -27,6 +31,7 @@ import type { Book, BookDraft } from "./types/book";
 import type { LibraryViewMode } from "./types/preferences";
 import { getBook } from "./api/books";
 import type { ReviewTarget } from "./components/settings/maintenance/MaintenanceSettings";
+import type { ReviewIntent } from "./api/books";
 
 export default function App() {
   const {
@@ -72,9 +77,16 @@ export default function App() {
   const [editData, setEditData] = useState<Book | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
-  const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
-  const [maintenanceReviewActive, setMaintenanceReviewActive] = useState(false);
-  const [reviewSaved, setReviewSaved] = useState<{ bookId: number; nonce: number } | null>(null);
+  const [showAddBook, setShowAddBook] = useState(false);
+  const [showCheckLibrary, setShowCheckLibrary] = useState(false);
+  const [reviewSession, setReviewSession] = useState<{
+    book: Book;
+    target: ReviewTarget;
+    guided: boolean;
+    followUp: ReviewTarget | null;
+    origin: "maintenance_direct" | "maintenance_guided" | "add_review";
+  } | null>(null);
+  const [reviewSaved, setReviewSaved] = useState<{ bookId: number; nonce: number; guided?: boolean } | null>(null);
 
   const [isScrolling, setIsScrolling] = useState(false);
   const [isSearchPanelSticky, setIsSearchPanelSticky] = useState(false);
@@ -86,6 +98,8 @@ export default function App() {
     isFetching,
     handleSearch,
     handleAddBook,
+    handleQuickAdd,
+    handleAddAndReview,
     handleDelete,
     handleSave,
     resetAddBook,
@@ -103,6 +117,39 @@ export default function App() {
       setEditing,
       editData,
     });
+
+  async function handleAddAndReviewFlow(allowDuplicate = false) {
+    const created = await handleAddAndReview(allowDuplicate);
+    if (!created) return;
+    const metadataNeedsReview = created.metadata_review?.state !== "current";
+    const coversNeedReview = created.cover_review?.state !== "current";
+    if (!metadataNeedsReview && !coversNeedReview) {
+      resetAddBook();
+      toast.success("Book added to library");
+      return;
+    }
+    setReviewSession({
+      book: created,
+      target: metadataNeedsReview ? "metadata" : "covers",
+      guided: metadataNeedsReview && coversNeedReview,
+      followUp: metadataNeedsReview && coversNeedReview ? "covers" : null,
+      origin: "add_review",
+    });
+  }
+
+  async function handlePrimaryAdd(allowDuplicate = false) {
+    if (newBook.isbn?.trim()) {
+      await handleQuickAdd(allowDuplicate);
+    } else {
+      await handleAddBook();
+      setShowAddBook(false);
+    }
+  }
+
+  function closeAddBook() {
+    resetAddBook();
+    setShowAddBook(false);
+  }
 
   // ================= VIEW MODE =================
 
@@ -243,25 +290,29 @@ export default function App() {
     setNewBook({});
   }
 
-  async function openMaintenanceReview(bookId: number, target: ReviewTarget) {
+  async function openMaintenanceReview(bookId: number, target: ReviewTarget, guided = false, followUp: ReviewTarget | null = null) {
     try {
       const book = await getBook(bookId);
-      setSelectedBook(book);
-      setEditData(book);
-      setReviewTarget(target);
-      setMaintenanceReviewActive(true);
-      setEditing(true);
+      setSelectedBook(null);
+      setEditData(null);
+      setEditing(false);
+      setReviewSession({
+        book,
+        target,
+        guided,
+        followUp,
+        origin: guided ? "maintenance_guided" : "maintenance_direct",
+      });
     } catch (err) {
       console.error("Failed to open review", err);
       toast.error("Book could not be opened for review");
     }
   }
 
-  async function saveAndContinueReview(reviewIntent = {}) {
-    const updated = await handleSave(reviewIntent);
-    if (updated && maintenanceReviewActive) {
-      setReviewSaved({ bookId: updated.id, nonce: Date.now() });
-    }
+  async function saveReviewDraft(book: Book, reviewIntent: ReviewIntent) {
+    const updated = await saveBook(book, reviewIntent);
+    toast.success("Book updated");
+    return updated;
   }
 
   // -------------------
@@ -289,12 +340,13 @@ export default function App() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button
+          <ActionButton
             onClick={handleLogin}
-            className="bg-blue-600 w-full py-2 rounded"
+            variant="primary"
+            className="w-full"
           >
             Login
-          </button>
+          </ActionButton>
         </div>
       </div>
     );
@@ -323,20 +375,11 @@ export default function App() {
           onReviewSequenceComplete={() => {
             setSelectedBook(null);
             setEditing(false);
-            setMaintenanceReviewActive(false);
-            setReviewTarget(null);
+            setReviewSession(null);
           }}
         />
 
-        <TopPanels
-          newBook={newBook}
-          setNewBook={setNewBook}
-          onSearch={handleSearch}
-          onAdd={handleAddBook}
-          onReset={resetAddBook}
-          onISBNChange={handleAddBookISBNChange}
-          isFetching={isFetching}
-        />
+        <TopPanels />
 
         {/* SEARCH + FILTERS */}
         <div ref={searchPanelRef} className="sticky top-4 z-40 mt-4">
@@ -353,6 +396,8 @@ export default function App() {
               onCategoryChange={handleCategoryFilterChange}
               locations={locations}
               categories={categories}
+              onCheckLibrary={() => setShowCheckLibrary(true)}
+              onAddBook={() => setShowAddBook(true)}
             />
           </div>
         </div>
@@ -380,7 +425,6 @@ export default function App() {
             books={books}
             onSelect={(book) => {
               setSelectedBook(book);
-              setReviewTarget(null);
 
               setEditing(false);
             }}
@@ -393,28 +437,85 @@ export default function App() {
             showCovers={showCoversInList}
             onSelect={(book) => {
               setSelectedBook(book);
-              setReviewTarget(null);
 
               setEditing(false);
             }}
           />
         )}
 
-        <BookPanel
-          book={selectedBook}
-          editing={editing}
-          editData={editData}
-          setEditing={setEditing}
-          setEditData={(b) => setEditData(b)}
-          onClose={() => {
-            setSelectedBook(null);
-            setMaintenanceReviewActive(false);
-            setReviewTarget(null);
-          }}
-          onSave={saveAndContinueReview}
-          onDelete={handleDelete}
-          initialReviewTarget={reviewTarget}
+        {selectedBook && (
+          <BookPanel
+            book={selectedBook}
+            editing={editing}
+            editData={editData}
+            setEditing={setEditing}
+            setEditData={(b) => setEditData(b)}
+            onClose={() => {
+              setSelectedBook(null);
+            }}
+            onSave={handleSave}
+            onDelete={handleDelete}
+          />
+        )}
+
+        <AddBookDialog
+          open={showAddBook}
+          onClose={closeAddBook}
+          newBook={newBook}
+          setNewBook={setNewBook}
+          onSearch={handleSearch}
+          onAdd={handlePrimaryAdd}
+          onAddReview={handleAddAndReviewFlow}
+          canAddReview={Boolean(newBook.isbn?.trim() && newBook.title && newBook.author)}
+          onReset={resetAddBook}
+          onISBNChange={handleAddBookISBNChange}
+          isFetching={isFetching}
         />
+
+        <CheckLibraryDialog
+          open={showCheckLibrary}
+          onClose={() => setShowCheckLibrary(false)}
+          onViewBook={(book) => {
+            setShowCheckLibrary(false);
+            setSelectedBook(book);
+            setEditing(false);
+          }}
+          onAddBook={(draft) => {
+            setShowCheckLibrary(false);
+            setNewBook(draft);
+            setShowAddBook(true);
+          }}
+        />
+
+        {reviewSession && (
+          <MaintenanceReviewSession
+            book={reviewSession.book}
+            initialTarget={reviewSession.target}
+            origin={reviewSession.origin}
+            followUp={reviewSession.followUp}
+            onSave={saveReviewDraft}
+            onSaved={(updated, origin) => {
+              if (origin === "add_review") {
+                resetAddBook();
+                toast.success("Book added and reviewed");
+              } else {
+                setReviewSaved({
+                  bookId: updated.id,
+                  nonce: Date.now(),
+                  guided: origin === "maintenance_guided",
+                });
+              }
+              setReviewSession(null);
+            }}
+            onCancel={() => {
+              if (reviewSession.origin === "add_review") {
+                resetAddBook();
+                toast("Book added. Review can be completed later in Maintenance.");
+              }
+              setReviewSession(null);
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -7,10 +7,10 @@ import { useCategories } from "../../context/CategoryContext";
 import { BookView, resolveCoverUrl } from "./BookView";
 import { BookEdit } from "./BookEdit";
 import { DeleteModal } from "./DeleteModal";
+import { ActionButton } from "../ui/ActionButton";
 
 import type { Book } from "../../types/book";
 import type { ReviewIntent } from "../../api/books";
-import type { ReviewTarget } from "../settings/maintenance/MaintenanceSettings";
 
 type Props = {
   book: Book | null;
@@ -27,8 +27,6 @@ type Props = {
 
   onDelete: (id: number) => void;
 
-  initialReviewTarget?: ReviewTarget | null;
-
 };
 
 export function BookPanel({
@@ -40,7 +38,6 @@ export function BookPanel({
   onClose,
   onSave,
   onDelete,
-  initialReviewTarget,
 }: Props) {
   const { locations } = useLocations();
 
@@ -155,24 +152,27 @@ export function BookPanel({
         {!metadataComparisonOpen && (
         <div className="absolute inset-x-3 top-3 z-[70] flex items-center gap-2 sm:left-auto sm:right-3">
           {!editing && (
-            <button
+            <ActionButton
               type="button"
+              variant="icon"
+              size="icon"
               onClick={handleEdit}
               aria-label="Edit book"
               title="Edit book"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/30 text-gray-200 backdrop-blur-md transition hover:bg-black/45 hover:text-white"
             >
               <Pencil size={19} aria-hidden="true" />
-            </button>
+            </ActionButton>
           )}
-          <button
+          <ActionButton
             type="button"
+            variant="icon"
+            size="icon"
             onClick={editing ? handleCancel : onClose}
             aria-label="Close book details"
-            className="ml-auto flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/40 sm:ml-0 text-gray-200 backdrop-blur-md transition hover:bg-black/50 hover:text-white"
+            className="ml-auto sm:ml-0"
           >
             <X size={20} />
-          </button>
+          </ActionButton>
         </div>
 
         )}
@@ -182,11 +182,7 @@ export function BookPanel({
         <div
           className={`
             relative z-20 flex-1 overflow-y-auto
-            ${
-              editing
-                ? "px-5 pb-4 pt-14 sm:py-5 sm:pl-6 sm:pr-16"
-                : "p-0"
-            }
+            p-0
             scrollbar-thin
             scrollbar-thumb-gray-700
             scrollbar-track-transparent
@@ -209,7 +205,6 @@ export function BookPanel({
               onDelete={() => setConfirmDelete(true)}
               onComparisonClose={handleComparisonClose}
               onComparisonOpenChange={setMetadataComparisonOpen}
-              initialReviewTarget={initialReviewTarget}
             />
           )}
         </div>
