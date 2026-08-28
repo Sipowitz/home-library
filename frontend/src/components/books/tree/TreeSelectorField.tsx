@@ -14,9 +14,11 @@ type Props = {
 
   value: string;
 
-  children: ReactElement;
+  children: ReactElement<{ onSelected?: () => void }>;
 
   initiallyOpen?: boolean;
+
+  floating?: boolean;
 };
 
 export function TreeSelectorField({
@@ -24,6 +26,7 @@ export function TreeSelectorField({
   value,
   children,
   initiallyOpen = false,
+  floating = false,
 }: Props) {
   const [open, setOpen] = useState(initiallyOpen);
 
@@ -53,11 +56,11 @@ export function TreeSelectorField({
   const enhancedChild = isValidElement(children)
     ? cloneElement(children, {
         onSelected: () => setOpen(false),
-      } as any)
+      })
     : children;
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={`relative ${open && floating ? "z-[60]" : ""}`}>
       {/* BUTTON */}
       <button
         type="button"
@@ -92,19 +95,18 @@ export function TreeSelectorField({
       {/* CONTENT */}
       {open && (
         <div
-          className="
-            mt-2
+          className={`
+            ${floating ? "absolute inset-x-0 top-full z-[60] mt-2 max-h-[min(24rem,calc(100dvh-8rem))] overflow-x-hidden overflow-y-auto" : "mt-2 overflow-hidden"}
             rounded-2xl
             border border-gray-700
             bg-gray-900/95
             backdrop-blur-xl
             shadow-2xl
-            overflow-hidden
             animate-in
             fade-in
             slide-in-from-top-1
             duration-150
-          "
+          `}
         >
           {enhancedChild}
         </div>

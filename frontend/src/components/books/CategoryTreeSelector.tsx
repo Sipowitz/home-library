@@ -14,6 +14,8 @@ type Props = {
   onSelect: (id: number | null) => void;
 
   showSpecialOptions?: boolean;
+
+  floating?: boolean;
 };
 
 type CategorySelectorContentProps = {
@@ -88,6 +90,7 @@ export function CategoryTreeSelector({
   selectedCategoryId,
   onSelect,
   showSpecialOptions = false,
+  floating = false,
 }: Props) {
   const map = buildTreeMap(categories);
 
@@ -97,7 +100,7 @@ export function CategoryTreeSelector({
       : getTreePath(selectedCategoryId, map, "All categories");
 
   return (
-    <TreeSelectorField label="Category" value={value}>
+    <TreeSelectorField label="Category" value={value} floating={floating}>
       <CategorySelectorContent
         categories={categories}
         selectedCategoryId={selectedCategoryId}

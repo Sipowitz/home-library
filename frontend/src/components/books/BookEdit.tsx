@@ -400,11 +400,13 @@ export function BookEdit({
                     selectedCategoryId={selectedCategoryId}
                     onSelect={handleCategorySelect}
                     showSpecialOptions={false}
+                    floating
                   />
                   <LocationTreeSelector
                     locations={locations}
                     selectedLocationId={editData?.location_id ?? null}
                     onSelect={(id) => setEditData({ ...editData!, location_id: id })}
+                    floating
                   />
                   <div>
                     <FieldLabel>Reading Status</FieldLabel>
