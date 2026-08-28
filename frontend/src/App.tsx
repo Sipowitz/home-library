@@ -89,10 +89,13 @@ export default function App() {
   const [reviewSaved, setReviewSaved] = useState<{ bookId: number; nonce: number; guided?: boolean } | null>(null);
 
   const [isScrolling, setIsScrolling] = useState(false);
-  const [isSearchPanelSticky, setIsSearchPanelSticky] = useState(false);
+  const [isSearchPanelPastThreshold, setIsSearchPanelPastThreshold] =
+    useState(false);
 
   const scrollEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
+  const searchPanelFlowAnchorRef = useRef<HTMLDivElement | null>(null);
+  const searchPanelStickyOffsetRef = useRef(0);
 
   const {
     isFetching,
@@ -201,19 +204,27 @@ export default function App() {
   }, [hasMore, isLoading, books]);
 
   useEffect(() => {
-    function isPanelAtStickyThreshold() {
+    function isPanelBottomAtThreshold() {
       const panel = searchPanelRef.current;
+      const anchor = searchPanelFlowAnchorRef.current;
 
-      if (!panel) return false;
+      if (!panel || !anchor) return false;
 
-      const stickyTop = Number.parseFloat(window.getComputedStyle(panel).top);
-      const topOffset = Number.isFinite(stickyTop) ? stickyTop : 0;
+      const panelStyles = window.getComputedStyle(panel);
+      const stickyTop = Number.parseFloat(panelStyles.top);
+      if (Number.isFinite(stickyTop)) {
+        searchPanelStickyOffsetRef.current = stickyTop;
+      }
+      const measuredMarginTop = Number.parseFloat(panelStyles.marginTop);
+      const marginTop = Number.isFinite(measuredMarginTop) ? measuredMarginTop : 0;
+      const naturalBottom =
+        anchor.getBoundingClientRect().top + marginTop + panel.offsetHeight;
 
-      return panel.getBoundingClientRect().top <= topOffset + 0.5;
+      return naturalBottom <= searchPanelStickyOffsetRef.current + 0.5;
     }
 
     function restorePanel() {
-      setIsSearchPanelSticky(false);
+      setIsSearchPanelPastThreshold(false);
       setIsScrolling(false);
 
       if (scrollEndTimerRef.current) {
@@ -223,12 +234,12 @@ export default function App() {
     }
 
     function handleScrollActivity() {
-      if (!isPanelAtStickyThreshold()) {
+      if (!isPanelBottomAtThreshold()) {
         restorePanel();
         return;
       }
 
-      setIsSearchPanelSticky(true);
+      setIsSearchPanelPastThreshold(true);
       setIsScrolling(true);
 
       if (scrollEndTimerRef.current) {
@@ -236,14 +247,17 @@ export default function App() {
       }
 
       scrollEndTimerRef.current = setTimeout(() => {
+        setIsSearchPanelPastThreshold(false);
         setIsScrolling(false);
         scrollEndTimerRef.current = null;
       }, 750);
     }
 
     function handleResize() {
-      if (!isPanelAtStickyThreshold()) {
+      if (!isPanelBottomAtThreshold()) {
         restorePanel();
+      } else {
+        setIsSearchPanelPastThreshold(true);
       }
     }
 
@@ -382,13 +396,21 @@ export default function App() {
         <TopPanels />
 
         {/* SEARCH + FILTERS */}
-        <div ref={searchPanelRef} className="sticky top-4 z-40 mt-4">
+        <div ref={searchPanelFlowAnchorRef} aria-hidden="true" />
+        <div
+          ref={searchPanelRef}
+          className={`${
+            isSearchPanelPastThreshold ? "relative" : "sticky top-4"
+          } z-40 mt-4`}
+        >
           <div className="md:mx-auto md:w-[calc(100%_-_3rem)]">
             <SearchBar
               searchInput={searchInput}
               onSearchChange={setSearchInput}
               isScrolling={
-                viewMode === "grid" && isSearchPanelSticky && isScrolling
+                viewMode === "grid" &&
+                isSearchPanelPastThreshold &&
+                isScrolling
               }
               selectedLocation={selectedLocation}
               onLocationChange={handleLocationFilterChange}
