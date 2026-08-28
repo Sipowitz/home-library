@@ -155,6 +155,10 @@ class UserPreferences(Base):
         default=True,
     )
 
+    show_stats_desktop = Column(Boolean, nullable=False, default=True)
+
+    show_stats_mobile = Column(Boolean, nullable=False, default=True)
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

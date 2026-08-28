@@ -17,6 +17,10 @@ export type Preferences = {
 
   show_covers_in_list: boolean;
 
+  show_stats_desktop: boolean;
+
+  show_stats_mobile: boolean;
+
   created_at: string;
 
   updated_at: string;
@@ -30,4 +34,8 @@ export type PreferencesUpdate = {
   library_view_mode?: LibraryViewMode;
 
   show_covers_in_list?: boolean;
+
+  show_stats_desktop?: boolean;
+
+  show_stats_mobile?: boolean;
 };

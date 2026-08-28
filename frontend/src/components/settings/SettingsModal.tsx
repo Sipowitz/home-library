@@ -23,6 +23,7 @@ import { LocationSettings } from "./locations/LocationSettings";
 import { CategorySettings } from "./categories/CategorySettings";
 
 import { PreferencesSettings } from "./preferences/PreferencesSettings";
+import { AppearanceSettings } from "./appearance/AppearanceSettings";
 
 import { ProviderSettingsPanel } from "./providers/ProviderSettingsPanel";
 
@@ -48,6 +49,7 @@ type Section =
   | "providers"
   | "maintenance"
   | "backup"
+  | "appearance"
   | "preferences"
   | "users";
 
@@ -337,6 +339,22 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
             {activeSection === "users" && user?.is_admin && (
               <div className="max-w-4xl space-y-4"><div><h2 className="text-lg font-semibold">Users</h2><p className="text-sm text-gray-400 mt-1">Approve or reject pending accounts.</p></div><PendingUsersPanel /></div>
+            )}
+
+            {/* PREFERENCES */}
+
+            {activeSection === "appearance" && (
+              <div className="max-w-2xl">
+                <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4 lg:p-5">
+                  <div className="mb-3 lg:mb-5">
+                    <h2 className="text-lg font-semibold">Appearance</h2>
+                    <p className="mt-1 text-sm text-gray-400">
+                      Configure how your library is presented.
+                    </p>
+                  </div>
+                  <AppearanceSettings />
+                </div>
+              </div>
             )}
 
             {/* PREFERENCES */}

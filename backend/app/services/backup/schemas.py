@@ -40,6 +40,8 @@ class PreferencesData(StrictModel):
     time_format: str
     library_view_mode: str
     show_covers_in_list: bool
+    show_stats_desktop: bool = True
+    show_stats_mobile: bool = True
     created_at: datetime
     updated_at: datetime
 

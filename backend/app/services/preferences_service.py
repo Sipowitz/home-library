@@ -20,6 +20,10 @@ DEFAULT_LIBRARY_VIEW_MODE = "grid"
 
 DEFAULT_SHOW_COVERS_IN_LIST = True
 
+DEFAULT_SHOW_STATS_DESKTOP = True
+
+DEFAULT_SHOW_STATS_MOBILE = True
+
 # -------------------
 # 🔍 GET OR CREATE
 # -------------------
@@ -46,6 +50,8 @@ def get_or_create_preferences(
         time_format=DEFAULT_TIME_FORMAT,
         library_view_mode=DEFAULT_LIBRARY_VIEW_MODE,
         show_covers_in_list=DEFAULT_SHOW_COVERS_IN_LIST,
+        show_stats_desktop=DEFAULT_SHOW_STATS_DESKTOP,
+        show_stats_mobile=DEFAULT_SHOW_STATS_MOBILE,
     )
 
     db.add(preferences)
@@ -139,6 +145,12 @@ def update_preferences(
 
         if value is not None:
             preferences.show_covers_in_list = bool(value)
+
+    if "show_stats_desktop" in data and data["show_stats_desktop"] is not None:
+        preferences.show_stats_desktop = bool(data["show_stats_desktop"])
+
+    if "show_stats_mobile" in data and data["show_stats_mobile"] is not None:
+        preferences.show_stats_mobile = bool(data["show_stats_mobile"])
 
     db.commit()
 

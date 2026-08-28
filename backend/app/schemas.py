@@ -43,6 +43,10 @@ class PreferencesBase(BaseModel):
 
     show_covers_in_list: bool = True
 
+    show_stats_desktop: bool = True
+
+    show_stats_mobile: bool = True
+
 
 class PreferencesUpdate(BaseModel):
     date_format: Optional[str] = None
@@ -52,6 +56,10 @@ class PreferencesUpdate(BaseModel):
     library_view_mode: Optional[str] = None
 
     show_covers_in_list: Optional[bool] = None
+
+    show_stats_desktop: Optional[bool] = None
+
+    show_stats_mobile: Optional[bool] = None
 
 
 class PreferencesResponse(PreferencesBase):
