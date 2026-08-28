@@ -154,6 +154,33 @@ def test_successful_restore_is_single_use_and_removes_stage(lifecycle):
     assert_invalid(factory, token, user_id)
 
 
+def test_legacy_backup_restores_system_appearance_mode(lifecycle):
+    factory, (user_id, _), _ = lifecycle
+    preferences = valid_preferences()
+    preferences.pop("appearance_mode")
+    upload = SimpleNamespace(
+        file=io.BytesIO(archive_bytes(base_library(preferences=preferences)))
+    )
+    validation_db = factory()
+    token, _ = stage_and_validate(upload, user_id, validation_db)
+    validation_db.close()
+    lifecycle_db = factory()
+    claimed = consume_session(token, user_id, lifecycle_db)
+    restore_db = factory()
+    restore_user(restore_db, user_id, claimed, {})
+
+    assert (
+        restore_db.query(models.UserPreferences)
+        .filter_by(user_id=user_id)
+        .one()
+        .appearance_mode
+        == "system"
+    )
+    finish_session(claimed, lifecycle_db)
+    restore_db.close()
+    lifecycle_db.close()
+
+
 def test_failed_restore_rolls_back_but_token_stays_consumed(lifecycle):
     factory, (user_id, _), _ = lifecycle
     db = factory()

@@ -256,6 +256,7 @@ def _validate_domain_invariants(library: LibraryData) -> None:
                 date_format=library.preferences.date_format,
                 time_format=library.preferences.time_format,
                 library_view_mode=library.preferences.library_view_mode,
+                appearance_mode=library.preferences.appearance_mode,
             )
     except (KeyError, TypeError, ValueError) as exc:
         raise BackupError(

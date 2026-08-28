@@ -165,6 +165,7 @@ def valid_preferences(**changes):
         "time_format": "24h",
         "library_view_mode": "grid",
         "show_covers_in_list": True,
+        "appearance_mode": "system",
         "created_at": "2026-01-01T00:00:00Z",
         "updated_at": "2026-01-01T00:00:00Z",
     }
@@ -221,6 +222,7 @@ def test_preferences_domain_values_are_enforced(tmp_path):
         {"date_format": "tomorrow-first"},
         {"time_format": "25h"},
         {"library_view_mode": "carousel"},
+        {"appearance_mode": "sepia"},
     ):
         assert_code(
             tmp_path,
@@ -228,6 +230,18 @@ def test_preferences_domain_values_are_enforced(tmp_path):
             "BACKUP_DOMAIN_INVALID",
         )
     inspect(tmp_path, archive_bytes(base_library(preferences=valid_preferences())))
+
+
+def test_legacy_preferences_without_appearance_mode_default_to_system(tmp_path):
+    preferences = valid_preferences()
+    preferences.pop("appearance_mode")
+
+    _, library, _ = inspect(
+        tmp_path,
+        archive_bytes(base_library(preferences=preferences)),
+    )
+
+    assert library.preferences.appearance_mode == "system"
 
 
 def test_unread_book_with_read_timestamp_is_rejected(tmp_path):

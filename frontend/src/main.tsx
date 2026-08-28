@@ -13,6 +13,7 @@ import { LocationProvider } from "./context/LocationContext";
 import { CategoryProvider } from "./context/CategoryContext";
 
 import { PreferencesProvider } from "./context/PreferencesContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 import { ProviderSettingsProvider } from "./context/ProviderSettingsContext";
 
@@ -22,15 +23,17 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AuthProvider>
       <PreferencesProvider>
-        <ProviderSettingsProvider>
-          <CategoryProvider>
-            <LocationProvider>
-              <App />
+        <ThemeProvider>
+          <ProviderSettingsProvider>
+            <CategoryProvider>
+              <LocationProvider>
+                <App />
 
-              <Toaster position="top-right" />
-            </LocationProvider>
-          </CategoryProvider>
-        </ProviderSettingsProvider>
+                <Toaster position="top-right" />
+              </LocationProvider>
+            </CategoryProvider>
+          </ProviderSettingsProvider>
+        </ThemeProvider>
       </PreferencesProvider>
     </AuthProvider>
   </React.StrictMode>,

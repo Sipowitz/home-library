@@ -335,7 +335,7 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
+      <div className="min-h-screen flex items-center justify-center bg-canvas text-text-primary">
         <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl w-80">
           <h2 className="text-xl mb-4">Login</h2>
 
@@ -368,7 +368,7 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen bg-gray-950 text-white p-6"
+      className="min-h-screen bg-canvas text-text-primary p-6"
       onClick={() => {
         setSelectedBook(null);
 

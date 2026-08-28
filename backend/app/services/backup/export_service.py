@@ -132,6 +132,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
             "date_format": preferences.date_format, "time_format": preferences.time_format,
             "library_view_mode": preferences.library_view_mode, "show_covers_in_list": preferences.show_covers_in_list,
             "show_stats_desktop": preferences.show_stats_desktop, "show_stats_mobile": preferences.show_stats_mobile,
+            "appearance_mode": preferences.appearance_mode,
             "created_at": preferences.created_at, "updated_at": preferences.updated_at,
         },
         "categories": [{"archive_id": category_ids[row.id], "name": row.name, "parent_archive_id": category_ids.get(row.parent_id)} for row in categories],

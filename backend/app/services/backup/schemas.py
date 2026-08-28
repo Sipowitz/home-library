@@ -42,6 +42,7 @@ class PreferencesData(StrictModel):
     show_covers_in_list: bool
     show_stats_desktop: bool = True
     show_stats_mobile: bool = True
+    appearance_mode: str = "system"
     created_at: datetime
     updated_at: datetime
 

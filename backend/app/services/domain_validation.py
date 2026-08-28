@@ -10,6 +10,7 @@ VALID_DATE_FORMATS = {
 }
 VALID_TIME_FORMATS = {"24h", "12h"}
 VALID_LIBRARY_VIEW_MODES = {"grid", "list"}
+VALID_APPEARANCE_MODES = {"system", "light", "dark"}
 
 
 def required_text(value: object, field_name: str) -> str:
@@ -19,7 +20,11 @@ def required_text(value: object, field_name: str) -> str:
 
 
 def validate_preferences_values(
-    *, date_format: str, time_format: str, library_view_mode: str
+    *,
+    date_format: str,
+    time_format: str,
+    library_view_mode: str,
+    appearance_mode: str = "system",
 ) -> None:
     if date_format not in VALID_DATE_FORMATS:
         raise ValueError("Invalid date format")
@@ -27,3 +32,5 @@ def validate_preferences_values(
         raise ValueError("Invalid time format")
     if library_view_mode not in VALID_LIBRARY_VIEW_MODES:
         raise ValueError("Invalid library view mode")
+    if appearance_mode not in VALID_APPEARANCE_MODES:
+        raise ValueError("Invalid appearance mode")

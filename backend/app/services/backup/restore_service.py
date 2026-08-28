@@ -68,6 +68,7 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                 db.add(models.UserPreferences(user_id=user_id, date_format=pref.date_format, time_format=pref.time_format,
                     library_view_mode=pref.library_view_mode, show_covers_in_list=pref.show_covers_in_list,
                     show_stats_desktop=pref.show_stats_desktop, show_stats_mobile=pref.show_stats_mobile,
+                    appearance_mode=pref.appearance_mode,
                     created_at=pref.created_at, updated_at=pref.updated_at))
 
             book_map = {}

@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.services.domain_validation import (
+    VALID_APPEARANCE_MODES,
     VALID_DATE_FORMATS,
     VALID_LIBRARY_VIEW_MODES,
     VALID_TIME_FORMATS,
@@ -23,6 +24,8 @@ DEFAULT_SHOW_COVERS_IN_LIST = True
 DEFAULT_SHOW_STATS_DESKTOP = True
 
 DEFAULT_SHOW_STATS_MOBILE = True
+
+DEFAULT_APPEARANCE_MODE = "system"
 
 # -------------------
 # 🔍 GET OR CREATE
@@ -52,6 +55,7 @@ def get_or_create_preferences(
         show_covers_in_list=DEFAULT_SHOW_COVERS_IN_LIST,
         show_stats_desktop=DEFAULT_SHOW_STATS_DESKTOP,
         show_stats_mobile=DEFAULT_SHOW_STATS_MOBILE,
+        appearance_mode=DEFAULT_APPEARANCE_MODE,
     )
 
     db.add(preferences)
@@ -151,6 +155,12 @@ def update_preferences(
 
     if "show_stats_mobile" in data and data["show_stats_mobile"] is not None:
         preferences.show_stats_mobile = bool(data["show_stats_mobile"])
+
+    if "appearance_mode" in data and data["appearance_mode"] is not None:
+        value = data["appearance_mode"]
+        if value not in VALID_APPEARANCE_MODES:
+            raise ValueError("Invalid appearance mode")
+        preferences.appearance_mode = value
 
     db.commit()
 

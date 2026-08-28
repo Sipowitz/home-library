@@ -47,6 +47,8 @@ class PreferencesBase(BaseModel):
 
     show_stats_mobile: bool = True
 
+    appearance_mode: Literal["system", "light", "dark"] = "system"
+
 
 class PreferencesUpdate(BaseModel):
     date_format: Optional[str] = None
@@ -60,6 +62,8 @@ class PreferencesUpdate(BaseModel):
     show_stats_desktop: Optional[bool] = None
 
     show_stats_mobile: Optional[bool] = None
+
+    appearance_mode: Optional[Literal["system", "light", "dark"]] = None
 
 
 class PreferencesResponse(PreferencesBase):

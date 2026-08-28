@@ -4,6 +4,10 @@ export type TimeFormat = "24h" | "12h";
 
 export type LibraryViewMode = "grid" | "list";
 
+export type AppearanceMode = "system" | "light" | "dark";
+
+export type EffectiveTheme = "light" | "dark";
+
 export type Preferences = {
   id: number;
 
@@ -20,6 +24,8 @@ export type Preferences = {
   show_stats_desktop: boolean;
 
   show_stats_mobile: boolean;
+
+  appearance_mode: AppearanceMode;
 
   created_at: string;
 
@@ -38,4 +44,6 @@ export type PreferencesUpdate = {
   show_stats_desktop?: boolean;
 
   show_stats_mobile?: boolean;
+
+  appearance_mode?: AppearanceMode;
 };

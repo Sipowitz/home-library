@@ -65,7 +65,7 @@ def populated(db):
         subjects_json=["Subject"], cover_candidates_json=[{"url":"https://example.test/cover.jpg"}], normalizer_version="v2",
         normalized_at=datetime(2025, 2, 1, tzinfo=timezone.utc)))
     db.add(models.UserPreferences(user_id=source.id, date_format="YYYY-MM-DD", time_format="12h", library_view_mode="list",
-        show_covers_in_list=False, created_at=datetime(2024, 1, 1, tzinfo=timezone.utc), updated_at=datetime(2025, 1, 1, tzinfo=timezone.utc)))
+        show_covers_in_list=False, appearance_mode="dark", created_at=datetime(2024, 1, 1, tzinfo=timezone.utc), updated_at=datetime(2025, 1, 1, tzinfo=timezone.utc)))
     db.commit()
     return source.id, other.id, cover.read_bytes()
 
@@ -89,6 +89,7 @@ def test_populated_round_trip_remaps_ids_preserves_data_and_other_user(db):
     assert (restored.title, restored.subtitle, restored.page_count, restored.read) == ("Complete", "Subtitle", 321, True)
     assert restored.category.parent.name == "Parent" and restored.location.name == "Room"
     assert restored.metadata_snapshots[0].normalized_records[0].title == "Normalized"
+    assert db.query(models.UserPreferences).filter_by(user_id=user_id).one().appearance_mode == "dark"
     assert Path(settings.COVERS_DIR, restored.cover_url.removeprefix("/covers/")).read_bytes() == cover_bytes
     assert db.query(models.Book).filter_by(owner_id=other_id).one().title == "Untouched"
     archive.unlink()
