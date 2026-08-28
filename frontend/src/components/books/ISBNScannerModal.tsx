@@ -1,4 +1,5 @@
 import { Flashlight, FlashlightOff, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
@@ -18,10 +19,10 @@ export function ISBNScannerModal({
   onToggleTorch,
   onClose,
 }: Props) {
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col">
       <div className="flex justify-between items-center p-4 border-b border-gray-800">
         <h2 className="text-white text-lg">Scan ISBN</h2>
 
@@ -54,6 +55,7 @@ export function ISBNScannerModal({
           className="w-full max-w-md overflow-hidden rounded-2xl"
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
