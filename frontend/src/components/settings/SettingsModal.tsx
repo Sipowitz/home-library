@@ -21,6 +21,7 @@ import type { BackupValidationSummary } from "./backup/ConfirmRestoreModal";
 import { LocationSettings } from "./locations/LocationSettings";
 
 import { CategorySettings } from "./categories/CategorySettings";
+import { SeriesSettings } from "./series/SeriesSettings";
 
 import { PreferencesSettings } from "./preferences/PreferencesSettings";
 import { AppearanceSettings } from "./appearance/AppearanceSettings";
@@ -46,6 +47,7 @@ type Props = {
 type Section =
   | "locations"
   | "categories"
+  | "series"
   | "providers"
   | "maintenance"
   | "backup"
@@ -306,6 +308,24 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
                   </div>
 
                   <CategorySettings />
+                </div>
+              </div>
+            )}
+
+            {/* SERIES */}
+
+            {activeSection === "series" && (
+              <div className="max-w-full relative">
+                <div className="bg-surface/60 border border-border rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
+                  <div className="mb-3 lg:mb-5">
+                    <h2 className="text-lg font-semibold">Series</h2>
+
+                    <p className="text-sm text-text-muted mt-1">
+                      Organize Series and subseries in your library.
+                    </p>
+                  </div>
+
+                  <SeriesSettings />
                 </div>
               </div>
             )}

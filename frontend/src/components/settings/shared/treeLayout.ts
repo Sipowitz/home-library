@@ -91,6 +91,8 @@ export function buildTreeElements<
 
         focused,
 
+        selected: focusedId === category.id,
+
         dimmed,
 
         onFocus,

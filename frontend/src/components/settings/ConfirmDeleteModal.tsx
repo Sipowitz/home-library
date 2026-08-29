@@ -1,5 +1,7 @@
 // frontend/src/components/settings/ConfirmDeleteModal.tsx
 
+import { useEffect, useId } from "react";
+
 import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
@@ -25,12 +27,31 @@ export function ConfirmDeleteModal({
   onConfirm,
   onCancel,
 }: Props) {
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCancel();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel, open]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-3"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
       <div className="bg-surface border border-border-strong rounded-2xl w-full max-w-md p-6 text-text-primary shadow-2xl">
         <h3
+          id={titleId}
           className={`text-xl font-semibold mb-3 ${
             danger ? "text-danger" : "text-text-primary"
           }`}
