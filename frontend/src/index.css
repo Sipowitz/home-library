@@ -4,17 +4,17 @@
 
 @layer base {
   :root {
-    --color-canvas: 248 250 252;
-    --color-surface: 255 255 255;
-    --color-surface-raised: 255 255 255;
-    --color-surface-muted: 241 245 249;
-    --color-control: 241 245 249;
-    --color-text-primary: 15 23 42;
-    --color-text-secondary: 51 65 85;
-    --color-text-muted: 100 116 139;
-    --color-border: 226 232 240;
-    --color-border-strong: 203 213 225;
-    --color-overlay: 15 23 42;
+    --color-canvas: 246 245 242;
+    --color-surface: 253 252 251;
+    --color-surface-raised: 255 254 252;
+    --color-surface-muted: 243 242 239;
+    --color-control: 242 241 238;
+    --color-text-primary: 24 29 38;
+    --color-text-secondary: 70 81 93;
+    --color-text-muted: 104 113 123;
+    --color-border: 227 225 221;
+    --color-border-strong: 203 200 194;
+    --color-overlay: 28 35 43;
     --color-focus: 37 99 235;
     --color-success: 21 128 61;
     --color-success-muted: 220 252 231;
@@ -22,9 +22,11 @@
     --color-warning-muted: 254 243 199;
     --color-danger: 185 28 28;
     --color-danger-muted: 254 226 226;
-    --color-scrollbar-track: 241 245 249;
-    --color-scrollbar-thumb: 203 213 225;
-    --color-scrollbar-thumb-hover: 148 163 184;
+    --color-scrollbar-track: 243 242 239;
+    --color-scrollbar-thumb: 201 198 192;
+    --color-scrollbar-thumb-hover: 156 153 147;
+    --shadow-raised: 0 12px 30px -22px rgb(45 39 30 / 0.28), 0 2px 8px -6px rgb(45 39 30 / 0.12);
+    --shadow-floating: 0 18px 45px -24px rgb(45 39 30 / 0.24), 0 4px 14px -8px rgb(45 39 30 / 0.12);
   }
 
   .dark {
@@ -49,12 +51,22 @@
     --color-scrollbar-track: 17 24 39;
     --color-scrollbar-thumb: 55 65 81;
     --color-scrollbar-thumb-hover: 75 85 99;
+    --shadow-raised: none;
+    --shadow-floating: 0 25px 50px -12px rgb(0 0 0 / 0.25);
   }
 }
 
 @layer components {
   .form-control {
     @apply rounded-xl border border-border-strong bg-control text-text-primary outline-none placeholder:text-text-muted disabled:cursor-not-allowed disabled:opacity-50 focus:border-focus focus:ring-1 focus:ring-focus/30;
+  }
+
+  .elevation-raised {
+    box-shadow: var(--shadow-raised);
+  }
+
+  .elevation-floating {
+    box-shadow: var(--shadow-floating);
   }
 }
 

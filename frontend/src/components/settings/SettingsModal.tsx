@@ -229,7 +229,7 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
             rounded-xl sm:rounded-2xl
             w-full
             h-full
-            shadow-2xl
+            elevation-floating
             overflow-y-auto
             flex flex-col lg:flex-row
           "

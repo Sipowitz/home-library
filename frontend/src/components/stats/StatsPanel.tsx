@@ -171,7 +171,7 @@ export function StatsPanel() {
 
   if (isLoading && !stats) {
     return (
-      <div className="rounded-2xl border border-border bg-surface p-4 text-sm text-text-muted">
+      <div className="elevation-raised rounded-2xl border border-border bg-surface p-4 text-sm text-text-muted">
         Loading statistics...
       </div>
     );
@@ -179,14 +179,14 @@ export function StatsPanel() {
 
   if (error || !stats) {
     return (
-      <div className="rounded-2xl border border-border bg-surface p-4 text-sm text-danger">
+      <div className="elevation-raised rounded-2xl border border-border bg-surface p-4 text-sm text-danger">
         {error ?? "Statistics could not be loaded"}
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4 text-text-primary">
+    <div className="elevation-raised rounded-2xl border border-border bg-surface p-4 text-text-primary">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg">Library Stats</h2>
 
