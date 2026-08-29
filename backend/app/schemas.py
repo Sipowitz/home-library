@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_core import PydanticCustomError
 
 from typing import Optional, List, Any, Literal
+from decimal import Decimal
 
 from datetime import datetime
 from app.services.domain_validation import required_text
@@ -179,6 +180,104 @@ class CategoryResponse(BaseModel):
 
 
 CategoryResponse.model_rebuild()
+
+
+# -------------------
+# 📚 SERIES SCHEMAS
+# -------------------
+
+class SeriesCreate(BaseModel):
+    name: str
+    author: Optional[str] = None
+    description: Optional[str] = None
+    cover_url: Optional[str] = None
+    parent_id: Optional[int] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value):
+        return required_text(value, "Series name")
+
+
+class SeriesUpdate(BaseModel):
+    name: Optional[str] = None
+    author: Optional[str] = None
+    description: Optional[str] = None
+    cover_url: Optional[str] = None
+    parent_id: Optional[int] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value):
+        return required_text(value, "Series name")
+
+
+class SeriesResponse(BaseModel):
+    id: int
+    owner_id: int
+    name: str
+    author: Optional[str]
+    description: Optional[str]
+    cover_url: Optional[str]
+    parent_id: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SeriesTreeResponse(SeriesResponse):
+    children: List["SeriesTreeResponse"] = Field(default_factory=list)
+
+
+SeriesTreeResponse.model_rebuild()
+
+
+class SeriesMembershipCreate(BaseModel):
+    book_id: int
+    node_order: Optional[Decimal] = Field(default=None, max_digits=20, decimal_places=6)
+
+
+class SeriesMembershipUpdate(BaseModel):
+    node_order: Optional[Decimal] = Field(max_digits=20, decimal_places=6)
+
+
+class SeriesMembershipResponse(BaseModel):
+    book_id: int
+    series_id: int
+    node_order: Optional[Decimal]
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SeriesOrderingUpdate(BaseModel):
+    publication_order: Optional[Decimal] = Field(default=None, max_digits=20, decimal_places=6)
+    chronological_order: Optional[Decimal] = Field(default=None, max_digits=20, decimal_places=6)
+
+
+class SeriesOrderingResponse(BaseModel):
+    book_id: int
+    series_id: int
+    publication_order: Optional[Decimal]
+    chronological_order: Optional[Decimal]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BookSeriesRelationship(BaseModel):
+    series: SeriesResponse
+    direct: bool
+    node_order: Optional[Decimal] = None
+    publication_order: Optional[Decimal] = None
+    chronological_order: Optional[Decimal] = None
+
+
+class EffectiveSeriesBook(BaseModel):
+    book_id: int
+    title: str
+    author: str
+    direct: bool
+    node_order: Optional[Decimal] = None
+    publication_order: Optional[Decimal] = None
+    chronological_order: Optional[Decimal] = None
 
 
 # -------------------

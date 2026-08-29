@@ -6,6 +6,10 @@ from sqlalchemy import (
     ForeignKey,
     DateTime,
     UniqueConstraint,
+    Numeric,
+    CheckConstraint,
+    ForeignKeyConstraint,
+    Index,
 )
 
 from sqlalchemy.dialects.postgresql import JSONB
@@ -50,6 +54,10 @@ class User(Base):
         "Book",
         back_populates="owner",
         cascade="all, delete",
+    )
+
+    series = relationship(
+        "Series", back_populates="owner", cascade="all, delete-orphan"
     )
 
     preferences = relationship(
@@ -435,6 +443,13 @@ class Book(Base):
         back_populates="books",
     )
 
+    series_memberships = relationship(
+        "BookSeriesMembership", back_populates="book", cascade="all, delete-orphan"
+    )
+    series_orderings = relationship(
+        "BookSeriesOrdering", back_populates="book", cascade="all, delete-orphan"
+    )
+
     # -------------------
     # 📦 METADATA SNAPSHOTS
     # -------------------
@@ -671,6 +686,104 @@ class NormalizedMetadataRecord(Base):
         "ProviderMetadataSnapshot",
         back_populates="normalized_records",
     )
+
+
+# -------------------
+# 📚 SERIES MODELS
+# -------------------
+
+class Series(Base):
+    __tablename__ = "series"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name = Column(String, nullable=False)
+    author = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    cover_url = Column(String, nullable=True)
+    parent_id = Column(
+        Integer, nullable=True, index=True
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("parent_id IS NULL OR parent_id <> id", name="ck_series_not_self_parent"),
+        UniqueConstraint("id", "owner_id", name="uq_series_id_owner_id"),
+        ForeignKeyConstraint(
+            ["parent_id", "owner_id"], ["series.id", "series.owner_id"],
+            name="fk_series_parent_same_owner",
+        ),
+        Index("ix_series_owner_parent", "owner_id", "parent_id"),
+    )
+
+    owner = relationship("User", back_populates="series")
+    children = relationship(
+        "Series",
+        backref=backref("parent", remote_side=[id]),
+        foreign_keys=[parent_id],
+        passive_deletes=True,
+    )
+    memberships = relationship(
+        "BookSeriesMembership", back_populates="series", passive_deletes=True
+    )
+    orderings = relationship(
+        "BookSeriesOrdering", back_populates="series", passive_deletes=True
+    )
+
+
+class BookSeriesMembership(Base):
+    __tablename__ = "book_series_memberships"
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(
+        Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    series_id = Column(
+        Integer, ForeignKey("series.id"), nullable=False, index=True
+    )
+    node_order = Column(Numeric(20, 6), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("book_id", "series_id", name="uq_book_series_membership"),
+    )
+
+    book = relationship("Book", back_populates="series_memberships")
+    series = relationship("Series", back_populates="memberships")
+
+
+class BookSeriesOrdering(Base):
+    __tablename__ = "book_series_ordering"
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(
+        Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    series_id = Column(
+        Integer, ForeignKey("series.id"), nullable=False, index=True
+    )
+    publication_order = Column(Numeric(20, 6), nullable=True)
+    chronological_order = Column(Numeric(20, 6), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("book_id", "series_id", name="uq_book_series_ordering"),
+        CheckConstraint(
+            "publication_order IS NOT NULL OR chronological_order IS NOT NULL",
+            name="ck_book_series_ordering_has_value",
+        ),
+    )
+
+    book = relationship("Book", back_populates="series_orderings")
+    series = relationship("Series", back_populates="orderings")
 
 
 # -------------------

@@ -27,6 +27,7 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
         with db.begin():
             category_db_ids = [row[0] for row in db.query(models.Category.id).filter(models.Category.owner_id == user_id)]
             location_db_ids = [row[0] for row in db.query(models.Location.id).filter(models.Location.owner_id == user_id)]
+            series_db_ids = [row[0] for row in db.query(models.Series.id).filter(models.Series.owner_id == user_id)]
             if category_db_ids and db.query(models.Book.id).filter(models.Book.owner_id != user_id, models.Book.category_id.in_(category_db_ids)).first():
                 raise RuntimeError("another user references a target category")
             if location_db_ids and db.query(models.Book.id).filter(models.Book.owner_id != user_id, models.Book.location_id.in_(location_db_ids)).first():
@@ -35,8 +36,24 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                 raise RuntimeError("another user's category references the target hierarchy")
             if location_db_ids and db.query(models.Location.id).filter(models.Location.owner_id != user_id, models.Location.parent_id.in_(location_db_ids)).first():
                 raise RuntimeError("another user's location references the target hierarchy")
+            if series_db_ids and (
+                db.query(models.BookSeriesMembership.id).join(models.Book).filter(
+                    models.Book.owner_id != user_id,
+                    models.BookSeriesMembership.series_id.in_(series_db_ids),
+                ).first()
+                or db.query(models.BookSeriesOrdering.id).join(models.Book).filter(
+                    models.Book.owner_id != user_id,
+                    models.BookSeriesOrdering.series_id.in_(series_db_ids),
+                ).first()
+            ):
+                raise RuntimeError("another user references a target Series")
             db.query(models.Book).filter(models.Book.owner_id == user_id).delete(synchronize_session=False)
             _checkpoint("after_books_deleted")
+            if series_db_ids:
+                db.query(models.Series).filter(models.Series.id.in_(series_db_ids)).update(
+                    {models.Series.parent_id: None}, synchronize_session=False
+                )
+                db.query(models.Series).filter(models.Series.id.in_(series_db_ids)).delete(synchronize_session=False)
             db.query(models.Category).filter(models.Category.owner_id == user_id).delete(synchronize_session=False)
             db.query(models.Location).filter(models.Location.owner_id == user_id).delete(synchronize_session=False)
             db.query(models.UserPreferences).filter(models.UserPreferences.user_id == user_id).delete(synchronize_session=False)
@@ -63,6 +80,19 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                 if item.parent_archive_id:
                     db.get(models.Location, location_map[item.archive_id]).parent_id = location_map[item.parent_archive_id]
 
+            series_map = {}
+            for item in data.series:
+                row = models.Series(
+                    name=item.name, author=item.author, description=item.description,
+                    cover_url=_cover_url(item.cover, cover_urls), parent_id=None, owner_id=user_id,
+                )
+                db.add(row)
+                db.flush()
+                series_map[item.archive_id] = row.id
+            for item in data.series:
+                if item.parent_archive_id:
+                    db.get(models.Series, series_map[item.archive_id]).parent_id = series_map[item.parent_archive_id]
+
             if data.preferences is not None:
                 pref = data.preferences
                 db.add(models.UserPreferences(user_id=user_id, date_format=pref.date_format, time_format=pref.time_format,
@@ -87,6 +117,18 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                 db.flush()
                 book_map[item.archive_id] = row.id
                 _checkpoint("inserting_books")
+
+            for item in data.series_memberships:
+                db.add(models.BookSeriesMembership(
+                    book_id=book_map[item.book_archive_id], series_id=series_map[item.series_archive_id],
+                    node_order=item.node_order,
+                ))
+            for item in data.series_orderings:
+                db.add(models.BookSeriesOrdering(
+                    book_id=book_map[item.book_archive_id], series_id=series_map[item.series_archive_id],
+                    publication_order=item.publication_order,
+                    chronological_order=item.chronological_order,
+                ))
 
             snapshot_map = {}
             for item in data.metadata_snapshots:
@@ -113,11 +155,16 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                 "locations": db.query(models.Location).filter(models.Location.owner_id == user_id).count(),
                 "metadata_snapshots": db.query(models.ProviderMetadataSnapshot).join(models.Book).filter(models.Book.owner_id == user_id).count(),
                 "normalized_metadata_records": db.query(models.NormalizedMetadataRecord).join(models.ProviderMetadataSnapshot).join(models.Book).filter(models.Book.owner_id == user_id).count(),
+                "series": db.query(models.Series).filter(models.Series.owner_id == user_id).count(),
+                "series_memberships": db.query(models.BookSeriesMembership).join(models.Book).filter(models.Book.owner_id == user_id).count(),
+                "series_orderings": db.query(models.BookSeriesOrdering).join(models.Book).filter(models.Book.owner_id == user_id).count(),
             }
             _checkpoint("final_invariants")
             if actual != {"books": expected.books, "categories": expected.categories, "locations": expected.locations,
                           "metadata_snapshots": expected.metadata_snapshots,
-                          "normalized_metadata_records": expected.normalized_metadata_records}:
+                          "normalized_metadata_records": expected.normalized_metadata_records,
+                          "series": expected.series, "series_memberships": expected.series_memberships,
+                          "series_orderings": expected.series_orderings}:
                 raise RuntimeError("restored row counts do not match the validated plan")
         return actual
     except BackupError:

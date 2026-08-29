@@ -39,7 +39,7 @@ def _local_path(url: str) -> tuple[Path, str] | None:
         candidate.relative_to(root)
     except ValueError as exc:
         raise BackupError(400, "BACKUP_FILE_MISSING", "A local cover reference is unsafe") from exc
-    origin = "restored" if relative.parts[:2] == ("objects", "sha256") else ("upload" if relative.parts[:1] == ("uploaded",) else "download")
+    origin = "restored" if relative.parts[:2] == ("objects", "sha256") else ("upload" if relative.parts[:1] in (("uploaded",), ("series",)) else "download")
     return candidate, origin
 
 
@@ -74,14 +74,18 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
         db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
     categories = db.query(models.Category).filter(models.Category.owner_id == user_id).order_by(models.Category.id).all()
     locations = db.query(models.Location).filter(models.Location.owner_id == user_id).order_by(models.Location.id).all()
+    series = db.query(models.Series).filter(models.Series.owner_id == user_id).order_by(models.Series.id).all()
     books = db.query(models.Book).filter(models.Book.owner_id == user_id).order_by(models.Book.id).all()
     preferences = db.query(models.UserPreferences).filter(models.UserPreferences.user_id == user_id).one_or_none()
     category_ids = {row.id: _archive_id() for row in categories}
     location_ids = {row.id: _archive_id() for row in locations}
+    series_ids = {row.id: _archive_id() for row in series}
     if any(row.parent_id is not None and row.parent_id not in category_ids for row in categories):
         raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Category hierarchy leaves this user backup")
     if any(row.parent_id is not None and row.parent_id not in location_ids for row in locations):
         raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Location hierarchy leaves this user backup")
+    if any(row.parent_id is not None and row.parent_id not in series_ids for row in series):
+        raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Series hierarchy leaves this user backup")
     book_ids = {row.id: _archive_id() for row in books}
     objects: dict[str, dict] = {}
     book_data = []
@@ -127,6 +131,18 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
                     "cover_candidates_json": record.cover_candidates_json, "normalizer_version": record.normalizer_version,
                     "normalized_at": record.normalized_at,
                 })
+    memberships = (
+        db.query(models.BookSeriesMembership)
+        .join(models.Book).join(models.Series)
+        .filter(models.Book.owner_id == user_id, models.Series.owner_id == user_id)
+        .order_by(models.BookSeriesMembership.id).all()
+    )
+    orderings = (
+        db.query(models.BookSeriesOrdering)
+        .join(models.Book).join(models.Series)
+        .filter(models.Book.owner_id == user_id, models.Series.owner_id == user_id)
+        .order_by(models.BookSeriesOrdering.id).all()
+    )
     library = LibraryData.model_validate({
         "preferences": None if preferences is None else {
             "date_format": preferences.date_format, "time_format": preferences.time_format,
@@ -137,6 +153,19 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
         },
         "categories": [{"archive_id": category_ids[row.id], "name": row.name, "parent_archive_id": category_ids.get(row.parent_id)} for row in categories],
         "locations": [{"archive_id": location_ids[row.id], "name": row.name, "parent_archive_id": location_ids.get(row.parent_id)} for row in locations],
+        "series": [{
+            "archive_id": series_ids[row.id], "name": row.name, "author": row.author,
+            "description": row.description, "cover": _cover_reference(row.cover_url, objects),
+            "parent_archive_id": series_ids.get(row.parent_id),
+        } for row in series],
+        "series_memberships": [{
+            "book_archive_id": book_ids[row.book_id], "series_archive_id": series_ids[row.series_id],
+            "node_order": row.node_order,
+        } for row in memberships],
+        "series_orderings": [{
+            "book_archive_id": book_ids[row.book_id], "series_archive_id": series_ids[row.series_id],
+            "publication_order": row.publication_order, "chronological_order": row.chronological_order,
+        } for row in orderings],
         "books": book_data, "metadata_snapshots": snapshots, "normalized_metadata_records": normalized,
     })
     library_bytes = json.dumps(library.model_dump(mode="json"), separators=(",", ":"), ensure_ascii=False).encode()
@@ -146,8 +175,8 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
     manifest = Manifest(
         format=FORMAT, format_version=FORMAT_VERSION, created_at=datetime.now(timezone.utc),
         application={"name": "Library App", "schema": "sqlalchemy-current"}, subject_username=username,
-        feature_flags={"preferences": True, "metadata_snapshots": True, "normalized_metadata": True, "uploaded_cover_candidates": True, "content_addressed_covers": True},
-        record_counts=RecordCounts(books=len(books), categories=len(categories), locations=len(locations), metadata_snapshots=len(snapshots), normalized_metadata_records=len(normalized), cover_files=len(objects)),
+        feature_flags={"preferences": True, "metadata_snapshots": True, "normalized_metadata": True, "uploaded_cover_candidates": True, "content_addressed_covers": True, "series": True},
+        record_counts=RecordCounts(books=len(books), categories=len(categories), locations=len(locations), metadata_snapshots=len(snapshots), normalized_metadata_records=len(normalized), cover_files=len(objects), series=len(series), series_memberships=len(memberships), series_orderings=len(orderings)),
         files=files,
     )
     temp = tempfile.NamedTemporaryFile(prefix="library-backup-", suffix=".lbak", delete=False)
