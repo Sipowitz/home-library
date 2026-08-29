@@ -119,9 +119,9 @@ export function BookListView({
     <div
       className="
         rounded-2xl
-        border border-gray-800
+        border border-border
         overflow-hidden
-        bg-gray-900/40
+        bg-surface/70 dark:bg-surface/40
         backdrop-blur-sm
       "
     >
@@ -132,10 +132,10 @@ export function BookListView({
           items-center
           gap-4
           px-4 py-3
-          bg-gray-900/95
-          border-b border-gray-800
+          bg-surface/95
+          border-b border-border
           text-xs uppercase tracking-wide
-          text-gray-400
+          text-text-muted
         "
         style={{
           gridTemplateColumns: showCovers
@@ -173,8 +173,9 @@ export function BookListView({
               className="
                 w-full
                 text-left
-                border-b border-gray-800/70
-                hover:bg-gray-800/40
+                border-b border-border
+                text-text-primary
+                hover:bg-control/40
                 transition
               "
             >
@@ -230,34 +231,34 @@ export function BookListView({
 
                 {/* TITLE */}
                 <div className="min-w-0">
-                  <div className="font-medium text-white truncate">
+                  <div className="truncate font-medium text-text-primary">
                     {book.title}
                   </div>
 
                   {book.isbn && (
-                    <div className="text-xs text-gray-500 mt-1 truncate">
+                    <div className="mt-1 truncate text-xs text-text-muted">
                       ISBN: {book.isbn}
                     </div>
                   )}
                 </div>
 
                 {/* AUTHOR */}
-                <div className="text-sm text-gray-300 truncate">
+                <div className="truncate text-sm text-text-secondary">
                   {book.author}
                 </div>
 
                 {/* LOCATION */}
-                <div className="text-sm text-gray-400 truncate">
+                <div className="truncate text-sm text-text-muted">
                   {locationPath}
                 </div>
 
                 {/* CATEGORY */}
-                <div className="text-sm text-gray-400 truncate">
+                <div className="truncate text-sm text-text-muted">
                   {categoryPath}
                 </div>
 
                 {/* YEAR */}
-                <div className="text-sm text-gray-300">{book.year || "—"}</div>
+                <div className="text-sm text-text-secondary">{book.year || "—"}</div>
 
                 {/* STATUS */}
                 <div>
@@ -272,8 +273,8 @@ export function BookListView({
                       text-xs font-medium
                       ${
                         book.read
-                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20"
-                          : "bg-gray-700/60 text-gray-300 border border-gray-600"
+                          ? "border border-success/25 bg-success-muted/60 text-success"
+                          : "border border-border-strong bg-control text-text-secondary"
                       }
                     `}
                   >
@@ -310,17 +311,17 @@ export function BookListView({
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-white">{book.title}</div>
+                    <div className="font-medium text-text-primary">{book.title}</div>
 
-                    <div className="text-sm text-gray-400 mt-1">
+                    <div className="mt-1 text-sm text-text-secondary">
                       {book.author}
                     </div>
 
-                    <div className="text-xs text-gray-500 mt-3 line-clamp-1">
+                    <div className="mt-3 line-clamp-1 text-xs text-text-muted">
                       {locationPath}
                     </div>
 
-                    <div className="text-xs text-gray-500 mt-1 line-clamp-1">
+                    <div className="mt-1 line-clamp-1 text-xs text-text-muted">
                       {categoryPath}
                     </div>
 
@@ -334,8 +335,8 @@ export function BookListView({
                           text-[11px]
                           ${
                             book.read
-                              ? "bg-emerald-500/15 text-emerald-300"
-                              : "bg-gray-700 text-gray-300"
+                              ? "border border-success/25 bg-success-muted/60 text-success"
+                              : "border border-border-strong bg-control text-text-secondary"
                           }
                         `}
                       >

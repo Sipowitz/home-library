@@ -14,8 +14,8 @@ export function ViewModeSwitcher({ value, onChange }: Props) {
         gap-1
         p-1
         rounded-2xl
-        border border-gray-800
-        bg-gray-900/70
+        border border-border
+        bg-surface/70
         backdrop-blur-sm
         w-fit
       "
@@ -33,7 +33,7 @@ export function ViewModeSwitcher({ value, onChange }: Props) {
           ${
             value === "grid"
               ? "bg-blue-600 text-white shadow"
-              : "text-gray-300 hover:bg-gray-800"
+              : "text-text-secondary hover:bg-control hover:text-text-primary"
           }
         `}
       >
@@ -53,7 +53,7 @@ export function ViewModeSwitcher({ value, onChange }: Props) {
           ${
             value === "list"
               ? "bg-blue-600 text-white shadow"
-              : "text-gray-300 hover:bg-gray-800"
+              : "text-text-secondary hover:bg-control hover:text-text-primary"
           }
         `}
       >

@@ -171,7 +171,7 @@ export function StatsPanel() {
 
   if (isLoading && !stats) {
     return (
-      <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl text-sm text-gray-400">
+      <div className="rounded-2xl border border-border bg-surface p-4 text-sm text-text-muted">
         Loading statistics...
       </div>
     );
@@ -179,24 +179,26 @@ export function StatsPanel() {
 
   if (error || !stats) {
     return (
-      <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl text-sm text-red-300">
+      <div className="rounded-2xl border border-border bg-surface p-4 text-sm text-danger">
         {error ?? "Statistics could not be loaded"}
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl">
+    <div className="rounded-2xl border border-border bg-surface p-4 text-text-primary">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg">Library Stats</h2>
 
-        <div className="flex gap-1 bg-gray-800 p-1 rounded-lg text-xs">
+        <div className="flex gap-1 rounded-lg bg-control p-1 text-xs">
           {(["7d", "30d", "all"] as Range[]).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
               className={`px-2 py-1 rounded ${
-                range === r ? "bg-gray-700 text-white" : "text-gray-400"
+                range === r
+                  ? "bg-surface-raised text-text-primary shadow-sm ring-1 ring-border-strong"
+                  : "text-text-muted hover:text-text-secondary"
               }`}
             >
               {r === "all" ? "All" : r}
@@ -231,8 +233,8 @@ export function StatsPanel() {
 
         {/* CHART */}
         <div className="lg:col-span-3">
-          <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3">
-            <div className="flex items-center gap-4 mb-3 text-xs text-gray-400">
+          <div className="rounded-xl border border-border bg-control/40 p-3">
+            <div className="mb-3 flex items-center gap-4 text-xs text-text-muted">
               <LegendItem color="#60a5fa" label="Total books" />
 
               <LegendItem color="#4ade80" label="Read books" />
@@ -240,7 +242,11 @@ export function StatsPanel() {
 
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.05} />
+                <CartesianGrid
+                  stroke="rgb(var(--color-border-strong))"
+                  strokeDasharray="3 3"
+                  opacity={0.35}
+                />
 
                 <XAxis
                   dataKey="date"
@@ -251,7 +257,7 @@ export function StatsPanel() {
 
                     return formatDate(value, preferences);
                   }}
-                  stroke="#6b7280"
+                  stroke="rgb(var(--color-text-muted))"
                   tick={{
                     fontSize: 11,
                   }}
@@ -295,10 +301,10 @@ export function StatsPanel() {
 
 function StatCard({ label, value, highlight }: StatCardProps) {
   return (
-    <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-3 text-center">
-      <div className="text-xs text-gray-400 uppercase">{label}</div>
+    <div className="rounded-xl border border-border bg-control/60 p-3 text-center">
+      <div className="text-xs uppercase text-text-muted">{label}</div>
 
-      <div className={`text-2xl ${highlight ? "text-green-400" : ""}`}>
+      <div className={`text-2xl ${highlight ? "text-success" : "text-text-primary"}`}>
         {value}
       </div>
     </div>
@@ -307,19 +313,19 @@ function StatCard({ label, value, highlight }: StatCardProps) {
 
 function ActivityBox({ title, added, read }: ActivityBoxProps) {
   return (
-    <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3 text-sm">
-      <div className="text-xs text-gray-400 mb-2">{title}</div>
+    <div className="rounded-xl border border-border bg-control/40 p-3 text-sm text-text-secondary">
+      <div className="mb-2 text-xs text-text-muted">{title}</div>
 
       <div className="flex justify-between">
         <span>Books added</span>
 
-        <span className="text-blue-400">+{added}</span>
+        <span className="text-blue-600 dark:text-blue-400">+{added}</span>
       </div>
 
       <div className="flex justify-between">
         <span>Books read</span>
 
-        <span className="text-green-400">+{read}</span>
+        <span className="text-success">+{read}</span>
       </div>
     </div>
   );
@@ -351,8 +357,8 @@ function CustomTooltip({
   }
 
   return (
-    <div className="bg-gray-800 p-2 rounded text-sm">
-      <div>{formatDate(label, preferences)}</div>
+    <div className="rounded border border-border-strong bg-surface-raised p-2 text-sm text-text-secondary shadow-lg">
+      <div className="font-medium text-text-primary">{formatDate(label, preferences)}</div>
 
       {payload.map((p) => (
         <div key={p.dataKey}>

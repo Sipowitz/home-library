@@ -427,11 +427,11 @@ export default function App() {
         <div className="mb-3 mt-3 flex min-h-12 items-center justify-between gap-3 px-1">
           <div className="min-w-0">
             {isLoading ? (
-              <div className="text-sm text-gray-400">Searching...</div>
+              <div className="text-sm text-text-muted">Searching...</div>
             ) : loadError ? (
-              <div className="text-sm text-red-300">{loadError}</div>
+              <div className="text-sm text-danger">{loadError}</div>
             ) : (
-              <h2 className="text-sm font-medium text-gray-300">Books</h2>
+              <h2 className="text-sm font-medium text-text-secondary">Books</h2>
             )}
           </div>
 

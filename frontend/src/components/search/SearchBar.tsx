@@ -66,9 +66,9 @@ export function SearchBar({
     >
       <div
         className="
-          bg-gray-950/95
+          bg-surface/95 dark:bg-canvas/95
           backdrop-blur
-          border border-gray-800
+          border border-border
           p-2 sm:p-2.5
           rounded-2xl
           shadow-lg
@@ -81,13 +81,15 @@ export function SearchBar({
               placeholder="Search title or author..."
               className="
                 px-3 py-2.5
-                bg-gray-800
+                bg-control
+                text-text-primary
+                placeholder:text-text-muted
                 rounded-xl
                 w-full
                 outline-none
-                border border-gray-700
-                focus:border-blue-500
-                focus:ring-2 focus:ring-blue-500/20
+                border border-border-strong
+                focus:border-focus
+                focus:ring-2 focus:ring-focus/20
                 transition
               "
               value={searchInput}
@@ -104,6 +106,7 @@ export function SearchBar({
                   locations={locations}
                   selectedLocationId={selectedLocation}
                   onSelect={onLocationChange}
+                  semanticTheme
                 />
               </div>
 
@@ -114,12 +117,13 @@ export function SearchBar({
                   selectedCategoryId={selectedCategory}
                   onSelect={onCategoryChange}
                   showSpecialOptions
+                  semanticTheme
                 />
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-gray-800 pt-2 lg:grid lg:grid-rows-2 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0">
+          <div className="flex justify-end gap-2 border-t border-border pt-2 lg:grid lg:grid-rows-2 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0">
             <ActionButton variant="secondary" onClick={onCheckLibrary} className="flex-1 sm:flex-none lg:h-auto lg:w-full">Check Library</ActionButton>
             <ActionButton variant="addPrimary" onClick={onAddBook} className="flex-1 sm:flex-none lg:h-auto lg:w-full">+ Add Book</ActionButton>
           </div>
