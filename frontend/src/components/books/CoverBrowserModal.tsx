@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Existing cover refresh API error responses are untyped. */
 import { useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import { refreshCovers, uploadCover } from "../../api/books";
@@ -74,11 +75,11 @@ export function CoverBrowserModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-800 px-4 py-4 sm:px-6">
+      <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-surface text-text-primary shadow-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
           <div className="min-w-0">
             <h2 className="text-xl font-semibold">Cover Browser</h2>
-            {title && <p className="mt-1 truncate text-sm text-gray-400">{title}</p>}
+            {title && <p className="mt-1 truncate text-sm text-text-muted">{title}</p>}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
             <ActionButton variant="utility" onClick={handleRefresh} disabled={!bookId || isRefreshing} className="px-3">
@@ -96,19 +97,19 @@ export function CoverBrowserModal({
             if (file) await handleUpload(file);
             event.target.value = "";
           }} />
-          {covers.length === 0 ? <div className="text-gray-400">No covers available.</div> : (
+          {covers.length === 0 ? <div className="rounded-xl border border-border bg-surface-muted p-4 text-text-muted">No covers available.</div> : (
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 xl:gap-6">
               {covers.map((cover, index) => {
                 const selected = selectedCoverUrl === cover.url;
                 return (
                   <button key={`${cover.url}-${index}`} type="button" onClick={() => onSelectCover?.(cover)} className="group space-y-3 text-left">
-                    <div className={`aspect-[2/3] overflow-hidden rounded-xl border bg-black/30 transition ${selected ? "border-blue-500 ring-2 ring-blue-500/40" : "border-gray-800 group-hover:border-gray-600"}`}>
+                    <div className={`aspect-[2/3] overflow-hidden rounded-xl border bg-black/30 transition ${selected ? "border-blue-600 ring-2 ring-blue-500/45 dark:border-blue-500" : "border-border-strong group-hover:border-text-muted"}`}>
                       <img src={cover.url} alt={`Cover ${index + 1}`} className="h-full w-full object-cover transition group-hover:scale-[1.02]" />
                     </div>
                     <div className="space-y-1">
                       <div className="text-sm font-medium capitalize">{providerLabel(cover.provider)}</div>
-                      <div className="text-xs text-gray-400">{cover.label}</div>
-                      {selected && <div className="text-xs font-medium text-blue-400">Selected</div>}
+                      <div className="text-xs text-text-muted">{cover.label}</div>
+                      {selected && <div className="text-xs font-medium text-blue-700 dark:text-blue-400">Selected</div>}
                     </div>
                   </button>
                 );
@@ -117,7 +118,7 @@ export function CoverBrowserModal({
           )}
         </div>
 
-        <div className="flex justify-end border-t border-gray-800 bg-gray-900 px-4 py-4 sm:px-6">
+        <div className="flex justify-end border-t border-border bg-surface px-4 py-4 sm:px-6">
           <ActionButton variant="primary" onClick={onMarkReviewed} className="px-5 font-semibold">
             Done — Mark Cover Reviewed
           </ActionButton>

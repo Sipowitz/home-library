@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Existing metadata draft/provider values intentionally accept heterogeneous field data. */
 import { useEffect, useMemo, useState } from "react";
 
 import { RefreshCw, X } from "lucide-react";
@@ -161,6 +162,8 @@ export function MetadataComparisonPanel({
     return () => {
       mounted = false;
     };
+    // Candidate loading intentionally follows the book identity; draft changes must not reload evidence.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
 
   const successfulProviders = useMemo(
@@ -170,14 +173,14 @@ export function MetadataComparisonPanel({
 
   if (loading) {
     return (
-      <div className="p-6 text-sm text-gray-400">
+      <div className="p-6 text-sm text-text-muted">
         Loading metadata candidates...
       </div>
     );
   }
 
   if (error) {
-    return <div className="p-6 text-sm text-red-400">{error}</div>;
+    return <div className="p-6 text-sm text-danger">{error}</div>;
   }
 
   return (
@@ -225,18 +228,18 @@ export function MetadataComparisonPanel({
             relative z-20
             flex flex-wrap items-start justify-between
             gap-4
-            border-b border-white/10
-            bg-[#071421]/90
+            border-b border-border
+            bg-surface/95 dark:bg-[#071421]/90
             px-6 py-5
             backdrop-blur
           "
         >
           <div className="min-w-0">
-            <h2 className="text-2xl font-semibold text-white">
+            <h2 className="text-2xl font-semibold text-text-primary">
               Metadata Comparison
             </h2>
 
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-sm text-text-muted">
               Compare provider metadata and adopt values.
             </p>
           </div>
@@ -267,7 +270,7 @@ export function MetadataComparisonPanel({
 
         <div className="relative z-20 space-y-10 p-6">
           {!successfulProviders.length ? (
-            <p className="text-sm text-gray-400">
+            <p className="rounded-xl border border-border bg-surface/95 p-4 text-sm text-text-muted dark:bg-[#071421]/80">
               No provider metadata found. You can still acknowledge this review.
             </p>
           ) : FIELDS.map((field) => {
@@ -293,7 +296,9 @@ export function MetadataComparisonPanel({
                   className="
                     overflow-hidden
                     rounded-2xl
-                    border border-gray-800
+                    border border-border
+                    bg-surface
+                    dark:bg-transparent
                   "
                 >
                   {values.map((entry, index) => {
@@ -309,11 +314,15 @@ export function MetadataComparisonPanel({
                           grid-cols-[180px_1fr_120px]
                           items-start
                           gap-4
-                          border-b border-gray-800
+                          border-b border-border
                           px-5 py-4
                           transition
                           last:border-b-0
-                          ${selected ? "bg-blue-500/10" : "bg-[#071421]/55"}
+                          ${
+                            selected
+                              ? "bg-blue-500/10 ring-1 ring-inset ring-blue-500/60 dark:ring-0"
+                              : "bg-surface dark:bg-[#071421]/55"
+                          }
                         `}
                       >
                         {/* PROVIDER */}
@@ -322,7 +331,7 @@ export function MetadataComparisonPanel({
                           className="
                             text-sm
                             font-medium
-                            text-gray-300
+                            text-text-secondary
                           "
                         >
                           {formatProviderName(entry.provider)}
@@ -333,13 +342,13 @@ export function MetadataComparisonPanel({
                         <div
                           className="
                             text-sm
-                            text-gray-100
+                            text-text-primary
                             whitespace-pre-wrap
                             break-words
                           "
                         >
                           {entry.value || (
-                            <span className="text-gray-500">—</span>
+                            <span className="text-text-muted">—</span>
                           )}
                         </div>
 
@@ -356,7 +365,7 @@ export function MetadataComparisonPanel({
                                 [field.key]: entry.value,
                               }))
                             }
-                            className={selected ? "border-blue-400/60 bg-blue-500/20 text-blue-200 ring-1 ring-blue-500/25" : "border-gray-700 bg-transparent text-gray-400"}
+                            className={selected ? "border-blue-500/60 bg-blue-500/20 text-blue-700 ring-1 ring-blue-500/30 dark:text-blue-200" : "border-border-strong bg-transparent text-text-muted"}
                           >
                             {selected ? "Selected" : "Select"}
                           </ActionButton>
@@ -372,7 +381,7 @@ export function MetadataComparisonPanel({
 
         </div>
 
-        <div className="sticky bottom-0 z-20 flex justify-end border-t border-white/10 bg-[#071421]/90 px-6 py-4 backdrop-blur">
+        <div className="sticky bottom-0 z-20 flex justify-end border-t border-border bg-surface/95 px-6 py-4 backdrop-blur dark:bg-[#071421]/90">
           <ActionButton
             type="button"
             variant="primary"
