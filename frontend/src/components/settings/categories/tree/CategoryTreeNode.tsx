@@ -30,6 +30,8 @@ export function CategoryTreeNode({ data }: NodeProps) {
   const [cascadeCount, setCascadeCount] = useState(0);
 
   useEffect(() => {
+    // Keep the local rename draft synchronized with externally updated node data.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setName(data.name);
   }, [data.name]);
 
@@ -135,7 +137,7 @@ export function CategoryTreeNode({ data }: NodeProps) {
 
         ${data.dimmed ? "opacity-60" : "opacity-100"}
 
-        ${data.focused ? "ring-1 ring-white/30" : ""}
+        ${data.focused ? "ring-2 ring-blue-500/70 dark:ring-1 dark:ring-white/30" : ""}
       `}
     >
       <Handle type="target" position={Position.Top} className="opacity-0" />
@@ -175,15 +177,17 @@ export function CategoryTreeNode({ data }: NodeProps) {
                 className="
                   w-full
 
-                  bg-black/30
+                  bg-control
+                  dark:bg-black/30
 
-                  border border-white/10
+                  border border-border-strong
+                  dark:border-white/10
 
                   rounded-lg
 
                   px-3 py-2
 
-                  text-white
+                  text-text-primary
                   text-lg
                   font-semibold
 
@@ -191,16 +195,16 @@ export function CategoryTreeNode({ data }: NodeProps) {
                 "
               />
             ) : (
-              <div className="text-lg font-semibold text-white truncate">
+              <div className="truncate text-lg font-semibold text-text-primary">
                 {data.name}
               </div>
             )}
 
-            <div className="mt-2 text-xs leading-relaxed text-gray-300">
+            <div className="mt-2 text-xs leading-relaxed text-text-secondary">
               {data.stats.total_books} books · {data.stats.read_books} read · {data.stats.unread_books} unread
             </div>
 
-            <div className="mt-1 text-[11px] text-gray-400">
+            <div className="mt-1 text-[11px] text-text-muted">
               {data.childCount} {data.childCount === 1 ? "child" : "children"}
             </div>
           </button>
@@ -255,11 +259,13 @@ export function CategoryTreeNode({ data }: NodeProps) {
 
               rounded-xl
 
-              bg-black/30
+              bg-control
+              dark:bg-black/30
 
-              border border-white/10
+              border border-border-strong
+              dark:border-white/10
 
-              text-sm text-white
+              text-sm text-text-primary
 
               outline-none
 
@@ -297,7 +303,7 @@ export function CategoryTreeNode({ data }: NodeProps) {
           >
             {!confirmingCascade ? (
               <>
-                <div className="text-sm text-red-200">
+                <div className="text-sm text-danger">
                   Delete this category?
                 </div>
 
@@ -311,8 +317,9 @@ export function CategoryTreeNode({ data }: NodeProps) {
 
                       rounded-lg
 
-                      bg-gray-800
-                      hover:bg-gray-700
+                      bg-control
+                      hover:bg-surface-raised
+                      dark:hover:bg-border-strong
 
                       text-sm
 
@@ -333,6 +340,7 @@ export function CategoryTreeNode({ data }: NodeProps) {
 
                       bg-red-600
                       hover:bg-red-500
+                      text-white
 
                       text-sm
 
@@ -345,7 +353,7 @@ export function CategoryTreeNode({ data }: NodeProps) {
               </>
             ) : (
               <>
-                <div className="text-sm text-red-200">
+                <div className="text-sm text-danger">
                   Delete this category and {cascadeCount} descendants?
                 </div>
 
@@ -363,8 +371,9 @@ export function CategoryTreeNode({ data }: NodeProps) {
 
                       rounded-lg
 
-                      bg-gray-800
-                      hover:bg-gray-700
+                      bg-control
+                      hover:bg-surface-raised
+                      dark:hover:bg-border-strong
 
                       text-sm
 
@@ -385,6 +394,7 @@ export function CategoryTreeNode({ data }: NodeProps) {
 
                       bg-red-600
                       hover:bg-red-500
+                      text-white
 
                       text-sm
 

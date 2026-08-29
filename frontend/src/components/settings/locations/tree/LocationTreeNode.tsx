@@ -28,6 +28,8 @@ export function LocationTreeNode({ data }: NodeProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
+    // Keep the local rename draft synchronized with externally updated node data.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setName(data.name);
   }, [data.name]);
 
@@ -112,7 +114,7 @@ export function LocationTreeNode({ data }: NodeProps) {
 
         ${data.dimmed ? "opacity-60" : "opacity-100"}
 
-        ${data.focused ? "ring-1 ring-white/30" : ""}
+        ${data.focused ? "ring-2 ring-blue-500/70 dark:ring-1 dark:ring-white/30" : ""}
       `}
     >
       <Handle type="target" position={Position.Top} className="opacity-0" />
@@ -152,15 +154,17 @@ export function LocationTreeNode({ data }: NodeProps) {
                 className="
                   w-full
 
-                  bg-black/30
+                  bg-control
+                  dark:bg-black/30
 
-                  border border-white/10
+                  border border-border-strong
+                  dark:border-white/10
 
                   rounded-lg
 
                   px-3 py-2
 
-                  text-white
+                  text-text-primary
                   text-lg
                   font-semibold
 
@@ -168,12 +172,12 @@ export function LocationTreeNode({ data }: NodeProps) {
                 "
               />
             ) : (
-              <div className="text-lg font-semibold text-white truncate">
+              <div className="truncate text-lg font-semibold text-text-primary">
                 {data.name}
               </div>
             )}
 
-            <div className="mt-2 text-xs leading-relaxed text-gray-300">
+            <div className="mt-2 text-xs leading-relaxed text-text-secondary">
               {data.stats.total_books} books
             </div>
           </button>
@@ -228,11 +232,13 @@ export function LocationTreeNode({ data }: NodeProps) {
 
               rounded-xl
 
-              bg-black/30
+              bg-control
+              dark:bg-black/30
 
-              border border-white/10
+              border border-border-strong
+              dark:border-white/10
 
-              text-sm text-white
+              text-sm text-text-primary
 
               outline-none
 
@@ -268,7 +274,7 @@ export function LocationTreeNode({ data }: NodeProps) {
               p-4
             "
           >
-            <div className="text-sm text-red-200">Delete this location?</div>
+            <div className="text-sm text-danger">Delete this location?</div>
 
             <div className="flex gap-2 mt-4">
               <button
@@ -280,8 +286,9 @@ export function LocationTreeNode({ data }: NodeProps) {
 
                   rounded-lg
 
-                  bg-gray-800
-                  hover:bg-gray-700
+                  bg-control
+                  hover:bg-surface-raised
+                  dark:hover:bg-border-strong
 
                   text-sm
 
@@ -302,6 +309,7 @@ export function LocationTreeNode({ data }: NodeProps) {
 
                   bg-red-600
                   hover:bg-red-500
+                  text-white
 
                   text-sm
 

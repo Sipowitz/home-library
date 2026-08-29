@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Existing tree delete handlers return category/location-specific result shapes. */
 import type { Edge, Node } from "reactflow";
 
 import dagre from "dagre";
@@ -124,14 +125,14 @@ export function buildTreeElements<
 
         style: {
           stroke: focused
-            ? "rgba(255,255,255,0.95)"
+            ? "var(--tree-edge-focused)"
             : depth === 0
-              ? "rgba(192,132,252,0.75)"
+              ? "var(--tree-edge-root)"
               : depth === 1
-                ? "rgba(96,165,250,0.62)"
+                ? "var(--tree-edge-level-1)"
                 : depth === 2
-                  ? "rgba(52,211,153,0.52)"
-                  : "rgba(148,163,184,0.38)",
+                  ? "var(--tree-edge-level-2)"
+                  : "var(--tree-edge-deep)",
 
           strokeWidth: focused ? 3 : 2.2,
 

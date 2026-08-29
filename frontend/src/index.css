@@ -84,6 +84,41 @@ svg:focus {
   background: transparent !important;
 }
 
+/* Theme bridge for the shared Category/Location ReactFlow workspace. */
+.tree-flow-theme {
+  --tree-grid-color: rgb(var(--color-border-strong) / 0.65);
+  --tree-edge-focused: rgb(var(--color-focus));
+  --tree-edge-root: rgba(168, 85, 247, 0.7);
+  --tree-edge-level-1: rgba(37, 99, 235, 0.62);
+  --tree-edge-level-2: rgba(5, 150, 105, 0.55);
+  --tree-edge-deep: rgba(100, 116, 139, 0.55);
+}
+
+.dark .tree-flow-theme {
+  --tree-grid-color: rgba(255, 255, 255, 0.035);
+  --tree-edge-focused: rgba(255, 255, 255, 0.95);
+  --tree-edge-root: rgba(192, 132, 252, 0.75);
+  --tree-edge-level-1: rgba(96, 165, 250, 0.62);
+  --tree-edge-level-2: rgba(52, 211, 153, 0.52);
+  --tree-edge-deep: rgba(148, 163, 184, 0.38);
+}
+
+.tree-flow-theme .react-flow__controls-button {
+  border-bottom-color: rgb(var(--color-border));
+  background: rgb(var(--color-surface-raised) / 0.95);
+  color: rgb(var(--color-text-secondary));
+  fill: currentColor;
+}
+
+.tree-flow-theme .react-flow__controls-button:hover {
+  background: rgb(var(--color-surface-muted));
+  color: rgb(var(--color-text-primary));
+}
+
+.tree-flow-theme .react-flow__controls-button svg {
+  fill: currentColor;
+}
+
 /* -------------------
    🎨 APP SCROLLBARS
 ------------------- */

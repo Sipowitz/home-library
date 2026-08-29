@@ -213,7 +213,7 @@ function MobileTreeNode({
                 aria-label="Create child category"
                 onClick={handleCreateChild}
                 disabled={!childName.trim()}
-                className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Create
               </button>
@@ -242,7 +242,7 @@ function MobileTreeNode({
               <button
                 type="button"
                 onClick={() => handleDelete(cascadeCount !== null)}
-                className="flex-1 rounded-lg bg-red-600 px-3 py-2"
+                className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-white"
               >
                 Delete
               </button>
@@ -463,7 +463,7 @@ export function CategoryTreePanel({ categories }: Props) {
                     aria-label="Create root category"
                     onClick={handleCreateRoot}
                     disabled={!rootName.trim()}
-                    className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Create
                   </button>
@@ -480,7 +480,7 @@ export function CategoryTreePanel({ categories }: Props) {
                   from-purple-600
                   to-fuchsia-600
                   hover:brightness-110
-                  text-sm font-medium
+                  text-sm font-medium text-white
                   transition
                 "
               >
