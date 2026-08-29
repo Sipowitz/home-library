@@ -39,6 +39,7 @@ type LibraryFact = HeroFact;
 
 const FALLBACK_COVER = "/fallback-cover.png";
 
+// eslint-disable-next-line react-refresh/only-export-components -- Shared with the existing BookPanel backdrop.
 export function resolveCoverUrl(value: string | undefined) {
   const trimmed = value?.trim();
   if (!trimmed) return null;
@@ -70,11 +71,11 @@ function LibraryDetail({ fact }: { fact: LibraryFact }) {
   const Icon = fact.icon;
 
   return (
-    <div className="flex min-w-0 items-start gap-3 border-b border-white/[0.06] py-3 first:pt-0 last:border-b-0 last:pb-0">
-      <Icon size={17} className="mt-0.5 shrink-0 text-blue-300" aria-hidden="true" />
+    <div className="flex min-w-0 items-start gap-3 border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0">
+      <Icon size={17} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-300" aria-hidden="true" />
       <div className="min-w-0">
-        <div className="text-xs text-gray-500">{fact.label}</div>
-        <div className="mt-0.5 break-words text-sm leading-5 text-gray-100">
+        <div className="text-xs text-text-muted">{fact.label}</div>
+        <div className="mt-0.5 break-words text-sm leading-5 text-text-primary">
           {fact.value}
         </div>
       </div>
@@ -84,8 +85,8 @@ function LibraryDetail({ fact }: { fact: LibraryFact }) {
 
 function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
-    <h3 className="flex items-center gap-3 text-lg font-semibold text-white">
-      <Icon size={21} className="text-blue-400" aria-hidden="true" />
+    <h3 className="flex items-center gap-3 text-lg font-semibold text-text-primary">
+      <Icon size={21} className="text-blue-600 dark:text-blue-400" aria-hidden="true" />
       {children}
     </h3>
   );
@@ -240,16 +241,16 @@ export function BookView({ book, locations, categories }: Props) {
           className="grid gap-4 p-4 sm:p-5 lg:p-6"
         >
           {hasSynopsis && (
-            <section className="rounded-xl border border-white/10 bg-[#0a1726]/80 p-5 sm:p-6">
+            <section className="rounded-xl border border-border bg-surface/95 p-5 shadow-sm dark:bg-[#0a1726]/80">
               <SectionTitle icon={BookOpen}>Synopsis</SectionTitle>
-              <p className="mt-4 whitespace-pre-line break-words text-sm leading-7 text-gray-300 sm:text-[15px] sm:leading-7">
+              <p className="mt-4 whitespace-pre-line break-words text-sm leading-7 text-text-secondary sm:text-[15px] sm:leading-7">
                 {book.description}
               </p>
             </section>
           )}
 
           {libraryFacts.length > 0 && (
-            <section className="rounded-xl border border-white/10 bg-[#0a1726]/80 p-5 sm:p-6">
+            <section className="rounded-xl border border-border bg-surface/95 p-5 shadow-sm dark:bg-[#0a1726]/80">
               <SectionTitle icon={Folder}>Library Details</SectionTitle>
               <div className="mt-4 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
                 {libraryFacts.map((fact) => (

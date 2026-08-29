@@ -6,7 +6,7 @@ type Props = {
 
 export function FieldLabel({ children }: Props) {
   return (
-    <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
+    <div className="mb-1 text-[11px] uppercase tracking-wide text-text-muted">
       {children}
     </div>
   );

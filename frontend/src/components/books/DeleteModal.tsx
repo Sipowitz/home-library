@@ -1,16 +1,17 @@
 import { ActionButton } from "../ui/ActionButton";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Existing modal prop contract is outside this appearance-only change.
 export function DeleteModal({ open, book, onClose, onDelete }: any) {
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-gray-900 p-6 rounded-xl w-80 text-center">
-        <h3 className="text-lg mb-4 text-red-400 font-semibold">
+      <div className="w-80 rounded-xl border border-border-strong bg-surface-raised p-6 text-center text-text-primary shadow-2xl">
+        <h3 className="mb-4 text-lg font-semibold text-danger">
           Delete Book?
         </h3>
 
-        <p className="text-sm text-gray-400 mb-4">
+        <p className="mb-4 text-sm text-text-secondary">
           Delete <strong>{book.title}</strong>?
         </p>
 

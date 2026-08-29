@@ -18,12 +18,12 @@ export function ISBNInputRow({
 }: Props) {
   return (
     <div className="mb-4">
-      <label className="text-xs text-gray-400">ISBN</label>
+      <label className="text-xs text-text-muted">ISBN</label>
 
       <div className="flex items-stretch gap-2 mt-1 min-w-0">
         <input
           placeholder="Scan or enter ISBN..."
-          className="flex-1 min-w-0 p-2 bg-gray-800 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="form-control min-w-0 flex-1 rounded-lg p-2"
           value={isbn}
           onChange={(e) => onChange(e.target.value)}
         />

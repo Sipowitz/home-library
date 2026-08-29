@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Existing workflow accepts API error and updater shapes from legacy callers. */
 import { useState } from "react";
 
 import { ISBNScannerModal } from "./ISBNScannerModal";
@@ -141,7 +142,7 @@ export function AddBookForm({
 
   return (
     <>
-      <div className={embedded ? "" : "bg-gray-900/80 backdrop-blur border border-gray-800 p-5 rounded-2xl shadow-xl"}>
+      <div className={embedded ? "" : "rounded-2xl border border-border bg-surface/80 p-5 shadow-xl backdrop-blur"}>
         {/* HEADER */}
         {!embedded && <h2 className="text-lg font-semibold mb-4 tracking-wide">Add Book</h2>}
 
@@ -155,7 +156,7 @@ export function AddBookForm({
 
         {/* ⚠️ WARNING */}
         {warning && (
-          <div className="bg-yellow-500/90 text-black p-2 rounded-lg mb-4 text-sm">
+          <div className="mb-4 rounded-lg border border-warning/25 bg-warning-muted p-2 text-sm text-warning">
             {warning}
           </div>
         )}
@@ -217,12 +218,12 @@ export function AddBookForm({
       />
       {duplicate && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="duplicate-book-title">
-          <div className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-5 shadow-2xl">
-            <h2 id="duplicate-book-title" className="text-lg font-semibold text-white">This ISBN is already in your library.</h2>
-            <div className="mt-3 space-y-1 text-sm text-gray-300">
+          <div className="w-full max-w-md rounded-xl border border-border-strong bg-surface-raised p-5 text-text-primary shadow-2xl">
+            <h2 id="duplicate-book-title" className="text-lg font-semibold">This ISBN is already in your library.</h2>
+            <div className="mt-3 space-y-1 text-sm text-text-secondary">
               {duplicate.title && <p>{duplicate.title}</p>}
               {duplicate.author && <p>{duplicate.author}</p>}
-              {duplicate.isbn && <p className="text-gray-500">ISBN: {duplicate.isbn}</p>}
+              {duplicate.isbn && <p className="text-text-muted">ISBN: {duplicate.isbn}</p>}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <ActionButton variant="tertiary" onClick={() => setDuplicate(null)}>Cancel</ActionButton>

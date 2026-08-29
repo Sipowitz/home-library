@@ -63,10 +63,10 @@ function reviewLabel(status: ReviewStatus | undefined, pending: boolean) {
 }
 
 function reviewTone(status: ReviewStatus | undefined, pending: boolean) {
-  if (pending) return "border-blue-500/25 bg-blue-500/10 text-blue-300";
-  if (status?.state === "current") return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
-  if (status?.state === "changed") return "border-amber-500/20 bg-amber-500/10 text-amber-300";
-  return "border-white/10 bg-white/[0.04] text-slate-400";
+  if (pending) return "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300";
+  if (status?.state === "current") return "border-success/25 bg-success-muted/60 text-success";
+  if (status?.state === "changed") return "border-warning/25 bg-warning-muted/60 text-warning";
+  return "border-border-strong bg-control/70 text-text-muted";
 }
 
 function mergeProviderResults(
@@ -291,10 +291,10 @@ export function BookEdit({
   }
 
   const inputClass =
-    "h-9 w-full rounded-lg border border-white/10 bg-[#091624] px-3 text-sm text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10";
+    "form-control h-9 w-full rounded-lg px-3 text-sm transition dark:bg-[#091624] dark:focus:bg-[#0b1a2b]";
 
   const sectionClass =
-    "rounded-xl border border-white/[0.08] bg-[#0a1625]/80 p-4 shadow-[0_12px_30px_rgba(0,0,0,0.12)]";
+    "rounded-xl border border-border bg-surface/95 p-4 shadow-[0_12px_30px_rgba(0,0,0,0.12)] dark:bg-[#0a1625]/80";
 
   function SectionHeading({
     icon,
@@ -304,9 +304,9 @@ export function BookEdit({
     children: React.ReactNode;
   }) {
     return (
-      <div className="mb-3 flex items-center gap-2 border-b border-white/[0.06] pb-2.5">
-        <span className="text-blue-400">{icon}</span>
-        <h3 className="text-[13px] font-semibold tracking-wide text-slate-100">
+      <div className="mb-3 flex items-center gap-2 border-b border-border pb-2.5">
+        <span className="text-blue-600 dark:text-blue-400">{icon}</span>
+        <h3 className="text-[13px] font-semibold tracking-wide text-text-primary">
           {children}
         </h3>
       </div>
@@ -401,12 +401,14 @@ export function BookEdit({
                     onSelect={handleCategorySelect}
                     showSpecialOptions={false}
                     floating
+                    semanticTheme
                   />
                   <LocationTreeSelector
                     locations={locations}
                     selectedLocationId={editData?.location_id ?? null}
                     onSelect={(id) => setEditData({ ...editData!, location_id: id })}
                     floating
+                    semanticTheme
                   />
                   <div>
                     <FieldLabel>Reading Status</FieldLabel>
@@ -416,8 +418,8 @@ export function BookEdit({
                       className={
                         "flex h-10 w-full items-center justify-between rounded-lg border px-3 text-sm transition " +
                         (editData?.read
-                          ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
-                          : "border-white/10 bg-[#091624] text-slate-300")
+                          ? "border-success/25 bg-success-muted/60 text-success"
+                          : "border-border-strong bg-control text-text-secondary dark:bg-[#091624]")
                       }
                     >
                       <span>{editData?.read ? "Read" : "Unread"}</span>
@@ -437,20 +439,20 @@ export function BookEdit({
               rows={8}
               value={editData?.description || ""}
               onChange={(e) => setEditData({ ...editData!, description: e.target.value })}
-              className="min-h-0 w-full resize-y overflow-y-auto rounded-lg border border-white/10 bg-[#091624] p-3 text-sm leading-relaxed text-white outline-none transition focus:border-blue-500/50 focus:bg-[#0b1a2b] focus:ring-2 focus:ring-blue-500/10"
+              className="form-control min-h-0 w-full resize-y overflow-y-auto rounded-lg p-3 text-sm leading-relaxed transition dark:bg-[#091624] dark:focus:bg-[#0b1a2b]"
             />
           </section>
 
-          <section className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-white/[0.08] bg-[#0a1625]/65 px-4 py-3 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.1)]">
+          <section className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-border bg-surface/95 px-4 py-3 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.1)] dark:bg-[#0a1625]/65">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="font-medium text-slate-300">Metadata</span>
+              <span className="font-medium text-text-secondary">Metadata</span>
               <span className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] ${reviewTone(editData?.metadata_review, metadataReviewPending)}`}>{reviewLabel(editData?.metadata_review, metadataReviewPending)}</span>
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="font-medium text-slate-300">Covers</span>
+              <span className="font-medium text-text-secondary">Covers</span>
               <span className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] ${reviewTone(editData?.cover_review, coverReviewPending)}`}>{reviewLabel(editData?.cover_review, coverReviewPending)}</span>
             </div>
-            <div className="text-[11px] text-slate-500">
+            <div className="text-[11px] text-text-muted">
               {editData?.last_metadata_refresh_at
                 ? `Refreshed ${formatDate(editData.last_metadata_refresh_at, preferences)}`
                 : "Never refreshed"}
@@ -458,7 +460,7 @@ export function BookEdit({
             <ActionButton variant="secondary" size="sm" onClick={() => setShowMetadataPanel(true)} className="sm:ml-auto">Compare Metadata</ActionButton>
           </section>
 
-          <div className="flex flex-col-reverse gap-3 border-t border-white/[0.08] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
             <ActionButton variant="danger" onClick={onDelete}><Trash2 size={15} /> Delete Book</ActionButton>
             <ActionButton variant="primary" onClick={() => onSave({ mark_metadata_reviewed: metadataReviewPending, mark_cover_reviewed: coverReviewPending })}><Save size={15} /> Save Changes</ActionButton>
           </div>
