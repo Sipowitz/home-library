@@ -224,8 +224,8 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
         <div
           className="
-            bg-gray-950/95
-            border border-gray-800
+            bg-canvas/95 text-text-primary
+            border border-border
             rounded-xl sm:rounded-2xl
             w-full
             h-full
@@ -239,8 +239,8 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
           <div
             className="
-              bg-gray-900/90
-              border-b lg:border-b-0 lg:border-r border-gray-800
+              bg-surface/90
+              border-b lg:border-b-0 lg:border-r border-border
               p-2.5 sm:p-3 lg:p-4
               flex flex-col
               lg:w-64
@@ -249,7 +249,7 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
             <div className="mb-2 lg:mb-6">
               <h2 className="text-xl lg:text-2xl font-semibold">Settings</h2>
 
-              <p className="text-sm text-gray-400 mt-1 hidden lg:block">
+              <p className="text-sm text-text-muted mt-1 hidden lg:block">
                 Configure your library system
               </p>
             </div>
@@ -273,16 +273,16 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
           {/* CONTENT */}
 
-          <div className="min-w-0 p-2 sm:p-3 lg:flex-1 lg:p-6">
+          <div className="min-w-0 bg-canvas p-2 sm:p-3 lg:flex-1 lg:p-6">
             {/* LOCATIONS */}
 
             {activeSection === "locations" && (
               <div className="max-w-full relative">
-                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
+                <div className="bg-surface/60 border border-border rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
                   <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Locations</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-text-muted mt-1">
                       Organize where books are physically stored.
                     </p>
                   </div>
@@ -296,11 +296,11 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
             {activeSection === "categories" && (
               <div className="max-w-full relative">
-                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
+                <div className="bg-surface/60 border border-border rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
                   <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Categories</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-text-muted mt-1">
                       Organize books by subject or collection.
                     </p>
                   </div>
@@ -327,7 +327,7 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
                   <div>
                     <h2 className="text-lg font-semibold">Providers</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-text-muted mt-1">
                       Configure metadata search providers and priority order.
                     </p>
                   </div>
@@ -338,17 +338,17 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
             )}
 
             {activeSection === "users" && user?.is_admin && (
-              <div className="max-w-4xl space-y-4"><div><h2 className="text-lg font-semibold">Users</h2><p className="text-sm text-gray-400 mt-1">Approve or reject pending accounts.</p></div><PendingUsersPanel /></div>
+              <div className="max-w-4xl space-y-4"><div><h2 className="text-lg font-semibold">Users</h2><p className="text-sm text-text-muted mt-1">Approve or reject pending accounts.</p></div><PendingUsersPanel /></div>
             )}
 
             {/* PREFERENCES */}
 
             {activeSection === "appearance" && (
               <div className="max-w-2xl">
-                <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4 lg:p-5">
+                <div className="rounded-xl border border-border bg-surface p-4 lg:p-5">
                   <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Appearance</h2>
-                    <p className="mt-1 text-sm text-gray-400">
+                    <p className="mt-1 text-sm text-text-muted">
                       Configure how your library is presented.
                     </p>
                   </div>
@@ -361,11 +361,11 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
             {activeSection === "preferences" && (
               <div className="max-w-2xl">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+                <div className="bg-surface border border-border rounded-xl p-4 lg:p-5">
                   <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Preferences</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-text-muted mt-1">
                       Configure how dates and times are shown throughout the
                       library.
                     </p>
@@ -380,11 +380,11 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
             {activeSection === "backup" && (
               <div className="max-w-2xl">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+                <div className="bg-surface border border-border rounded-xl p-4 lg:p-5">
                   <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Backup & Restore</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-text-muted mt-1">
                       Export or restore your library database.
                     </p>
                   </div>

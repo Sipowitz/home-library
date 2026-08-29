@@ -29,24 +29,24 @@ export function ConfirmDeleteModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div className="bg-surface border border-border-strong rounded-2xl w-full max-w-md p-6 text-text-primary shadow-2xl">
         <h3
           className={`text-xl font-semibold mb-3 ${
-            danger ? "text-red-400" : "text-white"
+            danger ? "text-danger" : "text-text-primary"
           }`}
         >
           {title}
         </h3>
 
-        <p className="text-sm text-gray-300 mb-4 whitespace-pre-line">
+        <p className="text-sm text-text-secondary mb-4 whitespace-pre-line">
           {message}
         </p>
 
         {details && details.length > 0 && (
-          <div className="mb-5 max-h-48 overflow-y-auto rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+          <div className="mb-5 max-h-48 overflow-y-auto rounded-lg border border-border bg-surface-muted p-3">
             <div className="space-y-1">
               {details.map((item, index) => (
-                <div key={index} className="text-sm text-gray-400">
+                <div key={index} className="text-sm text-text-muted">
                   • {item}
                 </div>
               ))}

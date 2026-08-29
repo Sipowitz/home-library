@@ -12,8 +12,8 @@ export function CategorySettings() {
       className="
         relative
         rounded-lg lg:rounded-2xl
-        border border-gray-800/70 lg:border-gray-800
-        bg-gray-900/20 lg:bg-gray-900/40
+        border border-border
+        bg-surface-muted/40
         overflow-visible lg:overflow-hidden
       "
     >

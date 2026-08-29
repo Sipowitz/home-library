@@ -23,7 +23,7 @@ export function AppearanceSettings() {
   const { preferences, updatePreferences, loading } = usePreferences();
 
   if (loading || !preferences) {
-    return <div className="text-sm text-gray-400">Loading preferences...</div>;
+    return <div className="text-sm text-text-muted">Loading preferences...</div>;
   }
 
   async function updateVisibility(change: PreferencesUpdate) {
@@ -38,8 +38,8 @@ export function AppearanceSettings() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-medium text-white">Appearance</h3>
-        <p className="mt-1 text-sm text-gray-400">
+        <h3 className="text-sm font-medium text-text-primary">Appearance</h3>
+        <p className="mt-1 text-sm text-text-muted">
           Choose how the Library App appears.
         </p>
       </div>
@@ -52,10 +52,10 @@ export function AppearanceSettings() {
             className={`cursor-pointer rounded-xl border p-3 transition ${
               preferences.appearance_mode === choice.value
                 ? "border-blue-500/60 bg-blue-500/10"
-                : "border-gray-800 bg-gray-900/60 hover:border-gray-700"
+                : "border-border bg-surface-muted hover:border-border-strong"
             }`}
           >
-            <span className="flex items-center gap-2 text-sm font-medium text-white">
+            <span className="flex items-center gap-2 text-sm font-medium text-text-primary">
               <input
                 type="radio"
                 name="appearance-mode"
@@ -68,23 +68,23 @@ export function AppearanceSettings() {
               />
               {choice.label}
             </span>
-            <span className="mt-1 block pl-6 text-xs text-gray-400">
+            <span className="mt-1 block pl-6 text-xs text-text-muted">
               {choice.description}
             </span>
           </label>
         ))}
       </fieldset>
 
-      <div className="border-t border-gray-800 pt-4">
+      <div className="border-t border-border pt-4">
       <div>
-        <h3 className="text-sm font-medium text-white">Library Stats</h3>
-        <p className="mt-1 text-sm text-gray-400">
+        <h3 className="text-sm font-medium text-text-primary">Library Stats</h3>
+        <p className="mt-1 text-sm text-text-muted">
           Choose where the library statistics panel is displayed.
         </p>
       </div>
 
-      <div className="divide-y divide-gray-800 overflow-hidden rounded-xl border border-gray-800 bg-gray-900/60">
-        <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-sm text-gray-200">
+      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface-muted">
+        <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-sm text-text-secondary">
           <span>Show Library Stats on desktop</span>
           <input
             type="checkbox"
@@ -93,7 +93,7 @@ export function AppearanceSettings() {
             className="h-4 w-4 accent-blue-600"
           />
         </label>
-        <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-sm text-gray-200">
+        <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-sm text-text-secondary">
           <span>Show Library Stats on mobile</span>
           <input
             type="checkbox"

@@ -20,7 +20,7 @@ export function ProviderSettingsPanel() {
   }, []);
 
   if (loading) {
-    return <div className="text-sm text-gray-400">Loading providers...</div>;
+    return <div className="text-sm text-text-muted">Loading providers...</div>;
   }
 
   return (
@@ -29,8 +29,8 @@ export function ProviderSettingsPanel() {
         <div
           key={provider.id}
           className="
-            bg-gray-900/60
-            border border-gray-800
+            bg-surface
+            border border-border
             rounded-xl
             p-4
             space-y-4
@@ -38,20 +38,21 @@ export function ProviderSettingsPanel() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-white">
+              <h3 className="font-semibold text-text-primary">
                 {provider.provider_name}
               </h3>
 
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-text-muted mt-1">
                 Configure provider availability and priority.
               </p>
             </div>
 
             <label className="flex items-center gap-2 text-sm">
-              <span className="text-gray-300">Enabled</span>
+              <span className="text-text-secondary">Enabled</span>
 
               <input
                 type="checkbox"
+                className="accent-blue-600"
                 checked={provider.enabled}
                 onChange={(e) =>
                   updateProvider(provider.id, {
@@ -64,7 +65,7 @@ export function ProviderSettingsPanel() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">
+              <label className="block text-sm text-text-muted mb-1">
                 Priority
               </label>
 
@@ -78,17 +79,14 @@ export function ProviderSettingsPanel() {
                 }
                 className="
                   w-full
-                  rounded-lg
-                  bg-gray-950
-                  border border-gray-700
+                  form-control rounded-lg
                   px-3 py-2
-                  text-white
                 "
               />
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-1">
+              <label className="block text-sm text-text-muted mb-1">
                 Timeout
               </label>
 
@@ -102,17 +100,14 @@ export function ProviderSettingsPanel() {
                 }
                 className="
                   w-full
-                  rounded-lg
-                  bg-gray-950
-                  border border-gray-700
+                  form-control rounded-lg
                   px-3 py-2
-                  text-white
                 "
               />
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-1">
+              <label className="block text-sm text-text-muted mb-1">
                 Retries
               </label>
 
@@ -126,18 +121,15 @@ export function ProviderSettingsPanel() {
                 }
                 className="
                   w-full
-                  rounded-lg
-                  bg-gray-950
-                  border border-gray-700
+                  form-control rounded-lg
                   px-3 py-2
-                  text-white
                 "
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">API Key</label>
+            <label className="block text-sm text-text-muted mb-1">API Key</label>
 
             <div className="relative">
               <input
@@ -152,12 +144,9 @@ export function ProviderSettingsPanel() {
                 placeholder={provider.has_api_key ? "Key configured — enter replacement" : "Enter API key"}
                 className="
                   w-full
-                  rounded-lg
-                  bg-gray-950
-                  border border-gray-700
+                  form-control rounded-lg
                   px-3 py-2
                   pr-10
-                  text-white
                 "
               />
 

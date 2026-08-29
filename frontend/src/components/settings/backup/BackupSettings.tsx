@@ -47,15 +47,15 @@ export function BackupSettings({
       {/* STATUS */}
       <div className="mb-5 space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400">Last Backup</span>
+          <span className="text-text-muted">Last Backup</span>
 
-          <span className="text-gray-200">{renderDate(lastBackupAt)}</span>
+          <span className="text-text-secondary">{renderDate(lastBackupAt)}</span>
         </div>
 
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400">Last Restore</span>
+          <span className="text-text-muted">Last Restore</span>
 
-          <span className="text-gray-200">{renderDate(lastRestoreAt)}</span>
+          <span className="text-text-secondary">{renderDate(lastRestoreAt)}</span>
         </div>
       </div>
 
@@ -79,7 +79,7 @@ export function BackupSettings({
       </ActionButton>
 
       {/* HINT */}
-      <p className="text-xs text-gray-500 mt-3">
+      <p className="text-xs text-text-muted mt-3">
         Backups include your books, reading state, categories, locations, preferences, metadata history, and referenced local covers. Passwords, secrets, provider API keys, and other users are excluded.
       </p>
 

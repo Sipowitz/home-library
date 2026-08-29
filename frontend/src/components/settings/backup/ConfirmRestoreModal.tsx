@@ -32,12 +32,12 @@ export function ConfirmRestoreModal({ open, restoring, file, summary, onConfirm,
   ];
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]">
-      <div className="bg-gray-900 p-6 rounded-xl w-96">
-        <h3 className="text-lg mb-3 text-yellow-400 font-semibold">Restore validated backup?</h3>
-        <p className="text-sm text-yellow-200 mb-4 font-medium">This will replace your current library data.</p>
-        {file && <div className="text-xs text-gray-400 mb-3 truncate">{file.name}</div>}
+      <div className="bg-surface border border-border-strong p-6 rounded-xl w-96 text-text-primary shadow-2xl">
+        <h3 className="text-lg mb-3 text-warning font-semibold">Restore validated backup?</h3>
+        <p className="text-sm text-warning mb-4 font-medium">This will replace your current library data.</p>
+        {file && <div className="text-xs text-text-muted mb-3 truncate">{file.name}</div>}
         <dl className="text-sm mb-5 space-y-1">
-          {rows.map(([label, value]) => <div key={label} className="flex justify-between gap-4"><dt className="text-gray-400">{label}</dt><dd className="text-gray-100 text-right">{value}</dd></div>)}
+          {rows.map(([label, value]) => <div key={label} className="flex justify-between gap-4"><dt className="text-text-muted">{label}</dt><dd className="text-text-primary text-right">{value}</dd></div>)}
         </dl>
         <div className="flex gap-2">
           <ActionButton variant="warningStrong" disabled={restoring} onClick={onConfirm} className="flex-1">

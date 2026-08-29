@@ -15,11 +15,11 @@ export function LibrarySettings({ locations }: Props) {
     <div className="space-y-8">
       {/* LOCATIONS */}
 
-      <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
+      <div className="bg-surface border border-border rounded-xl p-4">
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Locations</h2>
 
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-text-muted mt-1">
             Organize where books are physically stored.
           </p>
         </div>
@@ -29,11 +29,11 @@ export function LibrarySettings({ locations }: Props) {
 
       {/* CATEGORIES */}
 
-      <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
+      <div className="bg-surface border border-border rounded-xl p-4">
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Categories</h2>
 
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-text-muted mt-1">
             Organize books by subject or collection.
           </p>
         </div>
@@ -43,11 +43,11 @@ export function LibrarySettings({ locations }: Props) {
 
       {/* PROVIDERS */}
 
-      <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
+      <div className="bg-surface border border-border rounded-xl p-4">
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Providers</h2>
 
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-text-muted mt-1">
             Manage metadata lookup providers and search priority.
           </p>
         </div>

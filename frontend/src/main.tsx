@@ -29,7 +29,16 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <LocationProvider>
                 <App />
 
-                <Toaster position="top-right" />
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    style: {
+                      background: "rgb(var(--color-surface-raised))",
+                      border: "1px solid rgb(var(--color-border-strong))",
+                      color: "rgb(var(--color-text-primary))",
+                    },
+                  }}
+                />
               </LocationProvider>
             </CategoryProvider>
           </ProviderSettingsProvider>

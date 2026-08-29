@@ -1,11 +1,13 @@
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import axios from "axios";
 import toast from "react-hot-toast";
 import type { ReviewQueueBook } from "../../../api/maintenance";
 import { getReviewQueue, startMaintenanceRefresh, getActiveMaintenanceJob, getMaintenanceJob, cancelMaintenanceJob, type MaintenanceJob } from "../../../api/maintenance";
 import { useMaintenance } from "../../../hooks/useMaintenance";
 import { resolveCoverUrl } from "../../books/BookView";
-import { ActionButton, statusActionBaseClasses } from "../../ui/ActionButton";
+import { ActionButton } from "../../ui/ActionButton";
+import { statusActionBaseClasses } from "../../ui/actionButtonStyles";
 
 export type ReviewTarget = "book" | "metadata" | "covers";
 
@@ -54,7 +56,14 @@ export function MaintenanceSettings({ active, reviewSaved, onReview, onReviewSeq
   }, [active, job]);
   async function startRefresh() {
     if (!confirmKind) return;
-    try { setJob(await startMaintenanceRefresh(confirmKind)); } catch (err: any) { toast.error(err?.response?.data?.message || "A refresh is already running"); }
+    try {
+      setJob(await startMaintenanceRefresh(confirmKind));
+    } catch (err: unknown) {
+      const message = axios.isAxiosError<{ message?: string }>(err)
+        ? err.response?.data?.message
+        : undefined;
+      toast.error(message || "A refresh is already running");
+    }
     setConfirmKind(null);
   }
 

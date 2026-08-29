@@ -35,6 +35,8 @@ export function TreeInputModal({
 
   useEffect(() => {
     if (open) {
+      // Reset the draft whenever the controlled modal is opened or retargeted.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setValue(initialValue);
     }
   }, [open, initialValue]);
@@ -61,9 +63,9 @@ export function TreeInputModal({
 
           rounded-2xl
 
-          border border-gray-800
+          border border-border-strong
 
-          bg-gray-950
+          bg-surface text-text-primary
 
           shadow-2xl
 
@@ -71,7 +73,7 @@ export function TreeInputModal({
         "
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-semibold text-white">{title}</h2>
+        <h2 className="text-xl font-semibold text-text-primary">{title}</h2>
 
         <input
           autoFocus
@@ -96,14 +98,7 @@ export function TreeInputModal({
 
             px-4 py-3
 
-            rounded-xl
-
-            bg-gray-900
-
-            border border-gray-700
-
-            focus:outline-none
-            focus:border-purple-500
+            form-control rounded-xl
           "
         />
 
@@ -115,8 +110,8 @@ export function TreeInputModal({
 
               rounded-xl
 
-              bg-gray-800
-              hover:bg-gray-700
+              bg-control text-text-secondary
+              hover:bg-surface-raised hover:text-text-primary
 
               transition
             "

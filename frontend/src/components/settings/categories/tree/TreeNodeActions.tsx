@@ -69,11 +69,11 @@ export function TreeNodeActions({
         </ActionButton>
 
         {mobileOpen && (
-          <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-xl border border-gray-700 bg-gray-950 shadow-xl">
+          <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-xl border border-border-strong bg-surface shadow-xl">
             <button
               type="button"
               onClick={() => runMobileAction(onAdd)}
-              className="flex w-full items-center gap-2 px-3 py-3 text-left text-sm text-gray-200 hover:bg-gray-800"
+              className="flex w-full items-center gap-2 px-3 py-3 text-left text-sm text-text-secondary hover:bg-surface-muted"
             >
               <Plus size={16} aria-hidden="true" />
               Add child
@@ -81,7 +81,7 @@ export function TreeNodeActions({
             <button
               type="button"
               onClick={() => runMobileAction(onEdit)}
-              className="flex w-full items-center gap-2 px-3 py-3 text-left text-sm text-gray-200 hover:bg-gray-800"
+              className="flex w-full items-center gap-2 px-3 py-3 text-left text-sm text-text-secondary hover:bg-surface-muted"
             >
               <Pencil size={16} aria-hidden="true" />
               Rename
@@ -89,7 +89,7 @@ export function TreeNodeActions({
             <button
               type="button"
               onClick={() => runMobileAction(onDelete)}
-              className="flex w-full items-center gap-2 px-3 py-3 text-left text-sm text-red-300 hover:bg-gray-800"
+              className="flex w-full items-center gap-2 px-3 py-3 text-left text-sm text-danger hover:bg-surface-muted"
             >
               <Trash2 size={16} aria-hidden="true" />
               Delete

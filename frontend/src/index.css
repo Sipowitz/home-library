@@ -22,6 +22,9 @@
     --color-warning-muted: 254 243 199;
     --color-danger: 185 28 28;
     --color-danger-muted: 254 226 226;
+    --color-scrollbar-track: 241 245 249;
+    --color-scrollbar-thumb: 203 213 225;
+    --color-scrollbar-thumb-hover: 148 163 184;
   }
 
   .dark {
@@ -43,6 +46,15 @@
     --color-warning-muted: 120 53 15;
     --color-danger: 252 165 165;
     --color-danger-muted: 127 29 29;
+    --color-scrollbar-track: 17 24 39;
+    --color-scrollbar-thumb: 55 65 81;
+    --color-scrollbar-thumb-hover: 75 85 99;
+  }
+}
+
+@layer components {
+  .form-control {
+    @apply rounded-xl border border-border-strong bg-control text-text-primary outline-none placeholder:text-text-muted disabled:cursor-not-allowed disabled:opacity-50 focus:border-focus focus:ring-1 focus:ring-focus/30;
   }
 }
 
@@ -78,7 +90,7 @@ svg:focus {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #4b5563 #111827;
+  scrollbar-color: rgb(var(--color-scrollbar-thumb)) rgb(var(--color-scrollbar-track));
 }
 
 /* Chrome / Edge / Safari */
@@ -89,18 +101,18 @@ svg:focus {
 }
 
 *::-webkit-scrollbar-track {
-  background: #111827;
+  background: rgb(var(--color-scrollbar-track));
   border-radius: 9999px;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: rgb(var(--color-scrollbar-thumb));
   border-radius: 9999px;
-  border: 2px solid #111827;
+  border: 2px solid rgb(var(--color-scrollbar-track));
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: rgb(var(--color-scrollbar-thumb-hover));
 }
 
 /* Horizontal tab strips should remain swipeable without a visual gutter. */

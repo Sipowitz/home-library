@@ -65,7 +65,7 @@ export function SettingsSidebar({ active, onChange, isAdmin }: Props) {
         className="
           hidden lg:flex
           w-56
-          border-r border-gray-800
+          border-r border-border
           pr-3
           flex-col
           space-y-1
@@ -85,8 +85,8 @@ export function SettingsSidebar({ active, onChange, isAdmin }: Props) {
                 transition
                 ${
                   selected
-                    ? "bg-gray-800 text-white"
-                    : "text-gray-400 hover:bg-gray-800/60 hover:text-white"
+                    ? "bg-surface-raised text-text-primary"
+                    : "text-text-muted hover:bg-surface-muted hover:text-text-primary"
                 }
               `}
             >
@@ -116,8 +116,8 @@ export function SettingsSidebar({ active, onChange, isAdmin }: Props) {
                   text-sm
                   ${
                     selected
-                      ? "bg-gray-800 text-white"
-                      : "bg-gray-900 text-gray-400"
+                      ? "bg-surface-raised text-text-primary"
+                      : "bg-surface-muted text-text-muted hover:text-text-primary"
                   }
                 `}
               >
