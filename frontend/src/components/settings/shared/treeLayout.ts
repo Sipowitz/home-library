@@ -6,6 +6,10 @@ import dagre from "dagre";
 import { flattenTree } from "../../../utils/tree/flattenTree";
 import { findPathIdsToNode } from "../../../utils/tree/findPathIdsToNode";
 import { findPathToNode } from "../../../utils/tree/findPathToNode";
+import {
+  applyTreeSubtreeBands,
+  type TreeSubtreeBandOptions,
+} from "./treeSubtreeBands";
 
 const NODE_WIDTH = 260;
 
@@ -17,6 +21,7 @@ export type TreeLayoutOptions = {
   nodesep?: number;
   ranksep?: number;
   rankdir?: "TB" | "LR";
+  subtreeBands?: TreeSubtreeBandOptions;
 };
 
 // ================= RE-EXPORT SHARED TREE UTILS =================
@@ -278,10 +283,14 @@ export function getLayoutedElements(
     };
   });
 
-  return {
-    nodes: alignParentsToChildren
+  const positionedNodes = alignParentsToChildren
       ? alignParentCentersToChildren(layoutedNodes, edges)
-      : layoutedNodes,
+      : layoutedNodes;
+
+  return {
+    nodes: options.subtreeBands
+      ? applyTreeSubtreeBands(positionedNodes, edges, options.subtreeBands)
+      : positionedNodes,
 
     edges,
   };

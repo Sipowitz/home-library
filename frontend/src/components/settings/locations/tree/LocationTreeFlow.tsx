@@ -31,6 +31,11 @@ const compactLocationLayout = {
   nodesep: 24,
   ranksep: 64,
   rankdir: "LR",
+  subtreeBands: {
+    nodeHeight: 40,
+    siblingGap: 20,
+    rootGap: 40,
+  },
 } satisfies TreeLayoutOptions;
 
 export function LocationTreeFlow({

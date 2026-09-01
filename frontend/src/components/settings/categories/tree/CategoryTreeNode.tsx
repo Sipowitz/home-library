@@ -2,10 +2,10 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Handle, Position, type NodeProps } from "reactflow";
 
+import { AnchoredTreeNodeActions } from "./AnchoredTreeNodeActions";
 import { getDepthStyles } from "./treeStyles";
 import { TreeConfirmModal } from "./TreeConfirmModal";
 import { TreeInputModal } from "./TreeInputModal";
-import { TreeNodeActions } from "./TreeNodeActions";
 
 export function CategoryTreeNode({ data }: NodeProps) {
   const styles = getDepthStyles(data.depth);
@@ -58,17 +58,23 @@ export function CategoryTreeNode({ data }: NodeProps) {
 
   return (
     <>
-      <div
-        className={`
-          group relative flex h-10 w-[150px] items-center rounded-lg border
-          bg-gradient-to-b transition-all duration-300 ease-out
-          hover:scale-[1.02]
-          ${styles.border}
-          ${styles.bg}
-          ${data.dimmed ? "opacity-60" : "opacity-100"}
-          ${data.focused ? "ring-2 ring-blue-500/70 dark:ring-1 dark:ring-white/30" : ""}
-        `}
+      <AnchoredTreeNodeActions
+        label={data.name}
+        onAdd={() => setCreatingChild(true)}
+        onEdit={() => setRenaming(true)}
+        onDelete={() => setConfirmingDelete(true)}
       >
+        <div
+          className={`
+            group relative flex h-10 w-[150px] items-center rounded-lg border
+            bg-gradient-to-b transition-all duration-300 ease-out
+            hover:scale-[1.02]
+            ${styles.border}
+            ${styles.bg}
+            ${data.dimmed ? "opacity-60" : "opacity-100"}
+            ${data.focused ? "ring-2 ring-blue-500/70 dark:ring-1 dark:ring-white/30" : ""}
+          `}
+        >
         <Handle type="target" position={Position.Left} className="opacity-0" />
 
         <button
@@ -88,17 +94,9 @@ export function CategoryTreeNode({ data }: NodeProps) {
           </span>
         </button>
 
-        <div className="pointer-events-none absolute left-[calc(100%-4px)] top-1/2 z-20 -translate-y-1/2 rounded-lg border border-border bg-surface/95 p-1 opacity-0 shadow-lg transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
-          <TreeNodeActions
-            label={data.name}
-            onAdd={() => setCreatingChild(true)}
-            onEdit={() => setRenaming(true)}
-            onDelete={() => setConfirmingDelete(true)}
-          />
-        </div>
-
         <Handle type="source" position={Position.Right} className="opacity-0" />
-      </div>
+        </div>
+      </AnchoredTreeNodeActions>
 
       {createPortal(
         <>

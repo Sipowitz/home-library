@@ -10,6 +10,8 @@ type Props = {
   onEdit: () => void;
 
   onDelete: () => void;
+
+  alwaysVisible?: boolean;
 };
 
 function TreeIconButton({
@@ -44,6 +46,7 @@ export function TreeNodeActions({
   onAdd,
   onEdit,
   onDelete,
+  alwaysVisible = false,
 }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -99,15 +102,14 @@ export function TreeNodeActions({
       </div>
 
       <div
-        className="
+        className={`
           hidden
-          opacity-0
-          group-hover:opacity-100
+          ${alwaysVisible ? "opacity-100" : "opacity-0 group-hover:opacity-100"}
 
           transition-opacity
 
-          lg:flex items-center gap-2
-        "
+          lg:flex items-center ${alwaysVisible ? "gap-1" : "gap-2"}
+        `}
       >
         <TreeIconButton label={`Add child to ${label}`} onClick={onAdd}>
           <Plus size={15} />
