@@ -317,13 +317,37 @@ def get_effective_books(db: Session, user_id: int, series_id: int):
         .order_by(models.Book.title, models.Book.id)
         .all()
     )
+    book_ids = [book.id for book, _, _ in rows]
+    membership_rows = (
+        db.query(
+            models.BookSeriesMembership.book_id,
+            models.BookSeriesMembership.series_id,
+            models.Series.name,
+            models.BookSeriesMembership.node_order,
+        )
+        .join(descendants, descendants.c.series_id == models.BookSeriesMembership.series_id)
+        .join(models.Series, models.Series.id == models.BookSeriesMembership.series_id)
+        .filter(models.BookSeriesMembership.book_id.in_(book_ids))
+        .order_by(models.Series.name, models.Series.id)
+        .all()
+        if book_ids else []
+    )
+    memberships_by_book: dict[int, list[dict]] = defaultdict(list)
+    for book_id, explicit_series_id, series_name, node_order in membership_rows:
+        memberships_by_book[book_id].append({
+            "series_id": explicit_series_id,
+            "series_name": series_name,
+            "node_order": node_order,
+        })
     return [
         {
             "book_id": book.id, "title": book.title, "author": book.author,
+            "cover_url": book.cover_url, "isbn": book.isbn, "year": book.year,
             "direct": membership is not None,
             "node_order": membership.node_order if membership else None,
             "publication_order": ordering.publication_order if ordering else None,
             "chronological_order": ordering.chronological_order if ordering else None,
+            "explicit_memberships": memberships_by_book[book.id],
         }
         for book, membership, ordering in rows
     ]

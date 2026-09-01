@@ -270,14 +270,24 @@ class BookSeriesRelationship(BaseModel):
     chronological_order: Optional[Decimal] = None
 
 
+class EffectiveSeriesMembership(BaseModel):
+    series_id: int
+    series_name: str
+    node_order: Optional[Decimal] = None
+
+
 class EffectiveSeriesBook(BaseModel):
     book_id: int
     title: str
     author: str
+    cover_url: Optional[str] = None
+    isbn: Optional[str] = None
+    year: Optional[int] = None
     direct: bool
     node_order: Optional[Decimal] = None
     publication_order: Optional[Decimal] = None
     chronological_order: Optional[Decimal] = None
+    explicit_memberships: List[EffectiveSeriesMembership] = Field(default_factory=list)
 
 
 # -------------------

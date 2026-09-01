@@ -18,6 +18,7 @@ import { Dialog } from "../../ui/Dialog";
 import { ConfirmDeleteModal } from "../ConfirmDeleteModal";
 
 import { MobileSeriesTree } from "./MobileSeriesTree";
+import { SeriesBooksSection } from "./SeriesBooksSection";
 import { SeriesForm, type SeriesDraft } from "./SeriesForm";
 import { SeriesTreeFlow } from "./SeriesTreeFlow";
 import {
@@ -370,6 +371,16 @@ export function SeriesSettings() {
             )}
           </aside>
         </div>
+
+        {selected && !editing && (
+          <div className="bg-surface px-4 pb-5 sm:px-5">
+            <SeriesBooksSection
+              seriesId={selected.id}
+              seriesName={selected.name}
+              onSelectSeries={(id) => selectSeries(id)}
+            />
+          </div>
+        )}
       </div>
 
       <CreateSeriesDialog

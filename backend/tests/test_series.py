@@ -105,7 +105,30 @@ def test_deep_inheritance_effective_books_and_ordering(db, library):
         series_service.set_ordering(db, owner.id, unrelated.id, first.id, {"publication_order": Decimal("1")})
     books = series_service.get_effective_books(db, owner.id, root.id)
     assert {item["book_id"] for item in books} == {first.id, second.id}
-    assert next(item for item in books if item["book_id"] == first.id)["direct"] is False
+    inherited = next(item for item in books if item["book_id"] == first.id)
+    assert inherited["direct"] is False
+    assert inherited["explicit_memberships"] == [{
+        "series_id": deep.id,
+        "series_name": "Deep",
+        "node_order": Decimal("1.000000"),
+    }]
+
+
+def test_effective_books_reports_multiple_relevant_memberships_once(db, library):
+    owner, _, first, _, _ = library
+    root = create(db, owner.id, "Root")
+    first_branch = create(db, owner.id, "Branch A", root.id)
+    second_branch = create(db, owner.id, "Branch B", root.id)
+    series_service.add_membership(db, owner.id, first_branch.id, first.id, Decimal("1"))
+    series_service.add_membership(db, owner.id, second_branch.id, first.id, Decimal("2.5"))
+
+    books = series_service.get_effective_books(db, owner.id, root.id)
+
+    assert len(books) == 1
+    assert books[0]["direct"] is False
+    assert [membership["series_name"] for membership in books[0]["explicit_memberships"]] == [
+        "Branch A", "Branch B",
+    ]
 
 
 def test_safe_move_changes_inheritance_and_orphaning_move_is_atomic(db, library):
