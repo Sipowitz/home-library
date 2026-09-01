@@ -16,7 +16,11 @@ import {
 
 import type { Node } from "reactflow";
 
-import { buildTreeElements, getLayoutedElements } from "./treeLayout";
+import {
+  buildTreeElements,
+  getLayoutedElements,
+  type TreeLayoutOptions,
+} from "./treeLayout";
 
 type TreeItem<T = any> = {
   id: number;
@@ -52,6 +56,8 @@ type Props<T extends TreeItem<T>> = {
   minZoom?: number;
 
   nodesDraggable?: boolean;
+
+  layoutOptions?: TreeLayoutOptions;
 
   onFocus: (id: number) => void;
 
@@ -150,6 +156,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
 
   nodesDraggable = true,
 
+  layoutOptions,
+
   onFocus,
 
   onRename,
@@ -187,7 +195,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
     return getLayoutedElements(
       tree.nodes,
       tree.edges,
-      nodeType === "locationNode",
+      nodeType === "locationNode" && layoutOptions?.rankdir !== "LR",
+      layoutOptions,
     );
   }, [
     items,
@@ -205,6 +214,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
     onDelete,
 
     nodeType,
+
+    layoutOptions,
   ]);
 
   // ================= ANIMATED NODES =================
@@ -338,7 +349,11 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
         nodes={animatedNodes}
         edges={layouted.edges}
         nodeTypes={nodeTypes}
-        nodeOrigin={nodeType === "locationNode" ? [0.5, 0] : undefined}
+        nodeOrigin={
+          nodeType === "locationNode" && layoutOptions?.rankdir !== "LR"
+            ? [0.5, 0]
+            : undefined
+        }
         minZoom={minZoom}
         nodesDraggable={nodesDraggable}
         nodesConnectable={false}

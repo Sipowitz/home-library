@@ -398,23 +398,27 @@ export function CategoryTreePanel({ categories }: Props) {
       <div
         className="
           border-b border-border
-          px-2.5 py-3 sm:px-4 lg:px-6 lg:py-4
+          px-2.5 py-2 sm:px-3 lg:px-4
           bg-surface/40
           backdrop-blur-sm
         "
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <div className="flex flex-col gap-2 lg:flex-row lg:flex-nowrap lg:items-center">
+          <h2 className="hidden shrink-0 text-lg font-semibold text-text-primary lg:block">
+            Categories
+          </h2>
+
           {/* LEFT */}
-          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 lg:flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 lg:flex-1 lg:flex-nowrap">
             {/* SEARCH */}
-            <div className="w-full lg:max-w-md lg:flex-1">
+            <div className="w-full lg:min-w-0 lg:flex-1">
               <input
                 placeholder="Search categories..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="
                   w-full
-                  px-4 py-3
+                  px-3 py-2
                   form-control rounded-xl
                   text-sm
                 "
@@ -442,7 +446,7 @@ export function CategoryTreePanel({ categories }: Props) {
                 }}
                 className="
                   w-full sm:w-52
-                  px-4 py-3
+                  px-3 py-2
                   form-control rounded-xl
                   text-sm
                 "
@@ -474,7 +478,7 @@ export function CategoryTreePanel({ categories }: Props) {
                 onClick={() => setCreatingRoot(true)}
                 className="
                   shrink-0
-                  px-4 py-3
+                  px-3 py-2
                   rounded-xl
                   bg-gradient-to-r
                   from-purple-600
@@ -492,7 +496,7 @@ export function CategoryTreePanel({ categories }: Props) {
             {search.trim() && (
               <div
                 className="
-                  px-3 py-2
+                  px-2.5 py-1.5
                   rounded-xl
                   border border-purple-500/20
                   bg-purple-500/10
@@ -505,11 +509,11 @@ export function CategoryTreePanel({ categories }: Props) {
           </div>
 
           {/* RIGHT */}
-          <div className="flex items-center gap-2 self-start lg:gap-3 lg:self-auto">
+          <div className="flex shrink-0 items-center gap-2 self-start lg:self-auto">
             {/* ROOT COUNT */}
             <div
               className="
-                px-3 py-2
+                px-2.5 py-1.5
                 rounded-xl
                 border border-border-strong
                 bg-surface-muted
@@ -522,16 +526,6 @@ export function CategoryTreePanel({ categories }: Props) {
           </div>
         </div>
 
-        {/* FOCUS PATH */}
-        {focusedPath.length > 0 && (
-          <div className="mt-4 text-sm text-text-muted truncate">
-            <span className="text-text-muted">Focus:</span>
-
-            <span className="text-purple-700 dark:text-purple-300 ml-2">
-              {focusedPath.join(" → ")}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* MOBILE */}
@@ -551,7 +545,16 @@ export function CategoryTreePanel({ categories }: Props) {
       </div>
 
       {/* DESKTOP */}
-      <div className="hidden h-[70vh] lg:flex">
+      <div className="relative hidden h-[76vh] lg:flex">
+        {focusedPath.length > 0 && (
+          <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] truncate rounded-md border border-border bg-surface/90 px-2 py-1 text-xs text-text-muted shadow-sm backdrop-blur-sm">
+            <span>Focus:</span>
+            <span className="ml-1.5 text-purple-700 dark:text-purple-300">
+              {focusedPath.join(" → ")}
+            </span>
+          </div>
+        )}
+
         <CategoryTreeFlow
           categories={categories}
           focusedId={focusedId}

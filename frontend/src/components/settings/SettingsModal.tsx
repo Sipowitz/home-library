@@ -280,11 +280,11 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
             {activeSection === "locations" && (
               <div className="max-w-full relative">
-                <div className="bg-surface/60 border border-border rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
-                  <div className="mb-3 lg:mb-5">
+                <div className="w-full rounded-lg border border-border bg-surface/60 p-2.5 sm:rounded-xl sm:p-3 lg:border-0 lg:bg-transparent lg:p-0">
+                  <div className="mb-2 lg:hidden">
                     <h2 className="text-lg font-semibold">Locations</h2>
 
-                    <p className="text-sm text-text-muted mt-1">
+                    <p className="mt-0.5 text-sm text-text-muted">
                       Organize where books are physically stored.
                     </p>
                   </div>
@@ -298,11 +298,11 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
             {activeSection === "categories" && (
               <div className="max-w-full relative">
-                <div className="bg-surface/60 border border-border rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
-                  <div className="mb-3 lg:mb-5">
+                <div className="w-full rounded-lg border border-border bg-surface/60 p-2.5 sm:rounded-xl sm:p-3 lg:border-0 lg:bg-transparent lg:p-0">
+                  <div className="mb-2 lg:hidden">
                     <h2 className="text-lg font-semibold">Categories</h2>
 
-                    <p className="text-sm text-text-muted mt-1">
+                    <p className="mt-0.5 text-sm text-text-muted">
                       Organize books by subject or collection.
                     </p>
                   </div>

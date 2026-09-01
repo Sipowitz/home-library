@@ -11,6 +11,14 @@ const NODE_WIDTH = 260;
 
 const NODE_HEIGHT = 170;
 
+export type TreeLayoutOptions = {
+  nodeWidth?: number;
+  nodeHeight?: number;
+  nodesep?: number;
+  ranksep?: number;
+  rankdir?: "TB" | "LR";
+};
+
 // ================= RE-EXPORT SHARED TREE UTILS =================
 
 export { flattenTree, findPathIdsToNode, findPathToNode };
@@ -225,24 +233,28 @@ export function getLayoutedElements(
   edges: Edge[],
 
   alignParentsToChildren = false,
+
+  options: TreeLayoutOptions = {},
 ) {
+  const nodeWidth = options.nodeWidth ?? NODE_WIDTH;
+  const nodeHeight = options.nodeHeight ?? NODE_HEIGHT;
   const dagreGraph = new dagre.graphlib.Graph();
 
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   dagreGraph.setGraph({
-    rankdir: "TB",
+    rankdir: options.rankdir ?? "TB",
 
-    ranksep: 170,
+    ranksep: options.ranksep ?? 170,
 
-    nodesep: 90,
+    nodesep: options.nodesep ?? 90,
   });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, {
-      width: NODE_WIDTH,
+      width: nodeWidth,
 
-      height: NODE_HEIGHT,
+      height: nodeHeight,
     });
   });
 
@@ -259,9 +271,9 @@ export function getLayoutedElements(
       ...node,
 
       position: {
-        x: alignParentsToChildren ? position.x : position.x - NODE_WIDTH / 2,
+        x: alignParentsToChildren ? position.x : position.x - nodeWidth / 2,
 
-        y: position.y - NODE_HEIGHT / 2,
+        y: position.y - nodeHeight / 2,
       },
     };
   });

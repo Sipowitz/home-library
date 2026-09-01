@@ -3,6 +3,7 @@
 import type { Category } from "../../../../types/category";
 
 import { BaseTreeFlow } from "../../shared/BaseTreeFlow";
+import type { TreeLayoutOptions } from "../../shared/treeLayout";
 
 import { CategoryTreeNode } from "./CategoryTreeNode";
 
@@ -21,8 +22,16 @@ type Props = {
 
   onAddChild: (parentId: number, name: string) => Promise<void>;
 
-  onDelete: (id: number, cascade?: boolean) => Promise<any>;
+  onDelete: (id: number, cascade?: boolean) => Promise<unknown>;
 };
+
+const compactCategoryLayout = {
+  nodeWidth: 150,
+  nodeHeight: 40,
+  nodesep: 24,
+  ranksep: 64,
+  rankdir: "LR",
+} satisfies TreeLayoutOptions;
 
 export function CategoryTreeFlow({
   categories,
@@ -42,6 +51,7 @@ export function CategoryTreeFlow({
       searchTargetId={searchTargetId}
       nodeType="categoryNode"
       nodeComponent={CategoryTreeNode}
+      layoutOptions={compactCategoryLayout}
       onFocus={onFocus}
       onRename={onRename}
       onAddChild={onAddChild}
