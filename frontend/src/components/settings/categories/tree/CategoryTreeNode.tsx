@@ -1,407 +1,142 @@
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Handle, Position, type NodeProps } from "reactflow";
 
-import { useEffect, useState } from "react";
-
+import { AnchoredTreeNodeActions } from "./AnchoredTreeNodeActions";
 import { getDepthStyles } from "./treeStyles";
-
-import { TreeNodeActions } from "./TreeNodeActions";
+import { TreeConfirmModal } from "./TreeConfirmModal";
+import { TreeInputModal } from "./TreeInputModal";
 
 export function CategoryTreeNode({ data }: NodeProps) {
   const styles = getDepthStyles(data.depth);
-
-  // ================= RENAME =================
-
-  const [editing, setEditing] = useState(false);
-
-  const [name, setName] = useState(data.name);
-
-  // ================= CREATE CHILD =================
-
+  const [renaming, setRenaming] = useState(false);
   const [creatingChild, setCreatingChild] = useState(false);
-
-  const [childName, setChildName] = useState("");
-
-  // ================= DELETE =================
-
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-
   const [confirmingCascade, setConfirmingCascade] = useState(false);
-
   const [cascadeCount, setCascadeCount] = useState(0);
 
-  useEffect(() => {
-    setName(data.name);
-  }, [data.name]);
-
-  // ================= RENAME =================
-
-  async function handleRename() {
-    if (!name.trim()) {
-      setName(data.name);
-
-      setEditing(false);
-
-      return;
-    }
-
+  async function handleRename(name: string) {
     try {
-      await data.onRename(data.id, name.trim());
-
-      setEditing(false);
-    } catch (err) {
-      console.error(err);
-
-      setName(data.name);
-
-      setEditing(false);
+      await data.onRename(data.id, name);
+      setRenaming(false);
+    } catch (error) {
+      console.error(error);
     }
   }
 
-  // ================= CREATE CHILD =================
-
-  async function handleCreateChild() {
-    if (!childName.trim()) {
-      setCreatingChild(false);
-
-      setChildName("");
-
-      return;
-    }
-
+  async function handleCreateChild(name: string) {
     try {
-      await data.onAddChild(data.id, childName.trim());
-
+      await data.onAddChild(data.id, name);
       setCreatingChild(false);
-
-      setChildName("");
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
     }
   }
-
-  // ================= DELETE =================
 
   async function handleDelete() {
     try {
       const result = await data.onDelete(data.id, false);
+      setConfirmingDelete(false);
 
-      // CASCADE REQUIRED
       if (result?.blocked) {
         setCascadeCount(result.count || 0);
-
         setConfirmingCascade(true);
-
-        return;
       }
-
-      setConfirmingDelete(false);
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
     }
   }
 
   async function handleCascadeDelete() {
     try {
       await data.onDelete(data.id, true);
-
-      setConfirmingDelete(false);
-
       setConfirmingCascade(false);
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
     }
   }
 
   return (
-    <div
-      className={`
-        group
-
-        min-w-[260px]
-
-        rounded-2xl
-        border
-
-        bg-gradient-to-b
-
-        transition-all
-        duration-300
-        ease-out
-
-        hover:scale-[1.02]
-
-        ${styles.border}
-        ${styles.bg}
-
-        ${data.dimmed ? "opacity-60" : "opacity-100"}
-
-        ${data.focused ? "ring-1 ring-white/30" : ""}
-      `}
-    >
-      <Handle type="target" position={Position.Top} className="opacity-0" />
-
-      <div
-        className="
-          w-full
-          px-5
-          py-5
-          text-left
-        "
+    <>
+      <AnchoredTreeNodeActions
+        label={data.name}
+        onAdd={() => setCreatingChild(true)}
+        onEdit={() => setRenaming(true)}
+        onDelete={() => setConfirmingDelete(true)}
       >
-        {/* HEADER */}
-        <div className="flex items-start justify-between gap-4">
-          <button
-            onClick={() => data.onFocus(data.id)}
-            className="min-w-0 flex-1 text-left"
-          >
-            {/* TITLE */}
-            {editing ? (
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={handleRename}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleRename();
-                  }
-
-                  if (e.key === "Escape") {
-                    setName(data.name);
-
-                    setEditing(false);
-                  }
-                }}
-                className="
-                  w-full
-
-                  bg-black/30
-
-                  border border-white/10
-
-                  rounded-lg
-
-                  px-3 py-2
-
-                  text-white
-                  text-lg
-                  font-semibold
-
-                  outline-none
-                "
-              />
-            ) : (
-              <div className="text-lg font-semibold text-white truncate">
-                {data.name}
-              </div>
-            )}
-
-            <div className="mt-2 text-xs leading-relaxed text-gray-300">
-              {data.stats.total_books} books · {data.stats.read_books} read · {data.stats.unread_books} unread
-            </div>
-
-            <div className="mt-1 text-[11px] text-gray-400">
-              {data.childCount} {data.childCount === 1 ? "child" : "children"}
-            </div>
-          </button>
-
-          {/* ACTIONS */}
-          {!confirmingDelete && (
-            <TreeNodeActions
-              label={data.name}
-              onAdd={() => setCreatingChild(true)}
-              onEdit={() => setEditing(true)}
-              onDelete={() => setConfirmingDelete(true)}
-            />
-          )}
-        </div>
-
-        {/* CREATE CHILD */}
         <div
           className={`
-            overflow-hidden
-
-            transition-all
-            duration-300
-            ease-out
-
-            ${
-              creatingChild
-                ? "max-h-24 opacity-100 mt-4"
-                : "max-h-0 opacity-0 mt-0"
-            }
+            group relative flex h-10 w-[150px] items-center rounded-lg border
+            bg-gradient-to-b transition-all duration-300 ease-out
+            hover:scale-[1.02]
+            ${styles.border}
+            ${styles.bg}
+            ${data.dimmed ? "opacity-60" : "opacity-100"}
+            ${data.focused ? "ring-2 ring-blue-500/70 dark:ring-1 dark:ring-white/30" : ""}
           `}
         >
-          <input
-            autoFocus
-            value={childName}
-            onChange={(e) => setChildName(e.target.value)}
-            placeholder="New child category..."
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleCreateChild();
-              }
+        <Handle type="target" position={Position.Left} className="opacity-0" />
 
-              if (e.key === "Escape") {
-                setCreatingChild(false);
+        <button
+          type="button"
+          onClick={() => data.onFocus(data.id)}
+          className="flex h-full min-w-0 flex-1 items-center gap-2 px-2.5 text-left focus-visible:outline-none"
+          title={data.name}
+        >
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">
+            {data.name}
+          </span>
+          <span
+            className="shrink-0 text-[10px] tabular-nums text-text-muted"
+            title={`${data.stats.total_books} books · ${data.childCount} subcategories`}
+          >
+            {data.stats.total_books} · {data.childCount}
+          </span>
+        </button>
 
-                setChildName("");
-              }
-            }}
-            className="
-              w-full
+        <Handle type="source" position={Position.Right} className="opacity-0" />
+        </div>
+      </AnchoredTreeNodeActions>
 
-              px-3 py-2
-
-              rounded-xl
-
-              bg-black/30
-
-              border border-white/10
-
-              text-sm text-white
-
-              outline-none
-
-              focus:border-purple-500
-            "
+      {createPortal(
+        <>
+          <TreeInputModal
+            open={renaming}
+            title={`Rename ${data.name}`}
+            initialValue={data.name}
+            confirmText="Rename"
+            onConfirm={(name) => void handleRename(name)}
+            onCancel={() => setRenaming(false)}
           />
-        </div>
-
-        {/* DELETE CONFIRM */}
-        <div
-          className={`
-            overflow-hidden
-
-            transition-all
-            duration-300
-            ease-out
-
-            ${
-              confirmingDelete
-                ? "max-h-48 opacity-100 mt-4"
-                : "max-h-0 opacity-0 mt-0"
-            }
-          `}
-        >
-          <div
-            className="
-              rounded-xl
-
-              border border-red-500/20
-
-              bg-red-500/10
-
-              p-4
-            "
-          >
-            {!confirmingCascade ? (
-              <>
-                <div className="text-sm text-red-200">
-                  Delete this category?
-                </div>
-
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={() => setConfirmingDelete(false)}
-                    className="
-                      flex-1
-
-                      px-3 py-2
-
-                      rounded-lg
-
-                      bg-gray-800
-                      hover:bg-gray-700
-
-                      text-sm
-
-                      transition
-                    "
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    onClick={handleDelete}
-                    className="
-                      flex-1
-
-                      px-3 py-2
-
-                      rounded-lg
-
-                      bg-red-600
-                      hover:bg-red-500
-
-                      text-sm
-
-                      transition
-                    "
-                  >
-                    Delete
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-sm text-red-200">
-                  Delete this category and {cascadeCount} descendants?
-                </div>
-
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={() => {
-                      setConfirmingCascade(false);
-
-                      setConfirmingDelete(false);
-                    }}
-                    className="
-                      flex-1
-
-                      px-3 py-2
-
-                      rounded-lg
-
-                      bg-gray-800
-                      hover:bg-gray-700
-
-                      text-sm
-
-                      transition
-                    "
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    onClick={handleCascadeDelete}
-                    className="
-                      flex-1
-
-                      px-3 py-2
-
-                      rounded-lg
-
-                      bg-red-600
-                      hover:bg-red-500
-
-                      text-sm
-
-                      transition
-                    "
-                  >
-                    Delete Tree
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-      </div>
-
-      <Handle type="source" position={Position.Bottom} className="opacity-0" />
-    </div>
+          <TreeInputModal
+            open={creatingChild}
+            title={`Add child to ${data.name}`}
+            placeholder="New child category..."
+            confirmText="Add Category"
+            onConfirm={(name) => void handleCreateChild(name)}
+            onCancel={() => setCreatingChild(false)}
+          />
+          <TreeConfirmModal
+            open={confirmingDelete}
+            title={`Delete ${data.name}?`}
+            message="Delete this category?"
+            confirmText="Delete"
+            danger
+            onConfirm={() => void handleDelete()}
+            onCancel={() => setConfirmingDelete(false)}
+          />
+          <TreeConfirmModal
+            open={confirmingCascade}
+            title={`Delete ${data.name} tree?`}
+            message={`Delete this category and ${cascadeCount} descendants?`}
+            confirmText="Delete Tree"
+            danger
+            onConfirm={() => void handleCascadeDelete()}
+            onCancel={() => setConfirmingCascade(false)}
+          />
+        </>,
+        document.body,
+      )}
+    </>
   );
 }

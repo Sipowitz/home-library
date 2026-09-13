@@ -210,6 +210,56 @@ def test_google_api_key_is_passed_as_a_parameter_and_not_returned_or_logged(capl
     assert secret not in caplog.text
 
 
+def test_google_lookup_and_forced_refreshes_keep_request_semantics_and_bypass_cache():
+    provider = GoogleBooksProvider(setting("google_books", retries=0, api_key="configured-key"))
+    FakeAsyncClient.events = [
+        response(200, google_payload()),
+        response(200, google_payload()),
+        response(200, google_payload()),
+    ]
+
+    lookup = asyncio.run(provider.fetch_book_by_isbn(ISBN))
+    cached_lookup = asyncio.run(provider.fetch_book_by_isbn(ISBN))
+    metadata = asyncio.run(provider.refresh_metadata(ISBN))
+    covers = asyncio.run(provider.refresh_covers(ISBN))
+
+    assert lookup == cached_lookup
+    assert metadata["title"] == "Google title"
+    assert covers == {"cover_candidates": []}
+    assert len(FakeAsyncClient.calls) == 3
+    assert all(call[0] == google_books.GOOGLE_BOOKS_URL for call in FakeAsyncClient.calls)
+    assert all(call[1] == {"q": f"isbn:{ISBN}", "key": "configured-key"} for call in FakeAsyncClient.calls)
+
+
+@pytest.mark.parametrize(
+    "event,expected",
+    [
+        (response(400, {"error": {"message": "bad query"}}), "Bad request (HTTP 400)"),
+        (response(403, {"error": {"message": "key blocked", "errors": [{"reason": "forbidden"}]}}), "API key rejected or forbidden (HTTP 403)"),
+        (response(429, {"error": {"message": "quota"}}, content=None), "Quota or rate limit exceeded (HTTP 429)"),
+        (response(503, {"error": {"message": "unavailable", "errors": [{"reason": "backendFailed"}]}}), "Upstream server failure (HTTP 503)"),
+        (httpx.ReadTimeout("timeout", request=httpx.Request("GET", "https://example.test")), "Transport error (ReadTimeout)"),
+    ],
+)
+def test_google_failures_retain_safe_diagnostics(event, expected):
+    FakeAsyncClient.events = [event]
+    provider = provider_case(GoogleBooksProvider, retries=0)
+
+    assert asyncio.run(provider.fetch_book_by_isbn(ISBN)) is None
+    assert expected in provider.last_error
+
+
+def test_google_no_exact_match_and_malformed_response_are_distinct():
+    provider = provider_case(GoogleBooksProvider, retries=0)
+    FakeAsyncClient.events = [response(200, {"items": []})]
+    assert asyncio.run(provider.fetch_book_by_isbn(ISBN)) is None
+    assert provider.last_error == "No Google Books results for ISBN"
+
+    FakeAsyncClient.events = [response(200, content=b"{")]
+    assert asyncio.run(provider.fetch_book_by_isbn(ISBN, force_refresh=True)) is None
+    assert provider.last_error == "Malformed JSON response (HTTP 200)"
+
+
 def test_manager_continues_to_second_provider_after_retry_exhaustion(monkeypatch, caplog):
     secret = "fallback-secret-key"
     settings = [
@@ -367,3 +417,31 @@ def test_all_provider_results_still_collects_all_known_providers(monkeypatch):
     assert all(result.success for result in results)
     assert aggregated["title"] == "Google title"
     assert len(FakeAsyncClient.calls) == 2
+
+
+def test_google_normal_lookup_uses_cache_but_explicit_refresh_bypasses_it():
+    provider = provider_case(GoogleBooksProvider)
+    first = google_payload()
+    changed = google_payload()
+    changed["items"][0]["volumeInfo"]["title"] = "Fresh title"
+    FakeAsyncClient.events = [response(200, first), response(200, changed)]
+
+    cached_first = asyncio.run(provider.fetch_book_by_isbn(ISBN))
+    cached_second = asyncio.run(provider.fetch_book_by_isbn(ISBN))
+    refreshed = asyncio.run(provider.refresh_metadata(ISBN))
+
+    assert cached_first == cached_second
+    assert len(FakeAsyncClient.calls) == 2
+    assert refreshed["title"] == "Fresh title"
+
+
+@pytest.mark.parametrize("provider_class", [GoogleBooksProvider, OpenLibraryProvider])
+def test_explicit_refresh_distinguishes_successful_empty_from_failure(provider_class):
+    empty = {"items": []} if provider_class is GoogleBooksProvider else {"docs": []}
+    FakeAsyncClient.events = [response(200, empty), response(503)]
+    provider = provider_case(provider_class)
+    assert asyncio.run(provider.refresh_metadata(ISBN)) == {
+        "title": None, "subtitle": None, "author": None, "publisher": None,
+        "page_count": None, "language": None, "year": None, "description": None,
+    }
+    assert asyncio.run(provider.refresh_metadata(ISBN)) is None

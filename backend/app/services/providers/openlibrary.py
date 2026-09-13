@@ -27,6 +27,8 @@ class OpenLibraryProvider(BookProvider):
     async def fetch_book_by_isbn(
         self,
         raw_isbn: str,
+        *,
+        force_refresh: bool = False,
     ) -> dict | None:
         isbn = clean_isbn(raw_isbn)
 
@@ -37,20 +39,20 @@ class OpenLibraryProvider(BookProvider):
             OPENLIBRARY_SEARCH_URL,
             params={"isbn": isbn},
         )
-        if not data:
+        if data is None:
             return None
 
         docs = data.get("docs", [])
 
         if not isinstance(docs, list) or not docs or not isinstance(docs[0], dict):
-            return None
+            return {} if force_refresh else None
 
         book = docs[0]
 
         title = book.get("title")
 
         if not title:
-            return None
+            return {} if force_refresh else None
 
         year = book.get(
             "first_publish_year"

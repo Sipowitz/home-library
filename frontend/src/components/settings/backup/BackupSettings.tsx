@@ -3,6 +3,7 @@ import React from "react";
 import { usePreferences } from "../../../hooks/usePreferences";
 
 import { formatDateTime } from "../../../utils/dateFormatters";
+import { ActionButton } from "../../ui/ActionButton";
 
 type Props = {
   restoring: boolean;
@@ -46,52 +47,39 @@ export function BackupSettings({
       {/* STATUS */}
       <div className="mb-5 space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400">Last Backup</span>
+          <span className="text-text-muted">Last Backup</span>
 
-          <span className="text-gray-200">{renderDate(lastBackupAt)}</span>
+          <span className="text-text-secondary">{renderDate(lastBackupAt)}</span>
         </div>
 
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400">Last Restore</span>
+          <span className="text-text-muted">Last Restore</span>
 
-          <span className="text-gray-200">{renderDate(lastRestoreAt)}</span>
+          <span className="text-text-secondary">{renderDate(lastRestoreAt)}</span>
         </div>
       </div>
 
       {/* DOWNLOAD */}
-      <button
+      <ActionButton
         onClick={onBackup}
-        className="
-          w-full
-          py-2.5
-          rounded-xl
-          mb-3
-          bg-green-600 hover:bg-green-500
-          transition
-        "
+        variant="secondary"
+        className="mb-3 w-full"
       >
         Download Backup
-      </button>
+      </ActionButton>
 
       {/* RESTORE */}
-      <button
+      <ActionButton
         onClick={() => fileInputRef.current?.click()}
         disabled={restoring || validating}
-        className="
-          w-full
-          py-2.5
-          rounded-xl
-          mb-2
-          bg-blue-600 hover:bg-blue-500
-          disabled:opacity-60
-          transition
-        "
+        variant="primary"
+        className="mb-2 w-full"
       >
         {validating ? "Validating..." : restoring ? "Restoring..." : "Choose Backup"}
-      </button>
+      </ActionButton>
 
       {/* HINT */}
-      <p className="text-xs text-gray-500 mt-3">
+      <p className="text-xs text-text-muted mt-3">
         Backups include your books, reading state, categories, locations, preferences, metadata history, and referenced local covers. Passwords, secrets, provider API keys, and other users are excluded.
       </p>
 

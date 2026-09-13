@@ -40,6 +40,9 @@ class PreferencesData(StrictModel):
     time_format: str
     library_view_mode: str
     show_covers_in_list: bool
+    show_stats_desktop: bool = True
+    show_stats_mobile: bool = True
+    appearance_mode: str = "system"
     created_at: datetime
     updated_at: datetime
 
@@ -54,6 +57,34 @@ class LocationData(StrictModel):
     archive_id: str = Field(min_length=1, max_length=100)
     name: str
     parent_archive_id: str | None = None
+
+
+class SeriesData(StrictModel):
+    archive_id: str = Field(min_length=1, max_length=100)
+    name: str
+    node_type: Literal["group", "series"] = "series"
+    author: str | None = None
+    description: str | None = None
+    cover: CoverReference | None = None
+    parent_archive_id: str | None = None
+
+
+class SeriesMembershipData(StrictModel):
+    book_archive_id: str
+    series_archive_id: str
+
+
+class SeriesOrderingData(StrictModel):
+    book_archive_id: str
+    series_archive_id: str
+    publication_order: int | None = Field(default=None, gt=0)
+    chronological_order: int | None = Field(default=None, gt=0)
+
+
+class SeriesReadingOrderData(StrictModel):
+    book_archive_id: str
+    series_archive_id: str
+    position: int = Field(gt=0)
 
 
 class BookData(StrictModel):
@@ -116,6 +147,10 @@ class LibraryData(StrictModel):
     books: list[BookData]
     metadata_snapshots: list[SnapshotData]
     normalized_metadata_records: list[NormalizedRecordData]
+    series: list[SeriesData] = Field(default_factory=list)
+    series_memberships: list[SeriesMembershipData] = Field(default_factory=list)
+    series_orderings: list[SeriesOrderingData] = Field(default_factory=list)
+    series_reading_orderings: list[SeriesReadingOrderData] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_relationships(self):
@@ -129,6 +164,7 @@ class LibraryData(StrictModel):
         location_ids = ids(self.locations)
         book_ids = ids(self.books)
         snapshot_ids = ids(self.metadata_snapshots)
+        series_ids = ids(self.series)
         ids(self.normalized_metadata_records)
 
         for category in self.categories:
@@ -141,6 +177,13 @@ class LibraryData(StrictModel):
                 raise ValueError("location cannot parent itself")
             if location.parent_archive_id not in location_ids | {None}:
                 raise ValueError("invalid location parent reference")
+        for series in self.series:
+            if series.parent_archive_id == series.archive_id:
+                raise ValueError("series cannot parent itself")
+            if series.parent_archive_id not in series_ids | {None}:
+                raise ValueError("invalid series parent reference")
+            if series.node_type == "group" and (series.parent_archive_id is not None or series.author is not None):
+                raise ValueError("Group must be a root and cannot have an author")
         for book in self.books:
             if book.category_archive_id not in category_ids | {None}:
                 raise ValueError("invalid book category reference")
@@ -152,6 +195,30 @@ class LibraryData(StrictModel):
         for record in self.normalized_metadata_records:
             if record.snapshot_archive_id not in snapshot_ids:
                 raise ValueError("invalid normalized record snapshot reference")
+        membership_pairs = set()
+        for membership in self.series_memberships:
+            pair = (membership.book_archive_id, membership.series_archive_id)
+            if membership.book_archive_id not in book_ids or membership.series_archive_id not in series_ids:
+                raise ValueError("invalid series membership reference")
+            if pair in membership_pairs:
+                raise ValueError("duplicate series membership")
+            membership_pairs.add(pair)
+        ordering_pairs = set()
+        for ordering in self.series_orderings:
+            pair = (ordering.book_archive_id, ordering.series_archive_id)
+            if ordering.book_archive_id not in book_ids or ordering.series_archive_id not in series_ids:
+                raise ValueError("invalid series ordering reference")
+            if pair in ordering_pairs:
+                raise ValueError("duplicate series ordering")
+            if ordering.publication_order is None and ordering.chronological_order is None:
+                raise ValueError("series ordering must contain a value")
+            ordering_pairs.add(pair)
+        reading_pairs = set()
+        for ordering in self.series_reading_orderings:
+            pair = (ordering.book_archive_id, ordering.series_archive_id)
+            if pair not in membership_pairs or pair in reading_pairs:
+                raise ValueError("invalid or duplicate Series Reading order")
+            reading_pairs.add(pair)
         return self
 
 
@@ -169,6 +236,10 @@ class RecordCounts(StrictModel):
     metadata_snapshots: int = Field(ge=0)
     normalized_metadata_records: int = Field(ge=0)
     cover_files: int = Field(ge=0)
+    series: int = Field(default=0, ge=0)
+    series_memberships: int = Field(default=0, ge=0)
+    series_orderings: int = Field(default=0, ge=0)
+    series_reading_orderings: int = Field(default=0, ge=0)
 
 
 class Manifest(StrictModel):

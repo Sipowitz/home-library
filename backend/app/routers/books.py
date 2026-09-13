@@ -30,10 +30,16 @@ from ..services.providers.types import (
 from ..services.providers.metadata_snapshot_service import (
     persist_provider_result,
 )
+from ..services.providers.cover_snapshot_service import persist_cover_result
+from ..services.providers.evidence_service import (
+    update_metadata_evidence_signature, update_cover_evidence_signature,
+)
 
 from ..services.providers.refresh_metadata_service import (
     refresh_book_metadata,
 )
+from ..services.providers.refresh_cover_service import refresh_book_covers
+from ..services.providers.evidence_service import latest_cover_evidence
 
 from ..core.logging import logger
 
@@ -275,6 +281,45 @@ async def refresh_metadata(
 
 
 # -------------------
+# 🖼️ COVER EVIDENCE
+# -------------------
+
+@router.get(
+    "/{book_id}/cover-candidates",
+    response_model=schemas.CoverCandidatesResponse,
+)
+def get_cover_candidates(
+    book_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    book = book_service.get_book(db, current_user.id, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return {"candidates": latest_cover_evidence(db, book), "cover_review": book.cover_review}
+
+
+@router.post(
+    "/{book_id}/refresh-covers",
+    response_model=schemas.CoverRefreshResponse,
+)
+async def refresh_covers(
+    book_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    book = book_service.get_book(db, current_user.id, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    try:
+        results = await refresh_book_covers(db, book.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.refresh(book)
+    return {"candidates": latest_cover_evidence(db, book), "cover_review": book.cover_review, "provider_results": results}
+
+
+# -------------------
 # 📦 BOOK SNAPSHOTS
 # -------------------
 
@@ -367,6 +412,28 @@ def get_metadata_snapshot(
 # -------------------
 # 📖 GET SINGLE BOOK
 # -------------------
+
+@router.get("/check-library", response_model=schemas.LibraryCheckResponse)
+def check_library(
+    isbn: str | None = Query(None, max_length=32),
+    title: str | None = Query(None, max_length=500),
+    author: str | None = Query(None, max_length=500),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    isbn = normalize_isbn(isbn) if isbn and isbn.strip() else None
+    title = title.strip() if title and title.strip() else None
+    author = author.strip() if author and author.strip() else None
+    if not any((isbn, title, author)):
+        raise HTTPException(status_code=400, detail="Provide an ISBN, title, or author")
+
+    matches = book_service.check_library(db, current_user.id, isbn, title, author)
+    return {
+        "normalized_isbn": isbn,
+        "exact_matches": [match for match in matches if match["classification"] == "exact"],
+        "likely_matches": [match for match in matches if match["classification"] == "likely"],
+        "possible_matches": [match for match in matches if match["classification"] == "possible"],
+    }
 
 @router.get(
     "/{book_id}",
@@ -468,6 +535,27 @@ async def create_book_from_isbn_endpoint(
             detail="ISBN is required",
         )
 
+    existing_book = (
+        db.query(models.Book)
+        .filter(models.Book.owner_id == current_user.id)
+        .filter(models.Book.isbn == isbn)
+        .first()
+    )
+    if existing_book and not payload.allow_duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "DUPLICATE_BOOK",
+                "message": "This book is already in your library.",
+                "book": {
+                    "id": existing_book.id,
+                    "title": existing_book.title,
+                    "author": existing_book.author,
+                    "isbn": existing_book.isbn,
+                },
+            },
+        )
+
     # -------------------
     # 📚 CREATE BOOK
     # -------------------
@@ -514,11 +602,18 @@ async def create_book_from_isbn_endpoint(
                 provider_result=provider_result,
             )
 
+            persist_cover_result(
+                db=db, book_id=created_book.id, provider_result=provider_result,
+            )
+
         except Exception as exc:
             logger.exception(
                 "Failed to persist provider result during book creation: %s",
                 exc,
             )
+
+    update_metadata_evidence_signature(db, created_book)
+    update_cover_evidence_signature(db, created_book)
 
     db.commit()
 

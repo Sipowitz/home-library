@@ -12,25 +12,32 @@ type Props = {
   selectedLocationId: number | null;
 
   onSelect: (id: number | null) => void;
+
+  floating?: boolean;
+
+  semanticTheme?: boolean;
 };
 
 export function LocationTreeSelector({
   locations,
   selectedLocationId,
   onSelect,
+  floating = false,
+  semanticTheme = false,
 }: Props) {
   const map = buildTreeMap(locations);
 
   const value = getTreePath(selectedLocationId, map, "All locations");
 
   return (
-    <TreeSelectorField label="Location" value={value}>
+    <TreeSelectorField label="Location" value={value} floating={floating} semanticTheme={semanticTheme}>
       <TreeSelector
         nodes={locations}
         selectedId={selectedLocationId}
         onSelect={onSelect}
         emptyLabel="All locations"
         clearLabel="No location"
+        semanticTheme={semanticTheme}
       />
     </TreeSelectorField>
   );

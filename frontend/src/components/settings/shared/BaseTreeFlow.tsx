@@ -1,5 +1,7 @@
 // frontend/src/components/settings/shared/BaseTreeFlow.tsx
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- Existing shared ReactFlow node/action contracts are heterogeneous. */
+
 import { Background, Controls, ReactFlow, useReactFlow } from "reactflow";
 
 import "reactflow/dist/style.css";
@@ -14,7 +16,11 @@ import {
 
 import type { Node } from "reactflow";
 
-import { buildTreeElements, getLayoutedElements } from "./treeLayout";
+import {
+  buildTreeElements,
+  getLayoutedElements,
+  type TreeLayoutOptions,
+} from "./treeLayout";
 
 type TreeItem<T = any> = {
   id: number;
@@ -46,6 +52,12 @@ type Props<T extends TreeItem<T>> = {
   nodeType: string;
 
   nodeComponent: ComponentType<any>;
+
+  minZoom?: number;
+
+  nodesDraggable?: boolean;
+
+  layoutOptions?: TreeLayoutOptions;
 
   onFocus: (id: number) => void;
 
@@ -140,6 +152,12 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
 
   nodeComponent,
 
+  minZoom,
+
+  nodesDraggable = true,
+
+  layoutOptions,
+
   onFocus,
 
   onRename,
@@ -174,7 +192,12 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
       nodeType,
     );
 
-    return getLayoutedElements(tree.nodes, tree.edges);
+    return getLayoutedElements(
+      tree.nodes,
+      tree.edges,
+      nodeType === "locationNode" && layoutOptions?.rankdir !== "LR",
+      layoutOptions,
+    );
   }, [
     items,
 
@@ -191,6 +214,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
     onDelete,
 
     nodeType,
+
+    layoutOptions,
   ]);
 
   // ================= ANIMATED NODES =================
@@ -200,6 +225,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
   );
 
   useEffect(() => {
+    // Preserve the existing animated transition state when layout output changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAnimatedNodes((prev) => {
       const previousNodeMap = new Map(
         prev.map((node: Node) => [node.id, node]),
@@ -245,6 +272,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
         relative
 
         overflow-hidden
+        bg-canvas
+        tree-flow-theme
       "
     >
       {/* AMBIENT BACKGROUND */}
@@ -259,7 +288,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
 
             rounded-full
 
-            bg-fuchsia-500/10
+            bg-fuchsia-500/5
+            dark:bg-fuchsia-500/10
 
             blur-3xl
 
@@ -280,7 +310,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
 
             rounded-full
 
-            bg-blue-500/10
+            bg-blue-500/5
+            dark:bg-blue-500/10
 
             blur-3xl
 
@@ -301,7 +332,8 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
 
             rounded-full
 
-            bg-emerald-500/6
+            bg-emerald-500/[0.03]
+            dark:bg-emerald-500/6
 
             blur-3xl
 
@@ -317,7 +349,13 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
         nodes={animatedNodes}
         edges={layouted.edges}
         nodeTypes={nodeTypes}
-        nodesDraggable
+        nodeOrigin={
+          nodeType === "locationNode" && layoutOptions?.rankdir !== "LR"
+            ? [0.5, 0]
+            : undefined
+        }
+        minZoom={minZoom}
+        nodesDraggable={nodesDraggable}
         nodesConnectable={false}
         elementsSelectable
         nodesFocusable={false}
@@ -333,9 +371,9 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
 
         <Controls
           className="
-            bg-gray-900/80
+            bg-surface-raised/90
 
-            border border-gray-700
+            border border-border-strong
 
             rounded-xl
 
@@ -343,7 +381,7 @@ export function BaseTreeFlow<T extends TreeItem<T>>({
           "
         />
 
-        <Background gap={32} size={1} color="rgba(255,255,255,0.035)" />
+        <Background gap={32} size={1} color="var(--tree-grid-color)" />
       </ReactFlow>
     </div>
   );

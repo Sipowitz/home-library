@@ -96,6 +96,8 @@ class ProviderResultPayload(StrictProviderModel):
 class CreateBookWithMetadataRequest(StrictProviderModel):
     book: CreateBookFromIsbnBook
 
+    allow_duplicate: bool = False
+
     provider_results: list[
         ProviderResultPayload
     ] = Field(default_factory=list, max_length=MAX_PROVIDER_RESULTS)

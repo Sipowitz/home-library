@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Existing tree delete handlers return category/location-specific result shapes. */
 import type { Edge, Node } from "reactflow";
 
 import dagre from "dagre";
@@ -5,10 +6,23 @@ import dagre from "dagre";
 import { flattenTree } from "../../../utils/tree/flattenTree";
 import { findPathIdsToNode } from "../../../utils/tree/findPathIdsToNode";
 import { findPathToNode } from "../../../utils/tree/findPathToNode";
+import {
+  applyTreeSubtreeBands,
+  type TreeSubtreeBandOptions,
+} from "./treeSubtreeBands";
 
 const NODE_WIDTH = 260;
 
 const NODE_HEIGHT = 170;
+
+export type TreeLayoutOptions = {
+  nodeWidth?: number;
+  nodeHeight?: number;
+  nodesep?: number;
+  ranksep?: number;
+  rankdir?: "TB" | "LR";
+  subtreeBands?: TreeSubtreeBandOptions;
+};
 
 // ================= RE-EXPORT SHARED TREE UTILS =================
 
@@ -19,6 +33,12 @@ export { flattenTree, findPathIdsToNode, findPathToNode };
 export function buildTreeElements<
   T extends {
     id: number;
+
+    flowId?: string;
+
+    flowData?: Record<string, unknown>;
+
+    preserveVisibility?: boolean;
 
     name: string;
 
@@ -60,11 +80,11 @@ export function buildTreeElements<
   edges: Edge[] = [],
 ) {
   categories.forEach((category) => {
-    const id = String(category.id);
+    const id = category.flowId ?? String(category.id);
 
     const focused = focusedPath.includes(category.id);
 
-    const dimmed = focusedId !== null && !focused;
+    const dimmed = focusedId !== null && !focused && !category.preserveVisibility;
 
     nodes.push({
       id,
@@ -90,6 +110,8 @@ export function buildTreeElements<
 
         focused,
 
+        selected: focusedId === category.id,
+
         dimmed,
 
         onFocus,
@@ -99,6 +121,8 @@ export function buildTreeElements<
         onAddChild,
 
         onDelete,
+
+        ...category.flowData,
       },
 
       position: {
@@ -117,18 +141,21 @@ export function buildTreeElements<
 
         type: "smoothstep",
 
+        pathOptions:
+          nodeType === "locationNode" ? { borderRadius: 0 } : undefined,
+
         animated: focused,
 
         style: {
           stroke: focused
-            ? "rgba(255,255,255,0.95)"
+            ? "var(--tree-edge-focused)"
             : depth === 0
-              ? "rgba(192,132,252,0.75)"
+              ? "var(--tree-edge-root)"
               : depth === 1
-                ? "rgba(96,165,250,0.62)"
+                ? "var(--tree-edge-level-1)"
                 : depth === 2
-                  ? "rgba(52,211,153,0.52)"
-                  : "rgba(148,163,184,0.38)",
+                  ? "var(--tree-edge-level-2)"
+                  : "var(--tree-edge-deep)",
 
           strokeWidth: focused ? 3 : 2.2,
 
@@ -174,28 +201,73 @@ export function buildTreeElements<
 
 // ================= LAYOUT =================
 
+function alignParentCentersToChildren(nodes: Node[], edges: Edge[]) {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const childIdsByParent = new Map<string, string[]>();
+
+  edges.forEach((edge) => {
+    const childIds = childIdsByParent.get(edge.source) ?? [];
+
+    childIds.push(edge.target);
+    childIdsByParent.set(edge.source, childIds);
+  });
+
+  const deepestNodesFirst = [...nodes].sort(
+    (first, second) => second.position.y - first.position.y,
+  );
+
+  deepestNodesFirst.forEach((parent) => {
+    const childCenters = (childIdsByParent.get(parent.id) ?? [])
+      .map((childId) => nodeById.get(childId))
+      .filter((child): child is Node => Boolean(child))
+      .map((child) => child.position.x)
+      .sort((first, second) => first - second);
+
+    if (childCenters.length === 0) return;
+
+    const middleIndex = Math.floor(childCenters.length / 2);
+    const trunkX =
+      childCenters.length % 2 === 1
+        ? childCenters[middleIndex]
+        : (childCenters[middleIndex - 1] + childCenters[middleIndex]) / 2;
+
+    parent.position = {
+      ...parent.position,
+      x: trunkX,
+    };
+  });
+
+  return nodes;
+}
+
 export function getLayoutedElements(
   nodes: Node[],
 
   edges: Edge[],
+
+  alignParentsToChildren = false,
+
+  options: TreeLayoutOptions = {},
 ) {
+  const nodeWidth = options.nodeWidth ?? NODE_WIDTH;
+  const nodeHeight = options.nodeHeight ?? NODE_HEIGHT;
   const dagreGraph = new dagre.graphlib.Graph();
 
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   dagreGraph.setGraph({
-    rankdir: "TB",
+    rankdir: options.rankdir ?? "TB",
 
-    ranksep: 170,
+    ranksep: options.ranksep ?? 170,
 
-    nodesep: 90,
+    nodesep: options.nodesep ?? 90,
   });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, {
-      width: NODE_WIDTH,
+      width: nodeWidth,
 
-      height: NODE_HEIGHT,
+      height: nodeHeight,
     });
   });
 
@@ -205,20 +277,28 @@ export function getLayoutedElements(
 
   dagre.layout(dagreGraph);
 
+  const layoutedNodes = nodes.map((node) => {
+    const position = dagreGraph.node(node.id);
+
+    return {
+      ...node,
+
+      position: {
+        x: alignParentsToChildren ? position.x : position.x - nodeWidth / 2,
+
+        y: position.y - nodeHeight / 2,
+      },
+    };
+  });
+
+  const positionedNodes = alignParentsToChildren
+      ? alignParentCentersToChildren(layoutedNodes, edges)
+      : layoutedNodes;
+
   return {
-    nodes: nodes.map((node) => {
-      const position = dagreGraph.node(node.id);
-
-      return {
-        ...node,
-
-        position: {
-          x: position.x - NODE_WIDTH / 2,
-
-          y: position.y - NODE_HEIGHT / 2,
-        },
-      };
-    }),
+    nodes: options.subtreeBands
+      ? applyTreeSubtreeBands(positionedNodes, edges, options.subtreeBands)
+      : positionedNodes,
 
     edges,
   };

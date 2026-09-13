@@ -6,6 +6,10 @@ from sqlalchemy import (
     ForeignKey,
     DateTime,
     UniqueConstraint,
+    Numeric,
+    CheckConstraint,
+    ForeignKeyConstraint,
+    Index,
 )
 
 from sqlalchemy.dialects.postgresql import JSONB
@@ -52,6 +56,10 @@ class User(Base):
         cascade="all, delete",
     )
 
+    series = relationship(
+        "Series", back_populates="owner", cascade="all, delete-orphan"
+    )
+
     preferences = relationship(
         "UserPreferences",
         back_populates="user",
@@ -71,6 +79,41 @@ class BackupValidationSession(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
     consumed_at = Column(DateTime(timezone=True), nullable=True, index=True)
+
+
+class MaintenanceJob(Base):
+    __tablename__ = "maintenance_jobs"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = Column(String(32), nullable=False)
+    status = Column(String(16), nullable=False, default="pending", index=True)
+    total = Column(Integer, nullable=False, default=0)
+    processed = Column(Integer, nullable=False, default=0)
+    succeeded = Column(Integer, nullable=False, default=0)
+    unchanged = Column(Integer, nullable=False, default=0)
+    changed = Column(Integer, nullable=False, default=0)
+    partially_succeeded = Column(Integer, nullable=False, default=0)
+    failed = Column(Integer, nullable=False, default=0)
+    skipped = Column(Integer, nullable=False, default=0)
+    cancellation_requested = Column(Boolean, nullable=False, default=False)
+    error_summary = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    items = relationship("MaintenanceJobItem", back_populates="job", cascade="all, delete-orphan")
+
+
+class MaintenanceJobItem(Base):
+    __tablename__ = "maintenance_job_items"
+    id = Column(Integer, primary_key=True)
+    job_id = Column(Integer, ForeignKey("maintenance_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    status = Column(String(16), nullable=False, default="pending")
+    changed = Column(Boolean, nullable=False, default=False)
+    error_summary = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    job = relationship("MaintenanceJob", back_populates="items")
 
 
 # -------------------
@@ -119,6 +162,12 @@ class UserPreferences(Base):
         nullable=False,
         default=True,
     )
+
+    show_stats_desktop = Column(Boolean, nullable=False, default=True)
+
+    show_stats_mobile = Column(Boolean, nullable=False, default=True)
+
+    appearance_mode = Column(String, nullable=False, default="system")
 
     created_at = Column(
         DateTime(timezone=True),
@@ -373,6 +422,16 @@ class Book(Base):
         index=True,
     )
 
+    last_cover_refresh_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    metadata_evidence_signature = Column(String(80), nullable=True)
+    metadata_evidence_changed_at = Column(DateTime(timezone=True), nullable=True)
+    metadata_review_signature = Column(String(80), nullable=True)
+    metadata_reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    cover_evidence_signature = Column(String(80), nullable=True)
+    cover_evidence_changed_at = Column(DateTime(timezone=True), nullable=True)
+    cover_review_signature = Column(String(80), nullable=True)
+    cover_reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
     owner_id = Column(
         Integer,
         ForeignKey("users.id"),
@@ -384,6 +443,13 @@ class Book(Base):
         back_populates="books",
     )
 
+    series_memberships = relationship(
+        "BookSeriesMembership", back_populates="book", cascade="all, delete-orphan"
+    )
+    series_orderings = relationship(
+        "BookSeriesOrdering", back_populates="book", cascade="all, delete-orphan"
+    )
+
     # -------------------
     # 📦 METADATA SNAPSHOTS
     # -------------------
@@ -393,6 +459,33 @@ class Book(Base):
         back_populates="book",
         cascade="all, delete-orphan",
     )
+
+    cover_snapshots = relationship(
+        "ProviderCoverSnapshot", back_populates="book", cascade="all, delete-orphan"
+    )
+
+    def _current_cover_candidates(self):
+        from app.services.providers.evidence_service import normalized_book_isbn
+        isbn = normalized_book_isbn(self)
+        latest = {}
+        for snapshot in sorted(self.cover_snapshots, key=lambda item: (item.fetched_at, item.id), reverse=True):
+            if snapshot.isbn_query == isbn:
+                latest.setdefault(snapshot.provider, snapshot)
+        return [candidate for snapshot in latest.values() for candidate in (snapshot.candidates_json or [])]
+
+
+    @property
+    def metadata_review(self):
+        from app.services.providers.evidence_signatures import derive_review_state, metadata_evidence_signature
+        empty = metadata_evidence_signature([])
+        return {"state": derive_review_state(self.metadata_review_signature, self.metadata_evidence_signature), "reviewed_at": self.metadata_reviewed_at, "evidence_changed_at": self.metadata_evidence_changed_at, "has_evidence": bool(self.metadata_evidence_signature and self.metadata_evidence_signature != empty), "last_refresh_at": self.last_metadata_refresh_at}
+
+
+    @property
+    def cover_review(self):
+        from app.services.providers.evidence_signatures import derive_review_state
+        candidates = self._current_cover_candidates()
+        return {"state": derive_review_state(self.cover_review_signature, self.cover_evidence_signature), "reviewed_at": self.cover_reviewed_at, "evidence_changed_at": self.cover_evidence_changed_at, "candidate_count": len(candidates), "last_refresh_at": self.last_cover_refresh_at}
 
 
 # -------------------
@@ -479,6 +572,23 @@ class ProviderMetadataSnapshot(Base):
         back_populates="snapshot",
         cascade="all, delete-orphan",
     )
+
+
+# -------------------
+# 🖼 PROVIDER COVER SNAPSHOTS
+# -------------------
+
+class ProviderCoverSnapshot(Base):
+    __tablename__ = "provider_cover_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String, nullable=False, index=True)
+    isbn_query = Column(String, nullable=False, index=True)
+    candidates_json = Column(JSONB, nullable=False)
+    fetched_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    book = relationship("Book", back_populates="cover_snapshots")
 
 
 # -------------------
@@ -576,6 +686,134 @@ class NormalizedMetadataRecord(Base):
         "ProviderMetadataSnapshot",
         back_populates="normalized_records",
     )
+
+
+# -------------------
+# 📚 SERIES MODELS
+# -------------------
+
+class Series(Base):
+    __tablename__ = "series"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name = Column(String, nullable=False)
+    node_type = Column(String, nullable=False, server_default="series")
+    author = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    cover_url = Column(String, nullable=True)
+    parent_id = Column(
+        Integer, nullable=True, index=True
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("parent_id IS NULL OR parent_id <> id", name="ck_series_not_self_parent"),
+        CheckConstraint("node_type IN ('group', 'series')", name="ck_series_node_type"),
+        CheckConstraint("node_type <> 'group' OR parent_id IS NULL", name="ck_series_group_is_root"),
+        CheckConstraint("node_type <> 'group' OR author IS NULL", name="ck_series_group_has_no_author"),
+        UniqueConstraint("id", "owner_id", name="uq_series_id_owner_id"),
+        ForeignKeyConstraint(
+            ["parent_id", "owner_id"], ["series.id", "series.owner_id"],
+            name="fk_series_parent_same_owner",
+        ),
+        Index("ix_series_owner_parent", "owner_id", "parent_id"),
+    )
+
+    owner = relationship("User", back_populates="series")
+    children = relationship(
+        "Series",
+        backref=backref("parent", remote_side=[id]),
+        foreign_keys=[parent_id],
+        passive_deletes=True,
+    )
+    memberships = relationship(
+        "BookSeriesMembership", back_populates="series", passive_deletes=True
+    )
+    orderings = relationship(
+        "BookSeriesOrdering", back_populates="series", passive_deletes=True
+    )
+    reading_orderings = relationship(
+        "BookSeriesReadingOrder", back_populates="series", passive_deletes=True
+    )
+
+
+class BookSeriesMembership(Base):
+    __tablename__ = "book_series_memberships"
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(
+        Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    series_id = Column(
+        Integer, ForeignKey("series.id"), nullable=False, index=True
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("book_id", "series_id", name="uq_book_series_membership"),
+    )
+
+    book = relationship("Book", back_populates="series_memberships")
+    series = relationship("Series", back_populates="memberships")
+
+
+class BookSeriesOrdering(Base):
+    __tablename__ = "book_series_ordering"
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(
+        Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    series_id = Column(
+        Integer, ForeignKey("series.id"), nullable=False, index=True
+    )
+    publication_order = Column(Integer, nullable=True)
+    chronological_order = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("book_id", "series_id", name="uq_book_series_ordering"),
+        UniqueConstraint("series_id", "publication_order", name="uq_root_publication_position"),
+        UniqueConstraint("series_id", "chronological_order", name="uq_root_chronological_position"),
+        CheckConstraint(
+            "publication_order IS NOT NULL OR chronological_order IS NOT NULL",
+            name="ck_book_series_ordering_has_value",
+        ),
+        CheckConstraint("publication_order IS NULL OR publication_order > 0", name="ck_series_publication_positive"),
+        CheckConstraint("chronological_order IS NULL OR chronological_order > 0", name="ck_series_chronological_positive"),
+    )
+
+    book = relationship("Book", back_populates="series_orderings")
+    series = relationship("Series", back_populates="orderings")
+
+
+class BookSeriesReadingOrder(Base):
+    __tablename__ = "book_series_reading_order"
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    series_id = Column(Integer, ForeignKey("series.id"), nullable=False, index=True)
+    position = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("book_id", "series_id", name="uq_book_series_reading_order"),
+        UniqueConstraint("series_id", "position", name="uq_series_reading_position"),
+        CheckConstraint("position > 0", name="ck_series_reading_position_positive"),
+    )
+
+    book = relationship("Book")
+    series = relationship("Series", back_populates="reading_orderings")
 
 
 # -------------------

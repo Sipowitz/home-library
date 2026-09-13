@@ -14,6 +14,10 @@ type Props = {
   onSelect: (id: number | null) => void;
 
   showSpecialOptions?: boolean;
+
+  floating?: boolean;
+
+  semanticTheme?: boolean;
 };
 
 type CategorySelectorContentProps = {
@@ -26,6 +30,8 @@ type CategorySelectorContentProps = {
   showSpecialOptions: boolean;
 
   onSelected?: () => void;
+
+  semanticTheme: boolean;
 };
 
 function CategorySelectorContent({
@@ -34,6 +40,7 @@ function CategorySelectorContent({
   onSelect,
   showSpecialOptions,
   onSelected,
+  semanticTheme,
 }: CategorySelectorContentProps) {
   function handleSelect(id: number | null) {
     onSelect(id);
@@ -52,7 +59,7 @@ function CategorySelectorContent({
             className={`w-full text-left px-3 py-2 rounded text-sm ${
               selectedCategoryId === null
                 ? "bg-blue-600/20 border border-blue-500/40"
-                : "hover:bg-gray-800"
+                : semanticTheme ? "hover:bg-control" : "hover:bg-gray-800"
             }`}
           >
             All categories
@@ -64,7 +71,7 @@ function CategorySelectorContent({
             className={`w-full text-left px-3 py-2 rounded text-sm ${
               selectedCategoryId === -1
                 ? "bg-blue-600/20 border border-blue-500/40"
-                : "hover:bg-gray-800"
+                : semanticTheme ? "hover:bg-control" : "hover:bg-gray-800"
             }`}
           >
             No category
@@ -78,6 +85,7 @@ function CategorySelectorContent({
         onSelect={(id) => handleSelect(id)}
         emptyLabel="All categories"
         clearLabel={!showSpecialOptions ? "No category" : undefined}
+        semanticTheme={semanticTheme}
       />
     </div>
   );
@@ -88,6 +96,8 @@ export function CategoryTreeSelector({
   selectedCategoryId,
   onSelect,
   showSpecialOptions = false,
+  floating = false,
+  semanticTheme = false,
 }: Props) {
   const map = buildTreeMap(categories);
 
@@ -97,12 +107,13 @@ export function CategoryTreeSelector({
       : getTreePath(selectedCategoryId, map, "All categories");
 
   return (
-    <TreeSelectorField label="Category" value={value}>
+    <TreeSelectorField label="Category" value={value} floating={floating} semanticTheme={semanticTheme}>
       <CategorySelectorContent
         categories={categories}
         selectedCategoryId={selectedCategoryId}
         onSelect={onSelect}
         showSpecialOptions={showSpecialOptions}
+        semanticTheme={semanticTheme}
       />
     </TreeSelectorField>
   );

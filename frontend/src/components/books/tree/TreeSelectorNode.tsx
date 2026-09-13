@@ -14,6 +14,8 @@ type Props<T extends TreeNode<T>> = {
   onSelect: (id: number) => void;
 
   selectable?: (node: T) => boolean;
+
+  semanticTheme?: boolean;
 };
 
 export function TreeSelectorNode<T extends TreeNode<T>>({
@@ -24,6 +26,7 @@ export function TreeSelectorNode<T extends TreeNode<T>>({
   toggleExpanded,
   onSelect,
   selectable,
+  semanticTheme = false,
 }: Props<T>) {
   const hasChildren = !!node.children?.length;
 
@@ -39,7 +42,7 @@ export function TreeSelectorNode<T extends TreeNode<T>>({
         className={`flex items-center gap-2 rounded px-2 py-1.5 text-sm transition ${
           isSelected
             ? "bg-blue-600/20 border border-blue-500/40"
-            : "hover:bg-gray-800"
+            : semanticTheme ? "hover:bg-control" : "hover:bg-gray-800"
         }`}
         style={{
           paddingLeft: `${8 + level * 18}px`,
@@ -50,7 +53,7 @@ export function TreeSelectorNode<T extends TreeNode<T>>({
           <button
             type="button"
             onClick={() => toggleExpanded(node.id)}
-            className="w-5 text-gray-400 hover:text-white flex-shrink-0"
+            className={`w-5 flex-shrink-0 ${semanticTheme ? "text-text-muted hover:text-text-primary" : "text-gray-400 hover:text-white"}`}
           >
             {expanded ? "▾" : "▸"}
           </button>
@@ -73,7 +76,7 @@ export function TreeSelectorNode<T extends TreeNode<T>>({
         >
           <div
             className={`w-3 h-3 rounded-full border flex-shrink-0 ${
-              isSelected ? "bg-blue-500 border-blue-400" : "border-gray-500"
+              isSelected ? "bg-blue-500 border-blue-400" : semanticTheme ? "border-text-muted" : "border-gray-500"
             }`}
           />
 
@@ -81,9 +84,9 @@ export function TreeSelectorNode<T extends TreeNode<T>>({
             className={
               canSelect
                 ? isSelected
-                  ? "text-white"
-                  : "text-gray-300"
-                : "text-gray-500 font-medium"
+                  ? semanticTheme ? "text-text-primary" : "text-white"
+                  : semanticTheme ? "text-text-secondary" : "text-gray-300"
+                : semanticTheme ? "text-text-muted font-medium" : "text-gray-500 font-medium"
             }
           >
             {node.name}
@@ -103,6 +106,7 @@ export function TreeSelectorNode<T extends TreeNode<T>>({
             toggleExpanded={toggleExpanded}
             onSelect={onSelect}
             selectable={selectable}
+            semanticTheme={semanticTheme}
           />
         ))}
     </div>

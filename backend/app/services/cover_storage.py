@@ -39,6 +39,17 @@ async def store_uploaded_cover(file: UploadFile) -> StoredCover:
     )
 
 
+async def store_uploaded_series_cover(file: UploadFile) -> StoredCover:
+    """Store future manual Series artwork in its own logical cover namespace."""
+    async def chunks():
+        while chunk := await file.read(READ_CHUNK_BYTES):
+            yield chunk
+
+    return await store_cover_chunks(
+        chunks(), Path(settings.COVERS_DIR).resolve() / "series", "/covers/series"
+    )
+
+
 async def store_cover_chunks(
     chunks: AsyncIterable[bytes], upload_root: Path, url_prefix: str
 ) -> StoredCover:

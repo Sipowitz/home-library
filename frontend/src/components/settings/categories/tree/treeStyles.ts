@@ -5,12 +5,15 @@ export function getDepthStyles(depth: number) {
       return {
         bg: `
           bg-gradient-to-b
-          from-fuchsia-500/25
-          to-purple-900/90
+          from-fuchsia-500/10
+          to-surface
+          dark:from-fuchsia-500/25
+          dark:to-purple-900/90
         `,
 
         border: `
-          border-fuchsia-400/50
+          border-fuchsia-500/35
+          dark:border-fuchsia-400/50
         `,
 
         glow: `
@@ -23,12 +26,15 @@ export function getDepthStyles(depth: number) {
       return {
         bg: `
           bg-gradient-to-b
-          from-blue-500/20
-          to-slate-900/95
+          from-blue-500/10
+          to-surface
+          dark:from-blue-500/20
+          dark:to-slate-900/95
         `,
 
         border: `
-          border-blue-400/40
+          border-blue-500/35
+          dark:border-blue-400/40
         `,
 
         glow: `
@@ -41,12 +47,15 @@ export function getDepthStyles(depth: number) {
       return {
         bg: `
           bg-gradient-to-b
-          from-emerald-500/18
-          to-slate-900/95
+          from-emerald-500/10
+          to-surface
+          dark:from-emerald-500/18
+          dark:to-slate-900/95
         `,
 
         border: `
-          border-emerald-400/35
+          border-emerald-500/30
+          dark:border-emerald-400/35
         `,
 
         glow: `
@@ -59,12 +68,15 @@ export function getDepthStyles(depth: number) {
       return {
         bg: `
           bg-gradient-to-b
-          from-gray-700/30
-          to-slate-950/95
+          from-slate-500/5
+          to-surface
+          dark:from-gray-700/30
+          dark:to-slate-950/95
         `,
 
         border: `
-          border-gray-500/30
+          border-border-strong
+          dark:border-gray-500/30
         `,
 
         glow: `

@@ -1,5 +1,9 @@
 // frontend/src/components/settings/ConfirmDeleteModal.tsx
 
+import { useEffect, useId } from "react";
+
+import { ActionButton } from "../ui/ActionButton";
+
 type Props = {
   open: boolean;
   title: string;
@@ -23,28 +27,47 @@ export function ConfirmDeleteModal({
   onConfirm,
   onCancel,
 }: Props) {
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCancel();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel, open]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-3"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
+      <div className="bg-surface border border-border-strong rounded-2xl w-full max-w-md p-6 text-text-primary shadow-2xl">
         <h3
+          id={titleId}
           className={`text-xl font-semibold mb-3 ${
-            danger ? "text-red-400" : "text-white"
+            danger ? "text-danger" : "text-text-primary"
           }`}
         >
           {title}
         </h3>
 
-        <p className="text-sm text-gray-300 mb-4 whitespace-pre-line">
+        <p className="text-sm text-text-secondary mb-4 whitespace-pre-line">
           {message}
         </p>
 
         {details && details.length > 0 && (
-          <div className="mb-5 max-h-48 overflow-y-auto rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+          <div className="mb-5 max-h-48 overflow-y-auto rounded-lg border border-border bg-surface-muted p-3">
             <div className="space-y-1">
               {details.map((item, index) => (
-                <div key={index} className="text-sm text-gray-400">
+                <div key={index} className="text-sm text-text-muted">
                   • {item}
                 </div>
               ))}
@@ -53,23 +76,21 @@ export function ConfirmDeleteModal({
         )}
 
         <div className="flex gap-3">
-          <button
+          <ActionButton
             onClick={onCancel}
-            className="flex-1 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition"
+            variant="tertiary"
+            className="flex-1"
           >
             {cancelText}
-          </button>
+          </ActionButton>
 
-          <button
+          <ActionButton
             onClick={onConfirm}
-            className={`flex-1 py-2 rounded-lg transition ${
-              danger
-                ? "bg-red-600 hover:bg-red-500"
-                : "bg-blue-600 hover:bg-blue-500"
-            }`}
+            variant={danger ? "dangerStrong" : "primary"}
+            className="flex-1"
           >
             {confirmText}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

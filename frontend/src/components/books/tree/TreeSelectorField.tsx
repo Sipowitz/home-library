@@ -14,9 +14,13 @@ type Props = {
 
   value: string;
 
-  children: ReactElement;
+  children: ReactElement<{ onSelected?: () => void }>;
 
   initiallyOpen?: boolean;
+
+  floating?: boolean;
+
+  semanticTheme?: boolean;
 };
 
 export function TreeSelectorField({
@@ -24,6 +28,8 @@ export function TreeSelectorField({
   value,
   children,
   initiallyOpen = false,
+  floating = false,
+  semanticTheme = false,
 }: Props) {
   const [open, setOpen] = useState(initiallyOpen);
 
@@ -53,37 +59,40 @@ export function TreeSelectorField({
   const enhancedChild = isValidElement(children)
     ? cloneElement(children, {
         onSelected: () => setOpen(false),
-      } as any)
+      })
     : children;
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={`relative ${open && floating ? "z-[60]" : ""}`}>
       {/* BUTTON */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="
+        className={`
           w-full
           px-4 py-3
           rounded-xl
-          bg-gray-800/70
-          border border-gray-700
-          hover:border-gray-600
+          border
           transition
           text-left
           backdrop-blur-sm
-        "
+          ${
+            semanticTheme
+              ? "border-border-strong bg-control/80 text-text-primary hover:border-focus/60"
+              : "border-gray-700 bg-gray-800/70 hover:border-gray-600"
+          }
+        `}
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
+            <div className={`mb-1 text-[11px] uppercase tracking-wide ${semanticTheme ? "text-text-muted" : "text-gray-400"}`}>
               {label}
             </div>
 
-            <div className="text-sm text-gray-100 truncate">{value}</div>
+            <div className={`truncate text-sm ${semanticTheme ? "text-text-primary" : "text-gray-100"}`}>{value}</div>
           </div>
 
-          <div className="text-gray-400 flex-shrink-0">
+          <div className={`flex-shrink-0 ${semanticTheme ? "text-text-muted" : "text-gray-400"}`}>
             {open ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </div>
         </div>
@@ -92,19 +101,18 @@ export function TreeSelectorField({
       {/* CONTENT */}
       {open && (
         <div
-          className="
-            mt-2
+          className={`
+            ${floating ? "absolute inset-x-0 top-full z-[60] mt-2 max-h-[min(24rem,calc(100dvh-8rem))] overflow-x-hidden overflow-y-auto" : "mt-2 overflow-hidden"}
             rounded-2xl
-            border border-gray-700
-            bg-gray-900/95
+            border
+            ${semanticTheme ? "border-border-strong bg-surface-raised/95 text-text-primary dark:bg-surface/95" : "border-gray-700 bg-gray-900/95"}
             backdrop-blur-xl
             shadow-2xl
-            overflow-hidden
             animate-in
             fade-in
             slide-in-from-top-1
             duration-150
-          "
+          `}
         >
           {enhancedChild}
         </div>

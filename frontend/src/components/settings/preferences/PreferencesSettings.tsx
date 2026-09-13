@@ -22,7 +22,7 @@ export function PreferencesSettings() {
   // -------------------
 
   if (loading || !preferences) {
-    return <div className="text-sm text-gray-400">Loading preferences...</div>;
+    return <div className="text-sm text-text-muted">Loading preferences...</div>;
   }
 
   // -------------------
@@ -61,7 +61,7 @@ export function PreferencesSettings() {
     <div className="space-y-8">
       {/* DATE FORMAT */}
       <div>
-        <h3 className="text-sm font-medium text-white mb-3">Date Format</h3>
+        <h3 className="text-sm font-medium text-text-primary mb-3">Date Format</h3>
 
         <div className="space-y-2">
           {DATE_FORMATS.map((format) => {
@@ -78,8 +78,8 @@ export function PreferencesSettings() {
                   border transition
                   ${
                     selected
-                      ? "bg-gray-800 border-gray-600 text-white"
-                      : "bg-gray-900/60 border-gray-800 text-gray-300 hover:border-gray-700"
+                      ? "bg-surface-raised border-border-strong text-text-primary"
+                      : "bg-surface-muted border-border text-text-secondary hover:border-border-strong"
                   }
                 `}
               >
@@ -92,7 +92,7 @@ export function PreferencesSettings() {
 
       {/* TIME FORMAT */}
       <div>
-        <h3 className="text-sm font-medium text-white mb-3">Time Format</h3>
+        <h3 className="text-sm font-medium text-text-primary mb-3">Time Format</h3>
 
         <div className="space-y-2">
           {TIME_FORMATS.map((format) => {
@@ -109,8 +109,8 @@ export function PreferencesSettings() {
                   border transition
                   ${
                     selected
-                      ? "bg-gray-800 border-gray-600 text-white"
-                      : "bg-gray-900/60 border-gray-800 text-gray-300 hover:border-gray-700"
+                      ? "bg-surface-raised border-border-strong text-text-primary"
+                      : "bg-surface-muted border-border text-text-secondary hover:border-border-strong"
                   }
                 `}
               >
@@ -123,21 +123,21 @@ export function PreferencesSettings() {
 
       {/* LIVE PREVIEW */}
       <div>
-        <h3 className="text-sm font-medium text-white mb-3">Preview</h3>
+        <h3 className="text-sm font-medium text-text-primary mb-3">Preview</h3>
 
         <div
           className="
             rounded-xl
-            border border-gray-800
-            bg-gray-900/60
+            border border-border
+            bg-surface-muted
             px-4 py-5
           "
         >
-          <div className="text-lg text-white">
+          <div className="text-lg text-text-primary">
             {formatDateTime(previewDate, preferences)}
           </div>
 
-          <div className="mt-2 text-sm text-gray-400">
+          <div className="mt-2 text-sm text-text-muted">
             Live preview using your current preferences
           </div>
         </div>

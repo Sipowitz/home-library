@@ -8,6 +8,7 @@ import secrets
 import shutil
 import stat
 import zipfile
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
@@ -167,11 +168,12 @@ def inspect_archive(path: Path) -> tuple[Manifest, LibraryData, dict[str, str]]:
                 code = "BACKUP_REFERENCE_INVALID" if "reference" in message or "duplicate" in message else "BACKUP_MALFORMED"
                 raise BackupError(400, code, "Library data is invalid") from exc
             counts = manifest.record_counts
-            actual = (len(library.books), len(library.categories), len(library.locations), len(library.metadata_snapshots), len(library.normalized_metadata_records))
-            if actual != (counts.books, counts.categories, counts.locations, counts.metadata_snapshots, counts.normalized_metadata_records):
+            actual = (len(library.books), len(library.categories), len(library.locations), len(library.metadata_snapshots), len(library.normalized_metadata_records), len(library.series), len(library.series_memberships), len(library.series_orderings), len(library.series_reading_orderings))
+            if actual != (counts.books, counts.categories, counts.locations, counts.metadata_snapshots, counts.normalized_metadata_records, counts.series, counts.series_memberships, counts.series_orderings, counts.series_reading_orderings):
                 raise BackupError(400, "BACKUP_MALFORMED", "Manifest record counts do not match library data")
             _validate_tree(library.categories, "category")
             _validate_tree(library.locations, "location")
+            _validate_tree(library.series, "series")
             _validate_domain_invariants(library)
             referenced = _referenced_covers(library)
             cover_entries: dict[str, str] = {}
@@ -210,6 +212,12 @@ def _referenced_covers(library: LibraryData) -> dict[str, str]:
                 previous = result.setdefault(cover.object_sha256, cover.media_type)
                 if previous != cover.media_type:
                     raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Cover object has conflicting media types")
+    for series in library.series:
+        cover = series.cover
+        if cover is not None and cover.kind == "local":
+            previous = result.setdefault(cover.object_sha256, cover.media_type)
+            if previous != cover.media_type:
+                raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Cover object has conflicting media types")
     return result
 
 
@@ -243,6 +251,28 @@ def _validate_domain_invariants(library: LibraryData) -> None:
         for location in library.locations:
             required_text(location.name, "Location name")
 
+        series_parents = {item.archive_id: item.parent_archive_id for item in library.series}
+        series_types = {item.archive_id: item.node_type for item in library.series}
+        for series in library.series:
+            required_text(series.name, "Series name")
+            if series.node_type == "group" and (series.parent_archive_id is not None or series.author is not None):
+                raise ValueError("Group must be a root and cannot have an author")
+        memberships = defaultdict(set)
+        for membership in library.series_memberships:
+            memberships[membership.book_archive_id].add(membership.series_archive_id)
+        for membership in library.series_memberships:
+            current = membership.series_archive_id
+            while series_parents[current] is not None:
+                current = series_parents[current]
+            if membership.series_archive_id != current and current not in memberships[membership.book_archive_id]:
+                raise ValueError("Child Series membership lacks root membership")
+        for ordering in library.series_orderings:
+            if series_parents[ordering.series_archive_id] is not None or ordering.series_archive_id not in memberships[ordering.book_archive_id]:
+                raise ValueError("Series ordering must belong to a root membership")
+        for ordering in library.series_reading_orderings:
+            if series_types[ordering.series_archive_id] != "series" or ordering.series_archive_id not in memberships[ordering.book_archive_id]:
+                raise ValueError("Reading order must belong to a Series membership")
+
         for book in library.books:
             required_text(book.title, "Book title")
             required_text(book.author, "Book author")
@@ -256,6 +286,7 @@ def _validate_domain_invariants(library: LibraryData) -> None:
                 date_format=library.preferences.date_format,
                 time_format=library.preferences.time_format,
                 library_view_mode=library.preferences.library_view_mode,
+                appearance_mode=library.preferences.appearance_mode,
             )
     except (KeyError, TypeError, ValueError) as exc:
         raise BackupError(

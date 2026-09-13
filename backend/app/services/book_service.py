@@ -1,10 +1,15 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, asc, desc, func
+from difflib import SequenceMatcher
+import re
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
 from app import models
+from app.services.providers.evidence_service import (
+    update_metadata_evidence_signature, update_cover_evidence_signature,
+)
 from app.models import Book
 
 
@@ -149,6 +154,75 @@ def get_book(db: Session, user_id: int, book_id: int):
     )
 
 
+def _identity_text(value: str | None) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", (value or "").casefold()))
+
+
+def _text_similarity(query: str | None, value: str | None) -> float:
+    query_text = _identity_text(query)
+    value_text = _identity_text(value)
+    if not query_text:
+        return 0.0
+    if query_text == value_text:
+        return 1.0
+    if query_text in value_text or value_text in query_text:
+        return 0.88
+    return SequenceMatcher(None, query_text, value_text).ratio()
+
+
+def check_library(
+    db: Session,
+    user_id: int,
+    isbn: str | None = None,
+    title: str | None = None,
+    author: str | None = None,
+):
+    """Return a small, ranked and strictly owner-scoped ownership check."""
+    query = db.query(Book).filter(Book.owner_id == user_id)
+    filters = []
+    if isbn:
+        filters.append(Book.isbn == isbn)
+    if title:
+        filters.append(Book.title.ilike(f"%{title.strip()}%"))
+    if author:
+        filters.append(Book.author.ilike(f"%{author.strip()}%"))
+
+    # Exact ISBNs must always be included. For fuzzy spelling, inspect a bounded
+    # owner-only candidate set instead of transferring the whole library.
+    direct = query.filter(or_(*filters)).limit(50).all() if filters else []
+    candidates = direct
+    if (title or author) and len(candidates) < 50:
+        seen = {book.id for book in candidates}
+        for book in query.order_by(Book.id.desc()).limit(250).all():
+            if book.id not in seen:
+                candidates.append(book)
+
+    matches = []
+    for book in candidates:
+        if isbn and book.isbn == isbn:
+            matches.append({"classification": "exact", "score": 1.0, "book": book})
+            continue
+
+        title_score = _text_similarity(title, book.title) if title else 0.0
+        author_score = _text_similarity(author, book.author) if author else 0.0
+        if title and author and title_score >= 0.88 and author_score >= 0.88:
+            matches.append({
+                "classification": "likely",
+                "score": round((title_score + author_score) / 2, 3),
+                "book": book,
+            })
+            continue
+
+        provided_scores = [score for supplied, score in ((title, title_score), (author, author_score)) if supplied]
+        score = sum(provided_scores) / len(provided_scores) if provided_scores else 0.0
+        if score >= 0.5 or title_score >= 0.68 or author_score >= 0.68:
+            matches.append({"classification": "possible", "score": round(score, 3), "book": book})
+
+    priority = {"exact": 0, "likely": 1, "possible": 2}
+    matches.sort(key=lambda item: (priority[item["classification"]], -item["score"], item["book"].id))
+    return matches[:20]
+
+
 def create_book(db: Session, user_id: int, data: dict):
     _validate_required_fields(data)
     category_id = data.get("category_id")
@@ -205,6 +279,9 @@ def create_book(db: Session, user_id: int, data: dict):
     new_book.owner_id = user_id
 
     db.add(new_book)
+    db.flush()
+    update_metadata_evidence_signature(db, new_book)
+    update_cover_evidence_signature(db, new_book)
     db.commit()
 
     return (
@@ -220,6 +297,7 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
         db.query(Book)
         .filter(Book.id == book_id)
         .filter(Book.owner_id == user_id)
+        .with_for_update()
         .first()
     )
 
@@ -227,6 +305,11 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
         return None
 
     _validate_required_fields(data, partial=True)
+
+    mark_metadata_reviewed = bool(data.pop("mark_metadata_reviewed", False))
+    mark_cover_reviewed = bool(data.pop("mark_cover_reviewed", False))
+
+    old_isbn = book.isbn
 
     # ✅ CATEGORY UPDATE (single)
     if "category_id" in data:
@@ -274,6 +357,22 @@ def update_book(db: Session, user_id: int, book_id: int, data: dict):
     for key, value in data.items():
         if key not in ("category_id", "location_id", "read", "read_at"):
             setattr(book, key, value)
+
+    if "isbn" in data and book.isbn != old_isbn:
+        update_metadata_evidence_signature(db, book)
+        update_cover_evidence_signature(db, book)
+
+    review_time = datetime.now(timezone.utc)
+    if mark_metadata_reviewed:
+        if book.metadata_evidence_signature is None:
+            update_metadata_evidence_signature(db, book)
+        book.metadata_review_signature = book.metadata_evidence_signature
+        book.metadata_reviewed_at = review_time
+    if mark_cover_reviewed:
+        if book.cover_evidence_signature is None:
+            update_cover_evidence_signature(db, book)
+        book.cover_review_signature = book.cover_evidence_signature
+        book.cover_reviewed_at = review_time
 
     db.commit()
 

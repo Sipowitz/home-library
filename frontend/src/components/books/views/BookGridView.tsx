@@ -78,6 +78,7 @@ function BookGridViewComponent({ books, onSelect }: Props) {
                   className="
                     absolute top-2 right-2
                     bg-green-600
+                    text-white
                     text-[10px]
                     px-2 py-0.5
                     rounded-md
@@ -92,7 +93,7 @@ function BookGridViewComponent({ books, onSelect }: Props) {
             <div className="mt-2 px-1">
               <div className="text-xs font-medium truncate">{book.title}</div>
 
-              <div className="text-[10px] text-gray-400 truncate">
+              <div className="truncate text-[10px] text-text-muted">
                 {book.author}
               </div>
             </div>

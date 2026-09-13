@@ -114,8 +114,8 @@ function MobileTreeNode({
       <div
         className="
           relative
-          bg-gray-900/40
-          border border-gray-800
+          bg-surface
+          border border-border
           rounded-xl
           px-2 py-3
           text-sm
@@ -132,7 +132,7 @@ function MobileTreeNode({
               aria-label={`${expanded ? "Collapse" : "Expand"} ${node.name}`}
               aria-expanded={expanded}
               onClick={() => setExpanded((open) => !open)}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-800"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-muted"
             >
               {expanded ? (
                 <ChevronDown size={20} aria-hidden="true" />
@@ -158,13 +158,13 @@ function MobileTreeNode({
                     setEditing(false);
                   }
                 }}
-                className="w-full rounded-lg border border-purple-500/40 bg-gray-950 px-2 py-1.5 text-white outline-none"
+                className="form-control w-full rounded-lg px-2 py-1.5"
               />
             ) : (
-              <div className="break-words font-medium text-white">{node.name}</div>
+              <div className="break-words font-medium text-text-primary">{node.name}</div>
             )}
 
-            <div className="mt-1.5 text-xs leading-relaxed text-gray-300">
+            <div className="mt-1.5 text-xs leading-relaxed text-text-secondary">
               <span>{node.stats.total_books} books</span>
               <span aria-hidden="true"> · </span>
               <span>{node.stats.read_books} read</span>
@@ -195,7 +195,7 @@ function MobileTreeNode({
                   setChildName("");
                 }
               }}
-              className="w-full rounded-lg border border-purple-500/40 bg-gray-950 px-3 py-2 text-white outline-none"
+              className="form-control w-full rounded-lg px-3 py-2"
             />
             <div className="mt-2 flex gap-2">
               <button
@@ -204,7 +204,7 @@ function MobileTreeNode({
                   setCreatingChild(false);
                   setChildName("");
                 }}
-                className="flex-1 rounded-lg bg-gray-800 px-3 py-2 text-sm"
+                className="flex-1 rounded-lg bg-control px-3 py-2 text-sm text-text-secondary hover:bg-surface-raised"
               >
                 Cancel
               </button>
@@ -213,7 +213,7 @@ function MobileTreeNode({
                 aria-label="Create child category"
                 onClick={handleCreateChild}
                 disabled={!childName.trim()}
-                className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Create
               </button>
@@ -223,7 +223,7 @@ function MobileTreeNode({
 
         {confirmingDelete && (
           <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 p-3">
-            <div className="text-sm text-red-200">
+            <div className="text-sm text-danger">
               {cascadeCount === null
                 ? "Delete this category?"
                 : `Delete this category and ${cascadeCount} descendants?`}
@@ -235,14 +235,14 @@ function MobileTreeNode({
                   setConfirmingDelete(false);
                   setCascadeCount(null);
                 }}
-                className="flex-1 rounded-lg bg-gray-800 px-3 py-2"
+                className="flex-1 rounded-lg bg-control px-3 py-2 text-text-secondary hover:bg-surface-raised"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => handleDelete(cascadeCount !== null)}
-                className="flex-1 rounded-lg bg-red-600 px-3 py-2"
+                className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-white"
               >
                 Delete
               </button>
@@ -397,30 +397,30 @@ export function CategoryTreePanel({ categories }: Props) {
       {/* TOOLBAR */}
       <div
         className="
-          border-b border-gray-800
-          px-2.5 py-3 sm:px-4 lg:px-6 lg:py-4
-          bg-gray-950/40
+          border-b border-border
+          px-2.5 py-2 sm:px-3 lg:px-4
+          bg-surface/40
           backdrop-blur-sm
         "
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <div className="flex flex-col gap-2 lg:flex-row lg:flex-nowrap lg:items-center">
+          <h2 className="hidden shrink-0 text-lg font-semibold text-text-primary lg:block">
+            Categories
+          </h2>
+
           {/* LEFT */}
-          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 lg:flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 lg:flex-1 lg:flex-nowrap">
             {/* SEARCH */}
-            <div className="w-full lg:max-w-md lg:flex-1">
+            <div className="w-full lg:min-w-0 lg:flex-1">
               <input
                 placeholder="Search categories..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="
                   w-full
-                  px-4 py-3
-                  rounded-xl
-                  bg-gray-900
-                  border border-gray-700
+                  px-3 py-2
+                  form-control rounded-xl
                   text-sm
-                  focus:outline-none
-                  focus:border-purple-500
                 "
               />
             </div>
@@ -446,12 +446,9 @@ export function CategoryTreePanel({ categories }: Props) {
                 }}
                 className="
                   w-full sm:w-52
-                  px-4 py-3
-                  rounded-xl
-                  bg-gray-900
-                  border border-purple-500/40
+                  px-3 py-2
+                  form-control rounded-xl
                   text-sm
-                  focus:outline-none
                 "
                 />
                 <div className="flex gap-2 lg:hidden">
@@ -461,7 +458,7 @@ export function CategoryTreePanel({ categories }: Props) {
                       setCreatingRoot(false);
                       setRootName("");
                     }}
-                    className="flex-1 rounded-lg bg-gray-800 px-3 py-2 text-sm"
+                    className="flex-1 rounded-lg bg-control px-3 py-2 text-sm text-text-secondary hover:bg-surface-raised"
                   >
                     Cancel
                   </button>
@@ -470,7 +467,7 @@ export function CategoryTreePanel({ categories }: Props) {
                     aria-label="Create root category"
                     onClick={handleCreateRoot}
                     disabled={!rootName.trim()}
-                    className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex-1 rounded-lg bg-purple-600 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Create
                   </button>
@@ -481,13 +478,13 @@ export function CategoryTreePanel({ categories }: Props) {
                 onClick={() => setCreatingRoot(true)}
                 className="
                   shrink-0
-                  px-4 py-3
+                  px-3 py-2
                   rounded-xl
                   bg-gradient-to-r
                   from-purple-600
                   to-fuchsia-600
                   hover:brightness-110
-                  text-sm font-medium
+                  text-sm font-medium text-white
                   transition
                 "
               >
@@ -499,11 +496,11 @@ export function CategoryTreePanel({ categories }: Props) {
             {search.trim() && (
               <div
                 className="
-                  px-3 py-2
+                  px-2.5 py-1.5
                   rounded-xl
                   border border-purple-500/20
                   bg-purple-500/10
-                  text-xs text-purple-200
+                  text-xs text-purple-700 dark:text-purple-200
                 "
               >
                 {searchMatches.length} matches
@@ -512,15 +509,15 @@ export function CategoryTreePanel({ categories }: Props) {
           </div>
 
           {/* RIGHT */}
-          <div className="flex items-center gap-2 self-start lg:gap-3 lg:self-auto">
+          <div className="flex shrink-0 items-center gap-2 self-start lg:self-auto">
             {/* ROOT COUNT */}
             <div
               className="
-                px-3 py-2
+                px-2.5 py-1.5
                 rounded-xl
-                border border-gray-700
-                bg-gray-900
-                text-xs text-gray-300
+                border border-border-strong
+                bg-surface-muted
+                text-xs text-text-secondary
               "
             >
               <span className="sm:hidden">{categories.length} roots</span>
@@ -529,16 +526,6 @@ export function CategoryTreePanel({ categories }: Props) {
           </div>
         </div>
 
-        {/* FOCUS PATH */}
-        {focusedPath.length > 0 && (
-          <div className="mt-4 text-sm text-gray-400 truncate">
-            <span className="text-gray-500">Focus:</span>
-
-            <span className="text-purple-300 ml-2">
-              {focusedPath.join(" → ")}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* MOBILE */}
@@ -558,7 +545,16 @@ export function CategoryTreePanel({ categories }: Props) {
       </div>
 
       {/* DESKTOP */}
-      <div className="hidden h-[70vh] lg:flex">
+      <div className="relative hidden h-[76vh] lg:flex">
+        {focusedPath.length > 0 && (
+          <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-1.5rem)] truncate rounded-md border border-border bg-surface/90 px-2 py-1 text-xs text-text-muted shadow-sm backdrop-blur-sm">
+            <span>Focus:</span>
+            <span className="ml-1.5 text-purple-700 dark:text-purple-300">
+              {focusedPath.join(" → ")}
+            </span>
+          </div>
+        )}
+
         <CategoryTreeFlow
           categories={categories}
           focusedId={focusedId}

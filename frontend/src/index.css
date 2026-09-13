@@ -2,6 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --color-canvas: 246 245 242;
+    --color-surface: 253 252 251;
+    --color-surface-raised: 255 254 252;
+    --color-surface-muted: 243 242 239;
+    --color-control: 242 241 238;
+    --color-text-primary: 24 29 38;
+    --color-text-secondary: 70 81 93;
+    --color-text-muted: 104 113 123;
+    --color-border: 227 225 221;
+    --color-border-strong: 203 200 194;
+    --color-overlay: 28 35 43;
+    --color-focus: 37 99 235;
+    --color-success: 21 128 61;
+    --color-success-muted: 220 252 231;
+    --color-warning: 180 83 9;
+    --color-warning-muted: 254 243 199;
+    --color-danger: 185 28 28;
+    --color-danger-muted: 254 226 226;
+    --color-scrollbar-track: 243 242 239;
+    --color-scrollbar-thumb: 201 198 192;
+    --color-scrollbar-thumb-hover: 156 153 147;
+    --shadow-raised: 0 12px 30px -22px rgb(45 39 30 / 0.28), 0 2px 8px -6px rgb(45 39 30 / 0.12);
+    --shadow-floating: 0 18px 45px -24px rgb(45 39 30 / 0.24), 0 4px 14px -8px rgb(45 39 30 / 0.12);
+  }
+
+  .dark {
+    --color-canvas: 3 7 18;
+    --color-surface: 17 24 39;
+    --color-surface-raised: 31 41 55;
+    --color-surface-muted: 17 24 39;
+    --color-control: 31 41 55;
+    --color-text-primary: 255 255 255;
+    --color-text-secondary: 209 213 219;
+    --color-text-muted: 156 163 175;
+    --color-border: 31 41 55;
+    --color-border-strong: 55 65 81;
+    --color-overlay: 0 0 0;
+    --color-focus: 96 165 250;
+    --color-success: 74 222 128;
+    --color-success-muted: 20 83 45;
+    --color-warning: 252 211 77;
+    --color-warning-muted: 120 53 15;
+    --color-danger: 252 165 165;
+    --color-danger-muted: 127 29 29;
+    --color-scrollbar-track: 17 24 39;
+    --color-scrollbar-thumb: 55 65 81;
+    --color-scrollbar-thumb-hover: 75 85 99;
+    --shadow-raised: none;
+    --shadow-floating: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  }
+}
+
+@layer components {
+  .form-control {
+    @apply rounded-xl border border-border-strong bg-control text-text-primary outline-none placeholder:text-text-muted disabled:cursor-not-allowed disabled:opacity-50 focus:border-focus focus:ring-1 focus:ring-focus/30;
+  }
+
+  .elevation-raised {
+    box-shadow: var(--shadow-raised);
+  }
+
+  .elevation-floating {
+    box-shadow: var(--shadow-floating);
+  }
+}
+
 /* -------------------
    Recharts focus fix
    ------------------- */
@@ -28,13 +96,48 @@ svg:focus {
   background: transparent !important;
 }
 
+/* Theme bridge for the shared Category/Location ReactFlow workspace. */
+.tree-flow-theme {
+  --tree-grid-color: rgb(var(--color-border-strong) / 0.65);
+  --tree-edge-focused: rgb(var(--color-focus));
+  --tree-edge-root: rgba(168, 85, 247, 0.7);
+  --tree-edge-level-1: rgba(37, 99, 235, 0.62);
+  --tree-edge-level-2: rgba(5, 150, 105, 0.55);
+  --tree-edge-deep: rgba(100, 116, 139, 0.55);
+}
+
+.dark .tree-flow-theme {
+  --tree-grid-color: rgba(255, 255, 255, 0.035);
+  --tree-edge-focused: rgba(255, 255, 255, 0.95);
+  --tree-edge-root: rgba(192, 132, 252, 0.75);
+  --tree-edge-level-1: rgba(96, 165, 250, 0.62);
+  --tree-edge-level-2: rgba(52, 211, 153, 0.52);
+  --tree-edge-deep: rgba(148, 163, 184, 0.38);
+}
+
+.tree-flow-theme .react-flow__controls-button {
+  border-bottom-color: rgb(var(--color-border));
+  background: rgb(var(--color-surface-raised) / 0.95);
+  color: rgb(var(--color-text-secondary));
+  fill: currentColor;
+}
+
+.tree-flow-theme .react-flow__controls-button:hover {
+  background: rgb(var(--color-surface-muted));
+  color: rgb(var(--color-text-primary));
+}
+
+.tree-flow-theme .react-flow__controls-button svg {
+  fill: currentColor;
+}
+
 /* -------------------
    🎨 APP SCROLLBARS
 ------------------- */
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #4b5563 #111827;
+  scrollbar-color: rgb(var(--color-scrollbar-thumb)) rgb(var(--color-scrollbar-track));
 }
 
 /* Chrome / Edge / Safari */
@@ -45,18 +148,18 @@ svg:focus {
 }
 
 *::-webkit-scrollbar-track {
-  background: #111827;
+  background: rgb(var(--color-scrollbar-track));
   border-radius: 9999px;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: rgb(var(--color-scrollbar-thumb));
   border-radius: 9999px;
-  border: 2px solid #111827;
+  border: 2px solid rgb(var(--color-scrollbar-track));
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: rgb(var(--color-scrollbar-thumb-hover));
 }
 
 /* Horizontal tab strips should remain swipeable without a visual gutter. */

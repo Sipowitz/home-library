@@ -7,8 +7,10 @@ import { useCategories } from "../../context/CategoryContext";
 import { BookView, resolveCoverUrl } from "./BookView";
 import { BookEdit } from "./BookEdit";
 import { DeleteModal } from "./DeleteModal";
+import { ActionButton } from "../ui/ActionButton";
 
 import type { Book } from "../../types/book";
+import type { ReviewIntent } from "../../api/books";
 
 type Props = {
   book: Book | null;
@@ -21,11 +23,10 @@ type Props = {
 
   onClose: () => void;
 
-  onSave: () => void;
+  onSave: (reviewIntent?: ReviewIntent) => void;
 
   onDelete: (id: number) => void;
 
-  onBookUpdated: (book: Book) => void;
 };
 
 export function BookPanel({
@@ -37,7 +38,6 @@ export function BookPanel({
   onClose,
   onSave,
   onDelete,
-  onBookUpdated,
 }: Props) {
   const { locations } = useLocations();
 
@@ -65,7 +65,6 @@ export function BookPanel({
 
   function handleComparisonClose() {
     setMetadataComparisonOpen(false);
-    handleCancel();
   }
 
   function handleCancel() {
@@ -88,7 +87,7 @@ export function BookPanel({
 
       <div
         className="
-          fixed inset-0 z-40
+          fixed inset-0 z-[80]
           bg-black/50
           backdrop-blur-sm
         "
@@ -99,7 +98,7 @@ export function BookPanel({
 
       <div
         className={`
-          fixed top-4 right-4 z-50
+          fixed top-4 right-4 z-[90]
 
           h-[calc(100vh-2rem)]
           w-[900px]
@@ -151,26 +150,29 @@ export function BookPanel({
         {/* CONTROLS */}
 
         {!metadataComparisonOpen && (
-        <div className="absolute right-3 top-3 z-[70] flex items-center gap-2">
+        <div className="absolute inset-x-3 top-3 z-[70] flex items-center gap-2 sm:left-auto sm:right-3">
           {!editing && (
-            <button
+            <ActionButton
               type="button"
+              variant="icon"
+              size="icon"
               onClick={handleEdit}
               aria-label="Edit book"
               title="Edit book"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/30 text-gray-200 backdrop-blur-md transition hover:bg-black/45 hover:text-white"
             >
               <Pencil size={19} aria-hidden="true" />
-            </button>
+            </ActionButton>
           )}
-          <button
+          <ActionButton
             type="button"
+            variant="icon"
+            size="icon"
             onClick={editing ? handleCancel : onClose}
             aria-label="Close book details"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/40 text-gray-200 backdrop-blur-md transition hover:bg-black/50 hover:text-white"
+            className="ml-auto sm:ml-0"
           >
             <X size={20} />
-          </button>
+          </ActionButton>
         </div>
 
         )}
@@ -180,11 +182,7 @@ export function BookPanel({
         <div
           className={`
             relative z-20 flex-1 overflow-y-auto
-            ${
-              editing
-                ? "px-5 pb-4 pt-14 sm:py-5 sm:pl-6 sm:pr-16"
-                : "p-0"
-            }
+            p-0
             scrollbar-thin
             scrollbar-thumb-gray-700
             scrollbar-track-transparent
@@ -205,7 +203,6 @@ export function BookPanel({
               textareaRef={textareaRef}
               onSave={onSave}
               onDelete={() => setConfirmDelete(true)}
-              onBookUpdated={onBookUpdated}
               onComparisonClose={handleComparisonClose}
               onComparisonOpenChange={setMetadataComparisonOpen}
             />

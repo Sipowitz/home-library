@@ -21,8 +21,10 @@ import type { BackupValidationSummary } from "./backup/ConfirmRestoreModal";
 import { LocationSettings } from "./locations/LocationSettings";
 
 import { CategorySettings } from "./categories/CategorySettings";
+import { SeriesSettings } from "./series/SeriesSettings";
 
 import { PreferencesSettings } from "./preferences/PreferencesSettings";
+import { AppearanceSettings } from "./appearance/AppearanceSettings";
 
 import { ProviderSettingsPanel } from "./providers/ProviderSettingsPanel";
 
@@ -30,22 +32,31 @@ import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 
 import { PendingUsersPanel } from "./users/PendingUsersPanel";
 import { useAuth } from "../../context/AuthContext";
+import { MaintenanceSettings, type ReviewTarget } from "./maintenance/MaintenanceSettings";
+import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
   isOpen: boolean;
 
   onClose: () => void;
+  onReviewBook: (bookId: number, target: ReviewTarget, guided?: boolean, followUp?: ReviewTarget | null) => void;
+  onReviewSequenceComplete: () => void;
+  onViewBook: (bookId: number) => void;
+  reviewSaved?: { bookId: number; nonce: number; guided?: boolean } | null;
 };
 
 type Section =
   | "locations"
   | "categories"
+  | "series"
   | "providers"
+  | "maintenance"
   | "backup"
+  | "appearance"
   | "preferences"
   | "users";
 
-export function SettingsModal({ isOpen, onClose }: Props) {
+export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, onViewBook, reviewSaved }: Props) {
   const { user } = useAuth();
   const { locations, deleteLocation } = useLocations();
 
@@ -216,12 +227,12 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
         <div
           className="
-            bg-gray-950/95
-            border border-gray-800
+            bg-canvas/95 text-text-primary
+            border border-border
             rounded-xl sm:rounded-2xl
             w-full
             h-full
-            shadow-2xl
+            elevation-floating
             overflow-y-auto
             flex flex-col lg:flex-row
           "
@@ -231,8 +242,8 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
           <div
             className="
-              bg-gray-900/90
-              border-b lg:border-b-0 lg:border-r border-gray-800
+              bg-surface/90
+              border-b lg:border-b-0 lg:border-r border-border
               p-2.5 sm:p-3 lg:p-4
               flex flex-col
               lg:w-64
@@ -241,7 +252,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             <div className="mb-2 lg:mb-6">
               <h2 className="text-xl lg:text-2xl font-semibold">Settings</h2>
 
-              <p className="text-sm text-gray-400 mt-1 hidden lg:block">
+              <p className="text-sm text-text-muted mt-1 hidden lg:block">
                 Configure your library system
               </p>
             </div>
@@ -253,31 +264,28 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             />
 
             <div className="mt-2 lg:mt-auto lg:pt-4">
-              <button
+              <ActionButton
                 onClick={onClose}
-                className="
-                  w-full py-2 rounded-lg
-                  bg-gray-800 hover:bg-gray-700
-                  transition
-                "
+                variant="tertiary"
+                className="w-full"
               >
                 Close
-              </button>
+              </ActionButton>
             </div>
           </div>
 
           {/* CONTENT */}
 
-          <div className="min-w-0 p-2 sm:p-3 lg:flex-1 lg:p-6">
+          <div className="min-w-0 bg-canvas p-2 sm:p-3 lg:flex-1 lg:p-6">
             {/* LOCATIONS */}
 
             {activeSection === "locations" && (
               <div className="max-w-full relative">
-                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
-                  <div className="mb-3 lg:mb-5">
+                <div className="w-full rounded-lg border border-border bg-surface/60 p-2.5 sm:rounded-xl sm:p-3 lg:border-0 lg:bg-transparent lg:p-0">
+                  <div className="mb-2 lg:hidden">
                     <h2 className="text-lg font-semibold">Locations</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="mt-0.5 text-sm text-text-muted">
                       Organize where books are physically stored.
                     </p>
                   </div>
@@ -291,11 +299,11 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
             {activeSection === "categories" && (
               <div className="max-w-full relative">
-                <div className="bg-gray-900/30 sm:bg-gray-900/60 border border-gray-800/70 sm:border-gray-800 rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
-                  <div className="mb-3 lg:mb-5">
+                <div className="w-full rounded-lg border border-border bg-surface/60 p-2.5 sm:rounded-xl sm:p-3 lg:border-0 lg:bg-transparent lg:p-0">
+                  <div className="mb-2 lg:hidden">
                     <h2 className="text-lg font-semibold">Categories</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="mt-0.5 text-sm text-text-muted">
                       Organize books by subject or collection.
                     </p>
                   </div>
@@ -305,7 +313,34 @@ export function SettingsModal({ isOpen, onClose }: Props) {
               </div>
             )}
 
+            {/* SERIES */}
+
+            {activeSection === "series" && (
+              <div className="max-w-full relative">
+                <div className="w-full rounded-lg border border-border bg-surface/60 p-2.5 sm:rounded-xl sm:p-3 lg:border-0 lg:bg-transparent lg:p-0">
+                  <div className="mb-2 lg:hidden">
+                    <h2 className="text-lg font-semibold">Series</h2>
+
+                    <p className="mt-0.5 text-sm text-text-muted">
+                      Organize Series and subseries in your library.
+                    </p>
+                  </div>
+
+                  <SeriesSettings onViewBook={onViewBook} />
+                </div>
+              </div>
+            )}
+
             {/* PROVIDERS */}
+
+            {activeSection === "maintenance" && (
+              <MaintenanceSettings
+                active={isOpen}
+                reviewSaved={reviewSaved}
+                onReview={onReviewBook}
+                onReviewSequenceComplete={onReviewSequenceComplete}
+              />
+            )}
 
             {activeSection === "providers" && user?.is_admin && (
               <div className="max-w-4xl">
@@ -313,7 +348,7 @@ export function SettingsModal({ isOpen, onClose }: Props) {
                   <div>
                     <h2 className="text-lg font-semibold">Providers</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-text-muted mt-1">
                       Configure metadata search providers and priority order.
                     </p>
                   </div>
@@ -324,18 +359,34 @@ export function SettingsModal({ isOpen, onClose }: Props) {
             )}
 
             {activeSection === "users" && user?.is_admin && (
-              <div className="max-w-4xl space-y-4"><div><h2 className="text-lg font-semibold">Users</h2><p className="text-sm text-gray-400 mt-1">Approve or reject pending accounts.</p></div><PendingUsersPanel /></div>
+              <div className="max-w-4xl space-y-4"><div><h2 className="text-lg font-semibold">Users</h2><p className="text-sm text-text-muted mt-1">Approve or reject pending accounts.</p></div><PendingUsersPanel /></div>
+            )}
+
+            {/* PREFERENCES */}
+
+            {activeSection === "appearance" && (
+              <div className="max-w-2xl">
+                <div className="rounded-xl border border-border bg-surface p-4 lg:p-5">
+                  <div className="mb-3 lg:mb-5">
+                    <h2 className="text-lg font-semibold">Appearance</h2>
+                    <p className="mt-1 text-sm text-text-muted">
+                      Configure how your library is presented.
+                    </p>
+                  </div>
+                  <AppearanceSettings />
+                </div>
+              </div>
             )}
 
             {/* PREFERENCES */}
 
             {activeSection === "preferences" && (
               <div className="max-w-2xl">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+                <div className="bg-surface border border-border rounded-xl p-4 lg:p-5">
                   <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Preferences</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-text-muted mt-1">
                       Configure how dates and times are shown throughout the
                       library.
                     </p>
@@ -350,11 +401,11 @@ export function SettingsModal({ isOpen, onClose }: Props) {
 
             {activeSection === "backup" && (
               <div className="max-w-2xl">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 lg:p-5">
+                <div className="bg-surface border border-border rounded-xl p-4 lg:p-5">
                   <div className="mb-3 lg:mb-5">
                     <h2 className="text-lg font-semibold">Backup & Restore</h2>
 
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-text-muted mt-1">
                       Export or restore your library database.
                     </p>
                   </div>

@@ -15,14 +15,14 @@ export function BookFields({
     <div className="space-y-3">
       <input
         placeholder="Title"
-        className="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="form-control w-full rounded-lg p-2"
         value={title}
         onChange={(e) => onTitleChange(e.target.value)}
       />
 
       <input
         placeholder="Author"
-        className="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="form-control w-full rounded-lg p-2"
         value={author}
         onChange={(e) => onAuthorChange(e.target.value)}
       />

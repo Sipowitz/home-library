@@ -29,6 +29,8 @@ from .routers import (
     preferences,
     provider_settings,
     admin_users,
+    maintenance,
+    series,
 )
 
 from .core.error_handlers import (
@@ -36,10 +38,15 @@ from .core.error_handlers import (
     validation_exception_handler,
     general_exception_handler,
 )
+from .services.maintenance_jobs import recover_interrupted_jobs
 
 from .core.config import settings
 
 app = FastAPI()
+
+@app.on_event("startup")
+def recover_maintenance_jobs_on_startup():
+    recover_interrupted_jobs()
 
 # ---------------------------
 # ✅ STATIC COVER STORAGE
@@ -106,6 +113,9 @@ app.include_router(
     provider_settings.router
 )
 app.include_router(admin_users.router)
+app.include_router(maintenance.router)
+app.include_router(series.router)
+app.include_router(series.book_router)
 
 
 @app.get("/")

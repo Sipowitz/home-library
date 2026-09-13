@@ -22,6 +22,8 @@ type Props<T extends TreeNode<T>> = {
   clearLabel?: string;
 
   onSelected?: () => void;
+
+  semanticTheme?: boolean;
 };
 
 export function TreeSelector<T extends TreeNode<T>>({
@@ -32,6 +34,7 @@ export function TreeSelector<T extends TreeNode<T>>({
   selectable,
   clearLabel,
   onSelected,
+  semanticTheme = false,
 }: Props<T>) {
   const nodeMap = useMemo(() => buildTreeMap(nodes), [nodes]);
 
@@ -46,6 +49,8 @@ export function TreeSelector<T extends TreeNode<T>>({
 
     const ancestorIds = getAncestorIds(selectedId, nodeMap);
 
+    // Existing behavior intentionally expands the selected node's ancestors.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpandedIds((prev) => {
       const next = new Set(prev);
 
@@ -75,14 +80,14 @@ export function TreeSelector<T extends TreeNode<T>>({
   }
 
   return (
-    <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-3">
+    <div className={`rounded-xl border p-3 ${semanticTheme ? "border-border bg-control/40" : "border-gray-700 bg-gray-800/40"}`}>
       {/* CURRENT */}
       <div className="mb-3">
-        <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+        <div className={`mb-1 text-xs uppercase tracking-wide ${semanticTheme ? "text-text-muted" : "text-gray-400"}`}>
           Selected
         </div>
 
-        <div className="text-sm text-gray-200 break-words">{selectedPath}</div>
+        <div className={`break-words text-sm ${semanticTheme ? "text-text-secondary" : "text-gray-200"}`}>{selectedPath}</div>
       </div>
 
       {/* CLEAR */}
@@ -93,7 +98,7 @@ export function TreeSelector<T extends TreeNode<T>>({
           className={`w-full text-left px-2 py-1.5 rounded text-sm mb-2 ${
             selectedId === null
               ? "bg-blue-600/20 border border-blue-500/40"
-              : "hover:bg-gray-800"
+              : semanticTheme ? "hover:bg-control" : "hover:bg-gray-800"
           }`}
         >
           {clearLabel}
@@ -112,6 +117,7 @@ export function TreeSelector<T extends TreeNode<T>>({
             toggleExpanded={toggleExpanded}
             onSelect={(id) => handleSelect(id)}
             selectable={selectable}
+            semanticTheme={semanticTheme}
           />
         ))}
       </div>

@@ -1,34 +1,16 @@
 import { StatsPanel } from "../stats/StatsPanel";
-import { AddBookForm } from "../books/AddBookForm";
+import { usePreferences } from "../../hooks/usePreferences";
 
-export function TopPanels({
-  newBook,
-  setNewBook,
-  onSearch,
-  onAdd,
-  onReset,
-  onISBNChange,
-  isFetching,
-}: any) {
+export function TopPanels() {
+  const { preferences } = usePreferences();
+  const showDesktop = preferences?.show_stats_desktop ?? true;
+  const showMobile = preferences?.show_stats_mobile ?? true;
+
+  if (!showDesktop && !showMobile) return null;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-      {/* ADD BOOK */}
-      <div className="h-full">
-        <AddBookForm
-          newBook={newBook}
-          setNewBook={setNewBook}
-          onSearch={onSearch}
-          onAdd={onAdd}
-          onReset={onReset}
-          onISBNChange={onISBNChange}
-          isFetching={isFetching}
-        />
-      </div>
-
-      {/* STATS */}
-      <div className="lg:col-span-2 h-full">
+    <div className={`${showMobile ? "block" : "hidden"} ${showDesktop ? "lg:block" : "lg:hidden"}`}>
         <StatsPanel />
-      </div>
     </div>
   );
 }

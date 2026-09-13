@@ -1,4 +1,5 @@
 import { Loader2, Search, Camera } from "lucide-react";
+import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
   isbn: string;
@@ -17,12 +18,12 @@ export function ISBNInputRow({
 }: Props) {
   return (
     <div className="mb-4">
-      <label className="text-xs text-gray-400">ISBN</label>
+      <label className="text-xs text-text-muted">ISBN</label>
 
       <div className="flex items-stretch gap-2 mt-1 min-w-0">
         <input
           placeholder="Scan or enter ISBN..."
-          className="flex-1 min-w-0 p-2 bg-gray-800 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="form-control min-w-0 flex-1 rounded-lg p-2"
           value={isbn}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -31,25 +32,29 @@ export function ISBNInputRow({
         {typeof navigator !== "undefined" &&
           !!navigator.mediaDevices &&
           !!navigator.mediaDevices.getUserMedia && (
-            <button
+            <ActionButton
+              variant="icon"
+              size="icon"
               onClick={onOpenScanner}
-              className="shrink-0 px-3 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center justify-center transition"
+              aria-label="Scan ISBN with camera"
             >
               <Camera size={16} />
-            </button>
+            </ActionButton>
           )}
 
         {/* 🔍 SEARCH */}
-        <button
+        <ActionButton
+          variant="primary"
+          size="icon"
           onClick={onSearch}
-          className="shrink-0 px-3 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center transition"
+          aria-label="Look up ISBN"
         >
           {isFetching ? (
             <Loader2 className="animate-spin" size={16} />
           ) : (
             <Search size={16} />
           )}
-        </button>
+        </ActionButton>
       </div>
     </div>
   );

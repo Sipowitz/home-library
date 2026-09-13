@@ -1,7 +1,8 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_core import PydanticCustomError
 
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
+from decimal import Decimal
 
 from datetime import datetime
 from app.services.domain_validation import required_text
@@ -43,6 +44,12 @@ class PreferencesBase(BaseModel):
 
     show_covers_in_list: bool = True
 
+    show_stats_desktop: bool = True
+
+    show_stats_mobile: bool = True
+
+    appearance_mode: Literal["system", "light", "dark"] = "system"
+
 
 class PreferencesUpdate(BaseModel):
     date_format: Optional[str] = None
@@ -52,6 +59,12 @@ class PreferencesUpdate(BaseModel):
     library_view_mode: Optional[str] = None
 
     show_covers_in_list: Optional[bool] = None
+
+    show_stats_desktop: Optional[bool] = None
+
+    show_stats_mobile: Optional[bool] = None
+
+    appearance_mode: Optional[Literal["system", "light", "dark"]] = None
 
 
 class PreferencesResponse(PreferencesBase):
@@ -170,6 +183,116 @@ CategoryResponse.model_rebuild()
 
 
 # -------------------
+# 📚 SERIES SCHEMAS
+# -------------------
+
+class SeriesCreate(BaseModel):
+    name: str
+    node_type: Literal["group", "series"] = "series"
+    author: Optional[str] = None
+    description: Optional[str] = None
+    cover_url: Optional[str] = None
+    parent_id: Optional[int] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value):
+        return required_text(value, "Series name")
+
+
+class SeriesUpdate(BaseModel):
+    name: Optional[str] = None
+    author: Optional[str] = None
+    description: Optional[str] = None
+    cover_url: Optional[str] = None
+    parent_id: Optional[int] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def validate_name(cls, value):
+        return required_text(value, "Series name")
+
+
+class SeriesResponse(BaseModel):
+    id: int
+    owner_id: int
+    name: str
+    node_type: Literal["group", "series"]
+    author: Optional[str]
+    description: Optional[str]
+    cover_url: Optional[str]
+    parent_id: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SeriesTreeResponse(SeriesResponse):
+    children: List["SeriesTreeResponse"] = Field(default_factory=list)
+
+
+SeriesTreeResponse.model_rebuild()
+
+
+class SeriesMembershipCreate(BaseModel):
+    book_id: int
+
+
+class SeriesMembershipResponse(BaseModel):
+    book_id: int
+    series_id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SeriesOrderReplace(BaseModel):
+    ordered_book_ids: List[int]
+
+
+class SeriesOrderingResponse(BaseModel):
+    book_id: int
+    series_id: int
+    publication_order: Optional[int]
+    chronological_order: Optional[int]
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BookSeriesRelationship(BaseModel):
+    series: SeriesResponse
+    direct: bool
+    publication_order: Optional[int] = None
+    chronological_order: Optional[int] = None
+    reading_order: Optional[int] = None
+
+
+class EffectiveSeriesMembership(BaseModel):
+    series_id: int
+    series_name: str
+
+
+class EffectiveSeriesBook(BaseModel):
+    book_id: int
+    title: str
+    author: str
+    cover_url: Optional[str] = None
+    isbn: Optional[str] = None
+    year: Optional[int] = None
+    direct: bool
+    publication_order: Optional[int] = None
+    chronological_order: Optional[int] = None
+    root_publication_order: Optional[int] = None
+    root_chronological_order: Optional[int] = None
+    reading_order: Optional[int] = None
+    reading_order_custom: bool = False
+    explicit_memberships: List[EffectiveSeriesMembership] = Field(default_factory=list)
+
+
+class RootRemovalImpact(BaseModel):
+    requires_confirmation: bool
+    affected_series: List[SeriesResponse] = Field(default_factory=list)
+
+
+# -------------------
 # 📚 BOOK SCHEMAS
 # -------------------
 
@@ -268,6 +391,9 @@ class BookUpdate(BaseModel):
 
     category_id: Optional[int] = None
 
+    mark_metadata_reviewed: bool = False
+    mark_cover_reviewed: bool = False
+
     @field_validator("title", "author", mode="before")
     @classmethod
     def validate_required_text(cls, value):
@@ -323,8 +449,40 @@ class CreateBookFromIsbnBook(BaseModel):
             raise PydanticCustomError("invalid_isbn", "Invalid ISBN") from exc
 
 
+class ReviewStatusResponse(BaseModel):
+    state: Literal["never_reviewed", "current", "changed"]
+    reviewed_at: Optional[datetime] = None
+    evidence_changed_at: Optional[datetime] = None
+    has_evidence: Optional[bool] = None
+    candidate_count: Optional[int] = None
+    last_refresh_at: Optional[datetime] = None
+
+
+class CoverCandidateResponse(BaseModel):
+    provider: str
+    label: Optional[str] = None
+    url: str
+
+
+class CoverCandidatesResponse(BaseModel):
+    candidates: List[CoverCandidateResponse] = Field(default_factory=list)
+    cover_review: ReviewStatusResponse
+
+
+class CoverRefreshResponse(CoverCandidatesResponse):
+    provider_results: List[Any] = Field(default_factory=list)
+
+
 class BookResponse(BookBase):
     id: int
+
+    last_cover_refresh_at: Optional[datetime] = None
+    metadata_evidence_changed_at: Optional[datetime] = None
+    metadata_reviewed_at: Optional[datetime] = None
+    cover_evidence_changed_at: Optional[datetime] = None
+    cover_reviewed_at: Optional[datetime] = None
+    metadata_review: ReviewStatusResponse
+    cover_review: ReviewStatusResponse
 
     warning: Optional[str] = None
 
@@ -422,6 +580,70 @@ class BookListResponse(BaseModel):
     items: List[BookResponse]
 
     total: int
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryCheckMatch(BaseModel):
+    classification: Literal["exact", "likely", "possible"]
+    score: float
+    book: BookResponse
+
+
+class LibraryCheckResponse(BaseModel):
+    normalized_isbn: Optional[str] = None
+    exact_matches: List[LibraryCheckMatch] = Field(default_factory=list)
+    likely_matches: List[LibraryCheckMatch] = Field(default_factory=list)
+    possible_matches: List[LibraryCheckMatch] = Field(default_factory=list)
+
+
+class ReviewQueueBookResponse(BaseModel):
+    id: int
+    title: str
+    subtitle: Optional[str] = None
+    author: str
+    isbn: Optional[str] = None
+    cover_url: Optional[str] = None
+    date_added: Optional[datetime] = None
+    metadata_review: ReviewStatusResponse
+    cover_review: ReviewStatusResponse
+
+
+class ReviewQueueSummaryResponse(BaseModel):
+    total: int
+    metadata_never_reviewed: int
+    metadata_changed: int
+    cover_never_reviewed: int
+    cover_changed: int
+
+
+class ReviewQueueResponse(BaseModel):
+    items: List[ReviewQueueBookResponse]
+    total: int
+    skip: int
+    limit: int
+    summary: ReviewQueueSummaryResponse
+
+
+class MaintenanceJobResponse(BaseModel):
+    id: int
+    kind: str
+    status: str
+    total: int
+    processed: int
+    succeeded: int
+    unchanged: int
+    changed: int
+    partially_succeeded: int
+    failed: int
+    skipped: int
+    cancellation_requested: bool
+    error_summary: Optional[str] = None
+    current_title: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

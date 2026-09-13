@@ -51,9 +51,9 @@ export function TreeConfirmModal({
 
           rounded-2xl
 
-          border border-gray-800
+          border border-border-strong
 
-          bg-gray-950
+          bg-surface text-text-primary
 
           shadow-2xl
 
@@ -61,9 +61,9 @@ export function TreeConfirmModal({
         "
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-semibold text-white">{title}</h2>
+        <h2 className="text-xl font-semibold text-text-primary">{title}</h2>
 
-        <p className="text-sm text-gray-400 mt-3 leading-relaxed">{message}</p>
+        <p className="text-sm text-text-muted mt-3 leading-relaxed">{message}</p>
 
         <div className="flex justify-end gap-3 mt-6">
           <button
@@ -73,8 +73,8 @@ export function TreeConfirmModal({
 
               rounded-xl
 
-              bg-gray-800
-              hover:bg-gray-700
+              bg-control text-text-secondary
+              hover:bg-surface-raised hover:text-text-primary
 
               transition
             "
