@@ -27,6 +27,9 @@ DEFAULT_SHOW_STATS_MOBILE = True
 
 DEFAULT_APPEARANCE_MODE = "system"
 
+DEFAULT_LIBRARY_NAME = "My Library"
+MAX_LIBRARY_NAME_LENGTH = 60
+
 # -------------------
 # 🔍 GET OR CREATE
 # -------------------
@@ -56,6 +59,7 @@ def get_or_create_preferences(
         show_stats_desktop=DEFAULT_SHOW_STATS_DESKTOP,
         show_stats_mobile=DEFAULT_SHOW_STATS_MOBILE,
         appearance_mode=DEFAULT_APPEARANCE_MODE,
+        library_name=DEFAULT_LIBRARY_NAME,
     )
 
     db.add(preferences)
@@ -161,6 +165,15 @@ def update_preferences(
         if value not in VALID_APPEARANCE_MODES:
             raise ValueError("Invalid appearance mode")
         preferences.appearance_mode = value
+
+    if "library_name" in data and data["library_name"] is not None:
+        value = data["library_name"]
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("Library name must not be blank")
+        value = value.strip()
+        if len(value) > MAX_LIBRARY_NAME_LENGTH:
+            raise ValueError("Library name must be 60 characters or fewer")
+        preferences.library_name = value
 
     db.commit()
 

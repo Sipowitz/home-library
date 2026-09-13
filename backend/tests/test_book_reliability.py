@@ -20,6 +20,7 @@ from app.auth.jwt_handler import create_access_token
 from app.main import app
 from app.routers import books as books_router
 from app.services import book_service
+from app.services.providers.types import ProviderResult
 
 
 @pytest.fixture()
@@ -322,6 +323,69 @@ def test_from_isbn_frontend_payload_persists_owned_book_and_metadata(client, db,
     )
     assert candidates.status_code == 200
     assert candidates.json()[0]["data"]["title"] == "Provider title"
+
+
+def test_from_isbn_schedules_post_create_refresh_for_returned_book_id(client, users, monkeypatch):
+    owner, _ = users
+    scheduled_ids = []
+
+    async def capture_refresh(book_id):
+        scheduled_ids.append(book_id)
+
+    monkeypatch.setattr(books_router, "refresh_created_book_metadata", capture_refresh)
+    response = client.post("/books/from-isbn", json=isbn_payload(), headers=headers(owner))
+
+    assert response.status_code == 200, response.text
+    assert scheduled_ids == [response.json()["id"]]
+
+
+def test_post_create_refresh_failure_does_not_invalidate_book(client, db, users, monkeypatch):
+    owner, _ = users
+    import app.services.providers.refresh_metadata_service as metadata_refresh
+
+    async def failed_refresh(_db, _book_id):
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr(metadata_refresh, "refresh_book_metadata", failed_refresh)
+    response = client.post("/books/from-isbn", json=isbn_payload(), headers=headers(owner))
+
+    assert response.status_code == 200, response.text
+    assert db.get(models.Book, response.json()["id"]) is not None
+
+
+def test_post_create_refresh_uses_own_session_and_persists_metadata_after_empty_payload(client, db, users, monkeypatch):
+    owner, _ = users
+    import app.services.providers.refresh_metadata_service as metadata_refresh
+    refresh_sessions = []
+
+    async def fresh_results(refresh_db, isbn):
+        refresh_sessions.append(refresh_db)
+        return [ProviderResult(
+            provider="google_books",
+            success=True,
+            isbn=isbn,
+            duration_ms=1,
+            data={"title": "Authoritative provider title", "author": "Provider author"},
+            error=None,
+        )]
+
+    monkeypatch.setattr(metadata_refresh, "fetch_all_metadata_results", fresh_results)
+    payload = isbn_payload()
+    payload["provider_results"] = []  # Simulates Add before the delayed browser fetch resolves.
+    response = client.post("/books/from-isbn", json=payload, headers=headers(owner))
+
+    assert response.status_code == 200, response.text
+    book_id = response.json()["id"]
+    assert refresh_sessions and refresh_sessions[0] is not db
+    db.expire_all()
+    book = db.get(models.Book, book_id)
+    assert book.last_metadata_refresh_at is not None
+    assert len(book.metadata_snapshots) == 1
+    assert book.metadata_evidence_signature.startswith("metadata:v1:")
+
+    candidates = client.get(f"/books/{book_id}/metadata-candidates", headers=headers(owner))
+    assert candidates.status_code == 200
+    assert candidates.json()[0]["data"]["title"] == "Authoritative provider title"
 
 
 def test_from_isbn_rejects_duplicate_for_owner_with_context(client, db, users):

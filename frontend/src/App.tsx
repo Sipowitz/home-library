@@ -55,6 +55,12 @@ export default function App() {
 
   const { preferences, updatePreferences } = usePreferences();
 
+  const libraryName = preferences?.library_name?.trim() || "My Library";
+
+  useEffect(() => {
+    document.title = libraryName;
+  }, [libraryName]);
+
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -87,6 +93,7 @@ export default function App() {
     origin: "maintenance_direct" | "maintenance_guided" | "add_review";
   } | null>(null);
   const [reviewSaved, setReviewSaved] = useState<{ bookId: number; nonce: number; guided?: boolean } | null>(null);
+  const [evidenceRefreshVersion, setEvidenceRefreshVersion] = useState(0);
 
   const [isScrolling, setIsScrolling] = useState(false);
   const [isSearchPanelPastThreshold, setIsSearchPanelPastThreshold] =
@@ -377,6 +384,7 @@ export default function App() {
     >
       <div onClick={(e) => e.stopPropagation()}>
         <Header
+          libraryName={libraryName}
           onOpenSettings={() => setShowSettings(true)}
           onLogout={handleLogout}
         />
@@ -397,6 +405,7 @@ export default function App() {
             }
           }}
           reviewSaved={reviewSaved}
+          evidenceRefreshVersion={evidenceRefreshVersion}
           onReviewSequenceComplete={() => {
             setSelectedBook(null);
             setEditing(false);
@@ -522,6 +531,7 @@ export default function App() {
 
         {reviewSession && (
           <MaintenanceReviewSession
+            onEvidenceRefreshed={() => setEvidenceRefreshVersion((version) => version + 1)}
             book={reviewSession.book}
             initialTarget={reviewSession.target}
             origin={reviewSession.origin}

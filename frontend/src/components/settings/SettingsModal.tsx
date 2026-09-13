@@ -43,6 +43,7 @@ type Props = {
   onReviewSequenceComplete: () => void;
   onViewBook: (bookId: number) => void;
   reviewSaved?: { bookId: number; nonce: number; guided?: boolean } | null;
+  evidenceRefreshVersion?: number;
 };
 
 type Section =
@@ -56,7 +57,7 @@ type Section =
   | "preferences"
   | "users";
 
-export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, onViewBook, reviewSaved }: Props) {
+export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, onViewBook, reviewSaved, evidenceRefreshVersion }: Props) {
   const { user } = useAuth();
   const { locations, deleteLocation } = useLocations();
 
@@ -337,6 +338,7 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
               <MaintenanceSettings
                 active={isOpen}
                 reviewSaved={reviewSaved}
+                evidenceRefreshVersion={evidenceRefreshVersion}
                 onReview={onReviewBook}
                 onReviewSequenceComplete={onReviewSequenceComplete}
               />

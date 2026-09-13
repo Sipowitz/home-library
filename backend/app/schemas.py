@@ -36,6 +36,8 @@ class UserResponse(BaseModel):
 # -------------------
 
 class PreferencesBase(BaseModel):
+    library_name: str = Field(default="My Library", min_length=1, max_length=60)
+
     date_format: str = "DD/MM/YYYY"
 
     time_format: str = "24h"
@@ -52,6 +54,7 @@ class PreferencesBase(BaseModel):
 
 
 class PreferencesUpdate(BaseModel):
+    library_name: Optional[str] = Field(default=None, max_length=60)
     date_format: Optional[str] = None
 
     time_format: Optional[str] = None
@@ -65,6 +68,18 @@ class PreferencesUpdate(BaseModel):
     show_stats_mobile: Optional[bool] = None
 
     appearance_mode: Optional[Literal["system", "light", "dark"]] = None
+
+    @field_validator("library_name", mode="before")
+    @classmethod
+    def validate_library_name(cls, value):
+        if value is None:
+            return value
+        value = value.strip() if isinstance(value, str) else value
+        if not isinstance(value, str) or not value:
+            raise ValueError("Library name must not be blank")
+        if len(value) > 60:
+            raise ValueError("Library name must be 60 characters or fewer")
+        return value
 
 
 class PreferencesResponse(PreferencesBase):
