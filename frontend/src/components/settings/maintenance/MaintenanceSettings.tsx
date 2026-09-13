@@ -14,6 +14,7 @@ export type ReviewTarget = "book" | "metadata" | "covers";
 type Props = {
   active: boolean;
   reviewSaved?: { bookId: number; nonce: number; guided?: boolean } | null;
+  evidenceRefreshVersion?: number;
   onReview: (bookId: number, target: ReviewTarget, guided?: boolean, followUp?: ReviewTarget | null) => void;
   onReviewSequenceComplete: () => void;
 };
@@ -54,11 +55,19 @@ function jobLabel(job: MaintenanceJob) {
   return `Refreshing ${job.kind === "metadata_refresh" ? "metadata" : "covers"}`;
 }
 
-export function MaintenanceSettings({ active, reviewSaved, onReview, onReviewSequenceComplete }: Props) {
+export function MaintenanceSettings({ active, reviewSaved, evidenceRefreshVersion = 0, onReview, onReviewSequenceComplete }: Props) {
   const queue = useMaintenance(active);
   const [job, setJob] = useState<MaintenanceJob | null>(null);
   const [confirmKind, setConfirmKind] = useState<"metadata" | "covers" | null>(null);
   const handledSaveRef = useRef<number | null>(null);
+  const handledRefreshRef = useRef(evidenceRefreshVersion);
+  const refreshQueue = queue.refresh;
+
+  useEffect(() => {
+    if (!active || handledRefreshRef.current === evidenceRefreshVersion) return;
+    handledRefreshRef.current = evidenceRefreshVersion;
+    void refreshQueue();
+  }, [active, evidenceRefreshVersion, refreshQueue]);
 
   useEffect(() => {
     if (!active) return;

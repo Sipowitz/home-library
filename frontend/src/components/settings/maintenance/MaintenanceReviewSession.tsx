@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import toast from "react-hot-toast";
 
 import { getBook, getCoverCandidates, refreshMetadata } from "../../../api/books";
@@ -16,6 +17,7 @@ type Props = {
   onSave: (book: Book, reviewIntent: ReviewIntent) => Promise<Book>;
   onSaved: (book: Book, origin: Props["origin"]) => void;
   onCancel: () => void;
+  onEvidenceRefreshed: () => void;
 };
 
 export function MaintenanceReviewSession({
@@ -26,6 +28,7 @@ export function MaintenanceReviewSession({
   onSave,
   onSaved,
   onCancel,
+  onEvidenceRefreshed,
 }: Props) {
   const [draft, setDraft] = useState(book);
   const [target, setTarget] = useState<ReviewTarget>(initialTarget);
@@ -34,6 +37,8 @@ export function MaintenanceReviewSession({
   const [coverPending, setCoverPending] = useState(false);
   const [saveRequested, setSaveRequested] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshInFlight = useRef(false);
   const guided = origin !== "maintenance_direct";
 
   useEffect(() => {
@@ -83,15 +88,52 @@ export function MaintenanceReviewSession({
   }, [coverPending, draft, guided, metadataPending, onSave, onSaved, origin, saveRequested, saving]);
 
   async function handleRefreshMetadata() {
+    if (refreshInFlight.current) return;
+    if (!draft.isbn?.trim()) {
+      toast.error("Add an ISBN before refreshing metadata");
+      return;
+    }
+    refreshInFlight.current = true;
+    setIsRefreshing(true);
     setMetadataPending(false);
-    const results = await refreshMetadata(draft.id);
-    const updated = await getBook(draft.id);
-    setDraft((current) => ({
-      ...current,
-      last_metadata_refresh_at: updated.last_metadata_refresh_at,
-      metadata_review: updated.metadata_review,
-    }));
-    return results;
+    try {
+      const results = await refreshMetadata(draft.id);
+      // The POST has committed evidence even if the subsequent book GET fails.
+      onEvidenceRefreshed();
+      const successful = results.filter((result) => result.success).length;
+      const failed = results.length - successful;
+      const failedProviders = results.filter((result) => !result.success)
+        .map((result) => result.provider.replaceAll("_", " ")).join(", ");
+      if (!results.length) {
+        toast("No provider results returned; previous data was retained");
+      } else if (!successful) {
+        toast.error("Metadata refresh failed for all providers; previous data was retained");
+      } else if (!failed) {
+        toast.success(`Metadata refreshed from ${successful} provider${successful === 1 ? "" : "s"}`);
+      } else {
+        toast(`Refreshed from ${successful} provider${successful === 1 ? "" : "s"} • ${failed} failed (${failedProviders}); previous data retained`);
+      }
+      try {
+        const updated = await getBook(draft.id);
+        setDraft((current) => ({
+          ...current,
+          last_metadata_refresh_at: updated.last_metadata_refresh_at,
+          metadata_review: updated.metadata_review,
+        }));
+      } catch (err) {
+        console.error(err);
+        toast.error("Refresh finished, but the book's review status could not be reloaded");
+      }
+      return results;
+    } catch (err) {
+      console.error(err);
+      const message = axios.isAxiosError<{ message?: string }>(err)
+        ? err.response?.data?.message : undefined;
+      toast.error(message || "Metadata refresh failed");
+    } finally {
+      refreshInFlight.current = false;
+      setIsRefreshing(false);
+    }
   }
 
   function handleMetadataDone(selections: Record<string, unknown>) {
@@ -127,6 +169,7 @@ export function MaintenanceReviewSession({
           coverUrl={draft.cover_url}
           onClose={onCancel}
           onRefreshMetadata={handleRefreshMetadata}
+          isRefreshing={isRefreshing}
           onApplySelectedMetadata={handleMetadataDone}
         />
       )}

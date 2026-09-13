@@ -93,6 +93,7 @@ export default function App() {
     origin: "maintenance_direct" | "maintenance_guided" | "add_review";
   } | null>(null);
   const [reviewSaved, setReviewSaved] = useState<{ bookId: number; nonce: number; guided?: boolean } | null>(null);
+  const [evidenceRefreshVersion, setEvidenceRefreshVersion] = useState(0);
 
   const [isScrolling, setIsScrolling] = useState(false);
   const [isSearchPanelPastThreshold, setIsSearchPanelPastThreshold] =
@@ -404,6 +405,7 @@ export default function App() {
             }
           }}
           reviewSaved={reviewSaved}
+          evidenceRefreshVersion={evidenceRefreshVersion}
           onReviewSequenceComplete={() => {
             setSelectedBook(null);
             setEditing(false);
@@ -529,6 +531,7 @@ export default function App() {
 
         {reviewSession && (
           <MaintenanceReviewSession
+            onEvidenceRefreshed={() => setEvidenceRefreshVersion((version) => version + 1)}
             book={reviewSession.book}
             initialTarget={reviewSession.target}
             origin={reviewSession.origin}
