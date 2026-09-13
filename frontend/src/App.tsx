@@ -55,6 +55,12 @@ export default function App() {
 
   const { preferences, updatePreferences } = usePreferences();
 
+  const libraryName = preferences?.library_name?.trim() || "My Library";
+
+  useEffect(() => {
+    document.title = libraryName;
+  }, [libraryName]);
+
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -377,6 +383,7 @@ export default function App() {
     >
       <div onClick={(e) => e.stopPropagation()}>
         <Header
+          libraryName={libraryName}
           onOpenSettings={() => setShowSettings(true)}
           onLogout={handleLogout}
         />

@@ -101,3 +101,37 @@ def test_appearance_mode_is_scoped_per_user(db):
 
     assert preferences_service.get_preferences(db, first.id).appearance_mode == "light"
     assert preferences_service.get_preferences(db, second.id).appearance_mode == "system"
+
+
+def test_library_name_defaults_and_trims_whitespace(db):
+    user = models.User(username="library-name", email="library-name@example.test", hashed_password="x")
+    db.add(user)
+    db.commit()
+
+    assert preferences_service.get_preferences(db, user.id).library_name == "My Library"
+
+    updated = preferences_service.update_preferences(db, user.id, {"library_name": "  Reading Room  "})
+    assert updated.library_name == "Reading Room"
+    assert schemas.PreferencesResponse.model_validate(updated).library_name == "Reading Room"
+
+
+@pytest.mark.parametrize("library_name", ["", "   ", "x" * 61])
+def test_library_name_rejects_blank_or_too_long_values(db, library_name):
+    user = models.User(username=f"library-name-{len(library_name)}", email=f"library-name-{len(library_name)}@example.test", hashed_password="x")
+    db.add(user)
+    db.commit()
+
+    with pytest.raises(ValueError):
+        schemas.PreferencesUpdate(library_name=library_name)
+
+
+def test_library_name_is_scoped_per_user(db):
+    first = models.User(username="library-first", email="library-first@example.test", hashed_password="x")
+    second = models.User(username="library-second", email="library-second@example.test", hashed_password="x")
+    db.add_all([first, second])
+    db.commit()
+
+    preferences_service.update_preferences(db, first.id, {"library_name": "First Library"})
+
+    assert preferences_service.get_preferences(db, first.id).library_name == "First Library"
+    assert preferences_service.get_preferences(db, second.id).library_name == "My Library"

@@ -169,6 +169,13 @@ class UserPreferences(Base):
 
     appearance_mode = Column(String, nullable=False, default="system")
 
+    library_name = Column(
+        String(60),
+        nullable=False,
+        default="My Library",
+        server_default="My Library",
+    )
+
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

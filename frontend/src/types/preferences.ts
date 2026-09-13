@@ -27,12 +27,15 @@ export type Preferences = {
 
   appearance_mode: AppearanceMode;
 
+  library_name: string;
+
   created_at: string;
 
   updated_at: string;
 };
 
 export type PreferencesUpdate = {
+  library_name?: string;
   date_format?: DateFormat;
 
   time_format?: TimeFormat;
