@@ -45,6 +45,10 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                     models.Book.owner_id != user_id,
                     models.BookSeriesOrdering.series_id.in_(series_db_ids),
                 ).first()
+                or db.query(models.BookSeriesReadingOrder.id).join(models.Book).filter(
+                    models.Book.owner_id != user_id,
+                    models.BookSeriesReadingOrder.series_id.in_(series_db_ids),
+                ).first()
             ):
                 raise RuntimeError("another user references a target Series")
             db.query(models.Book).filter(models.Book.owner_id == user_id).delete(synchronize_session=False)
@@ -83,7 +87,7 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
             series_map = {}
             for item in data.series:
                 row = models.Series(
-                    name=item.name, author=item.author, description=item.description,
+                    name=item.name, node_type=item.node_type, author=item.author, description=item.description,
                     cover_url=_cover_url(item.cover, cover_urls), parent_id=None, owner_id=user_id,
                 )
                 db.add(row)
@@ -121,13 +125,17 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
             for item in data.series_memberships:
                 db.add(models.BookSeriesMembership(
                     book_id=book_map[item.book_archive_id], series_id=series_map[item.series_archive_id],
-                    node_order=item.node_order,
                 ))
             for item in data.series_orderings:
                 db.add(models.BookSeriesOrdering(
                     book_id=book_map[item.book_archive_id], series_id=series_map[item.series_archive_id],
                     publication_order=item.publication_order,
                     chronological_order=item.chronological_order,
+                ))
+            for item in data.series_reading_orderings:
+                db.add(models.BookSeriesReadingOrder(
+                    book_id=book_map[item.book_archive_id], series_id=series_map[item.series_archive_id],
+                    position=item.position,
                 ))
 
             snapshot_map = {}
@@ -158,13 +166,15 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                 "series": db.query(models.Series).filter(models.Series.owner_id == user_id).count(),
                 "series_memberships": db.query(models.BookSeriesMembership).join(models.Book).filter(models.Book.owner_id == user_id).count(),
                 "series_orderings": db.query(models.BookSeriesOrdering).join(models.Book).filter(models.Book.owner_id == user_id).count(),
+                "series_reading_orderings": db.query(models.BookSeriesReadingOrder).join(models.Book).filter(models.Book.owner_id == user_id).count(),
             }
             _checkpoint("final_invariants")
             if actual != {"books": expected.books, "categories": expected.categories, "locations": expected.locations,
                           "metadata_snapshots": expected.metadata_snapshots,
                           "normalized_metadata_records": expected.normalized_metadata_records,
                           "series": expected.series, "series_memberships": expected.series_memberships,
-                          "series_orderings": expected.series_orderings}:
+                          "series_orderings": expected.series_orderings,
+                          "series_reading_orderings": expected.series_reading_orderings}:
                 raise RuntimeError("restored row counts do not match the validated plan")
         return actual
     except BackupError:

@@ -188,6 +188,7 @@ CategoryResponse.model_rebuild()
 
 class SeriesCreate(BaseModel):
     name: str
+    node_type: Literal["group", "series"] = "series"
     author: Optional[str] = None
     description: Optional[str] = None
     cover_url: Optional[str] = None
@@ -216,6 +217,7 @@ class SeriesResponse(BaseModel):
     id: int
     owner_id: int
     name: str
+    node_type: Literal["group", "series"]
     author: Optional[str]
     description: Optional[str]
     cover_url: Optional[str]
@@ -234,46 +236,38 @@ SeriesTreeResponse.model_rebuild()
 
 class SeriesMembershipCreate(BaseModel):
     book_id: int
-    node_order: Optional[Decimal] = Field(default=None, max_digits=20, decimal_places=6)
-
-
-class SeriesMembershipUpdate(BaseModel):
-    node_order: Optional[Decimal] = Field(max_digits=20, decimal_places=6)
 
 
 class SeriesMembershipResponse(BaseModel):
     book_id: int
     series_id: int
-    node_order: Optional[Decimal]
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 
-class SeriesOrderingUpdate(BaseModel):
-    publication_order: Optional[Decimal] = Field(default=None, max_digits=20, decimal_places=6)
-    chronological_order: Optional[Decimal] = Field(default=None, max_digits=20, decimal_places=6)
+class SeriesOrderReplace(BaseModel):
+    ordered_book_ids: List[int]
 
 
 class SeriesOrderingResponse(BaseModel):
     book_id: int
     series_id: int
-    publication_order: Optional[Decimal]
-    chronological_order: Optional[Decimal]
+    publication_order: Optional[int]
+    chronological_order: Optional[int]
     model_config = ConfigDict(from_attributes=True)
 
 
 class BookSeriesRelationship(BaseModel):
     series: SeriesResponse
     direct: bool
-    node_order: Optional[Decimal] = None
-    publication_order: Optional[Decimal] = None
-    chronological_order: Optional[Decimal] = None
+    publication_order: Optional[int] = None
+    chronological_order: Optional[int] = None
+    reading_order: Optional[int] = None
 
 
 class EffectiveSeriesMembership(BaseModel):
     series_id: int
     series_name: str
-    node_order: Optional[Decimal] = None
 
 
 class EffectiveSeriesBook(BaseModel):
@@ -284,10 +278,18 @@ class EffectiveSeriesBook(BaseModel):
     isbn: Optional[str] = None
     year: Optional[int] = None
     direct: bool
-    node_order: Optional[Decimal] = None
-    publication_order: Optional[Decimal] = None
-    chronological_order: Optional[Decimal] = None
+    publication_order: Optional[int] = None
+    chronological_order: Optional[int] = None
+    root_publication_order: Optional[int] = None
+    root_chronological_order: Optional[int] = None
+    reading_order: Optional[int] = None
+    reading_order_custom: bool = False
     explicit_memberships: List[EffectiveSeriesMembership] = Field(default_factory=list)
+
+
+class RootRemovalImpact(BaseModel):
+    requires_confirmation: bool
+    affected_series: List[SeriesResponse] = Field(default_factory=list)
 
 
 # -------------------

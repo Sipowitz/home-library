@@ -700,6 +700,7 @@ class Series(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name = Column(String, nullable=False)
+    node_type = Column(String, nullable=False, server_default="series")
     author = Column(String, nullable=True)
     description = Column(String, nullable=True)
     cover_url = Column(String, nullable=True)
@@ -713,6 +714,9 @@ class Series(Base):
 
     __table_args__ = (
         CheckConstraint("parent_id IS NULL OR parent_id <> id", name="ck_series_not_self_parent"),
+        CheckConstraint("node_type IN ('group', 'series')", name="ck_series_node_type"),
+        CheckConstraint("node_type <> 'group' OR parent_id IS NULL", name="ck_series_group_is_root"),
+        CheckConstraint("node_type <> 'group' OR author IS NULL", name="ck_series_group_has_no_author"),
         UniqueConstraint("id", "owner_id", name="uq_series_id_owner_id"),
         ForeignKeyConstraint(
             ["parent_id", "owner_id"], ["series.id", "series.owner_id"],
@@ -734,6 +738,9 @@ class Series(Base):
     orderings = relationship(
         "BookSeriesOrdering", back_populates="series", passive_deletes=True
     )
+    reading_orderings = relationship(
+        "BookSeriesReadingOrder", back_populates="series", passive_deletes=True
+    )
 
 
 class BookSeriesMembership(Base):
@@ -746,7 +753,6 @@ class BookSeriesMembership(Base):
     series_id = Column(
         Integer, ForeignKey("series.id"), nullable=False, index=True
     )
-    node_order = Column(Numeric(20, 6), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
@@ -767,8 +773,8 @@ class BookSeriesOrdering(Base):
     series_id = Column(
         Integer, ForeignKey("series.id"), nullable=False, index=True
     )
-    publication_order = Column(Numeric(20, 6), nullable=True)
-    chronological_order = Column(Numeric(20, 6), nullable=True)
+    publication_order = Column(Integer, nullable=True)
+    chronological_order = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -776,14 +782,38 @@ class BookSeriesOrdering(Base):
 
     __table_args__ = (
         UniqueConstraint("book_id", "series_id", name="uq_book_series_ordering"),
+        UniqueConstraint("series_id", "publication_order", name="uq_root_publication_position"),
+        UniqueConstraint("series_id", "chronological_order", name="uq_root_chronological_position"),
         CheckConstraint(
             "publication_order IS NOT NULL OR chronological_order IS NOT NULL",
             name="ck_book_series_ordering_has_value",
         ),
+        CheckConstraint("publication_order IS NULL OR publication_order > 0", name="ck_series_publication_positive"),
+        CheckConstraint("chronological_order IS NULL OR chronological_order > 0", name="ck_series_chronological_positive"),
     )
 
     book = relationship("Book", back_populates="series_orderings")
     series = relationship("Series", back_populates="orderings")
+
+
+class BookSeriesReadingOrder(Base):
+    __tablename__ = "book_series_reading_order"
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    series_id = Column(Integer, ForeignKey("series.id"), nullable=False, index=True)
+    position = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("book_id", "series_id", name="uq_book_series_reading_order"),
+        UniqueConstraint("series_id", "position", name="uq_series_reading_position"),
+        CheckConstraint("position > 0", name="ck_series_reading_position_positive"),
+    )
+
+    book = relationship("Book")
+    series = relationship("Series", back_populates="reading_orderings")
 
 
 # -------------------

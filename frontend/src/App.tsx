@@ -385,6 +385,17 @@ export default function App() {
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
           onReviewBook={openMaintenanceReview}
+          onViewBook={async (bookId) => {
+            try {
+              const book = await getBook(bookId);
+              setShowSettings(false);
+              setSelectedBook(book);
+              setEditing(false);
+            } catch (err) {
+              console.error("Failed to open book", err);
+              toast.error("Book could not be opened");
+            }
+          }}
           reviewSaved={reviewSaved}
           onReviewSequenceComplete={() => {
             setSelectedBook(null);

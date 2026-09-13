@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Literal
-from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
@@ -63,6 +62,7 @@ class LocationData(StrictModel):
 class SeriesData(StrictModel):
     archive_id: str = Field(min_length=1, max_length=100)
     name: str
+    node_type: Literal["group", "series"] = "series"
     author: str | None = None
     description: str | None = None
     cover: CoverReference | None = None
@@ -72,14 +72,19 @@ class SeriesData(StrictModel):
 class SeriesMembershipData(StrictModel):
     book_archive_id: str
     series_archive_id: str
-    node_order: Decimal | None = Field(default=None, max_digits=20, decimal_places=6)
 
 
 class SeriesOrderingData(StrictModel):
     book_archive_id: str
     series_archive_id: str
-    publication_order: Decimal | None = Field(default=None, max_digits=20, decimal_places=6)
-    chronological_order: Decimal | None = Field(default=None, max_digits=20, decimal_places=6)
+    publication_order: int | None = Field(default=None, gt=0)
+    chronological_order: int | None = Field(default=None, gt=0)
+
+
+class SeriesReadingOrderData(StrictModel):
+    book_archive_id: str
+    series_archive_id: str
+    position: int = Field(gt=0)
 
 
 class BookData(StrictModel):
@@ -145,6 +150,7 @@ class LibraryData(StrictModel):
     series: list[SeriesData] = Field(default_factory=list)
     series_memberships: list[SeriesMembershipData] = Field(default_factory=list)
     series_orderings: list[SeriesOrderingData] = Field(default_factory=list)
+    series_reading_orderings: list[SeriesReadingOrderData] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_relationships(self):
@@ -176,6 +182,8 @@ class LibraryData(StrictModel):
                 raise ValueError("series cannot parent itself")
             if series.parent_archive_id not in series_ids | {None}:
                 raise ValueError("invalid series parent reference")
+            if series.node_type == "group" and (series.parent_archive_id is not None or series.author is not None):
+                raise ValueError("Group must be a root and cannot have an author")
         for book in self.books:
             if book.category_archive_id not in category_ids | {None}:
                 raise ValueError("invalid book category reference")
@@ -205,6 +213,12 @@ class LibraryData(StrictModel):
             if ordering.publication_order is None and ordering.chronological_order is None:
                 raise ValueError("series ordering must contain a value")
             ordering_pairs.add(pair)
+        reading_pairs = set()
+        for ordering in self.series_reading_orderings:
+            pair = (ordering.book_archive_id, ordering.series_archive_id)
+            if pair not in membership_pairs or pair in reading_pairs:
+                raise ValueError("invalid or duplicate Series Reading order")
+            reading_pairs.add(pair)
         return self
 
 
@@ -225,6 +239,7 @@ class RecordCounts(StrictModel):
     series: int = Field(default=0, ge=0)
     series_memberships: int = Field(default=0, ge=0)
     series_orderings: int = Field(default=0, ge=0)
+    series_reading_orderings: int = Field(default=0, ge=0)
 
 
 class Manifest(StrictModel):

@@ -143,6 +143,12 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
         .filter(models.Book.owner_id == user_id, models.Series.owner_id == user_id)
         .order_by(models.BookSeriesOrdering.id).all()
     )
+    reading_orderings = (
+        db.query(models.BookSeriesReadingOrder)
+        .join(models.Book).join(models.Series)
+        .filter(models.Book.owner_id == user_id, models.Series.owner_id == user_id)
+        .order_by(models.BookSeriesReadingOrder.id).all()
+    )
     library = LibraryData.model_validate({
         "preferences": None if preferences is None else {
             "date_format": preferences.date_format, "time_format": preferences.time_format,
@@ -154,18 +160,21 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
         "categories": [{"archive_id": category_ids[row.id], "name": row.name, "parent_archive_id": category_ids.get(row.parent_id)} for row in categories],
         "locations": [{"archive_id": location_ids[row.id], "name": row.name, "parent_archive_id": location_ids.get(row.parent_id)} for row in locations],
         "series": [{
-            "archive_id": series_ids[row.id], "name": row.name, "author": row.author,
+            "archive_id": series_ids[row.id], "name": row.name, "node_type": row.node_type, "author": row.author,
             "description": row.description, "cover": _cover_reference(row.cover_url, objects),
             "parent_archive_id": series_ids.get(row.parent_id),
         } for row in series],
         "series_memberships": [{
             "book_archive_id": book_ids[row.book_id], "series_archive_id": series_ids[row.series_id],
-            "node_order": row.node_order,
         } for row in memberships],
         "series_orderings": [{
             "book_archive_id": book_ids[row.book_id], "series_archive_id": series_ids[row.series_id],
             "publication_order": row.publication_order, "chronological_order": row.chronological_order,
         } for row in orderings],
+        "series_reading_orderings": [{
+            "book_archive_id": book_ids[row.book_id], "series_archive_id": series_ids[row.series_id],
+            "position": row.position,
+        } for row in reading_orderings],
         "books": book_data, "metadata_snapshots": snapshots, "normalized_metadata_records": normalized,
     })
     library_bytes = json.dumps(library.model_dump(mode="json"), separators=(",", ":"), ensure_ascii=False).encode()
@@ -176,7 +185,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
         format=FORMAT, format_version=FORMAT_VERSION, created_at=datetime.now(timezone.utc),
         application={"name": "Library App", "schema": "sqlalchemy-current"}, subject_username=username,
         feature_flags={"preferences": True, "metadata_snapshots": True, "normalized_metadata": True, "uploaded_cover_candidates": True, "content_addressed_covers": True, "series": True},
-        record_counts=RecordCounts(books=len(books), categories=len(categories), locations=len(locations), metadata_snapshots=len(snapshots), normalized_metadata_records=len(normalized), cover_files=len(objects), series=len(series), series_memberships=len(memberships), series_orderings=len(orderings)),
+        record_counts=RecordCounts(books=len(books), categories=len(categories), locations=len(locations), metadata_snapshots=len(snapshots), normalized_metadata_records=len(normalized), cover_files=len(objects), series=len(series), series_memberships=len(memberships), series_orderings=len(orderings), series_reading_orderings=len(reading_orderings)),
         files=files,
     )
     temp = tempfile.NamedTemporaryFile(prefix="library-backup-", suffix=".lbak", delete=False)

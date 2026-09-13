@@ -168,8 +168,8 @@ def inspect_archive(path: Path) -> tuple[Manifest, LibraryData, dict[str, str]]:
                 code = "BACKUP_REFERENCE_INVALID" if "reference" in message or "duplicate" in message else "BACKUP_MALFORMED"
                 raise BackupError(400, code, "Library data is invalid") from exc
             counts = manifest.record_counts
-            actual = (len(library.books), len(library.categories), len(library.locations), len(library.metadata_snapshots), len(library.normalized_metadata_records), len(library.series), len(library.series_memberships), len(library.series_orderings))
-            if actual != (counts.books, counts.categories, counts.locations, counts.metadata_snapshots, counts.normalized_metadata_records, counts.series, counts.series_memberships, counts.series_orderings):
+            actual = (len(library.books), len(library.categories), len(library.locations), len(library.metadata_snapshots), len(library.normalized_metadata_records), len(library.series), len(library.series_memberships), len(library.series_orderings), len(library.series_reading_orderings))
+            if actual != (counts.books, counts.categories, counts.locations, counts.metadata_snapshots, counts.normalized_metadata_records, counts.series, counts.series_memberships, counts.series_orderings, counts.series_reading_orderings):
                 raise BackupError(400, "BACKUP_MALFORMED", "Manifest record counts do not match library data")
             _validate_tree(library.categories, "category")
             _validate_tree(library.locations, "location")
@@ -252,24 +252,26 @@ def _validate_domain_invariants(library: LibraryData) -> None:
             required_text(location.name, "Location name")
 
         series_parents = {item.archive_id: item.parent_archive_id for item in library.series}
+        series_types = {item.archive_id: item.node_type for item in library.series}
         for series in library.series:
             required_text(series.name, "Series name")
+            if series.node_type == "group" and (series.parent_archive_id is not None or series.author is not None):
+                raise ValueError("Group must be a root and cannot have an author")
         memberships = defaultdict(set)
         for membership in library.series_memberships:
             memberships[membership.book_archive_id].add(membership.series_archive_id)
+        for membership in library.series_memberships:
+            current = membership.series_archive_id
+            while series_parents[current] is not None:
+                current = series_parents[current]
+            if membership.series_archive_id != current and current not in memberships[membership.book_archive_id]:
+                raise ValueError("Child Series membership lacks root membership")
         for ordering in library.series_orderings:
-            current_ids = list(memberships[ordering.book_archive_id])
-            effective = set()
-            while current_ids:
-                current = current_ids.pop()
-                if current in effective:
-                    continue
-                effective.add(current)
-                parent = series_parents[current]
-                if parent is not None:
-                    current_ids.append(parent)
-            if ordering.series_archive_id not in effective:
-                raise ValueError("Series ordering lacks an effective membership")
+            if series_parents[ordering.series_archive_id] is not None or ordering.series_archive_id not in memberships[ordering.book_archive_id]:
+                raise ValueError("Series ordering must belong to a root membership")
+        for ordering in library.series_reading_orderings:
+            if series_types[ordering.series_archive_id] != "series" or ordering.series_archive_id not in memberships[ordering.book_archive_id]:
+                raise ValueError("Reading order must belong to a Series membership")
 
         for book in library.books:
             required_text(book.title, "Book title")

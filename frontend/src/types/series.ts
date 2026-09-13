@@ -2,6 +2,7 @@ export type Series = {
   id: number;
   owner_id: number;
   name: string;
+  node_type: "group" | "series";
   author: string | null;
   description: string | null;
   cover_url: string | null;
@@ -16,8 +17,10 @@ export type SeriesTreeNode = Series & {
 
 export type SeriesWriteInput = {
   name: string;
+  node_type?: "group" | "series";
   author?: string | null;
   description?: string | null;
+  cover_url?: string | null;
   parent_id?: number | null;
 };
 
@@ -26,7 +29,6 @@ export type SeriesUpdateInput = Partial<SeriesWriteInput>;
 export type EffectiveSeriesMembership = {
   series_id: number;
   series_name: string;
-  node_order: string | null;
 };
 
 export type EffectiveSeriesBook = {
@@ -37,22 +39,24 @@ export type EffectiveSeriesBook = {
   isbn: string | null;
   year: number | null;
   direct: boolean;
-  node_order: string | null;
-  publication_order: string | null;
-  chronological_order: string | null;
+  publication_order: number | null;
+  chronological_order: number | null;
+  root_publication_order: number | null;
+  root_chronological_order: number | null;
+  reading_order: number | null;
+  reading_order_custom: boolean;
   explicit_memberships: EffectiveSeriesMembership[];
 };
 
 export type SeriesMembership = {
   book_id: number;
   series_id: number;
-  node_order: string | null;
   created_at: string;
 };
 
 export type SeriesOrdering = {
   book_id: number;
   series_id: number;
-  publication_order: string | null;
-  chronological_order: string | null;
+  publication_order: number | null;
+  chronological_order: number | null;
 };

@@ -2,18 +2,17 @@ import { useId } from "react";
 
 import { ActionButton } from "../../ui/ActionButton";
 
-import type { SeriesOption } from "./seriesTree";
-
 export type SeriesDraft = {
   name: string;
+  nodeType: "group" | "series";
   author: string;
   description: string;
+  coverUrl: string;
   parentId: number | null;
 };
 
 type Props = {
   draft: SeriesDraft;
-  parentOptions: SeriesOption[];
   saving: boolean;
   error: string | null;
   submitLabel: string;
@@ -24,7 +23,6 @@ type Props = {
 
 export function SeriesForm({
   draft,
-  parentOptions,
   saving,
   error,
   submitLabel,
@@ -49,6 +47,13 @@ export function SeriesForm({
       )}
 
       <div>
+        <label htmlFor={`${prefix}-cover`} className="mb-1.5 block text-sm font-medium text-text-secondary">
+          Cover URL
+        </label>
+        <input id={`${prefix}-cover`} value={draft.coverUrl} onChange={(event) => onChange({ ...draft, coverUrl: event.target.value })} placeholder="Optional" className="form-control w-full px-3 py-2.5" />
+      </div>
+
+      <div>
         <label htmlFor={`${prefix}-name`} className="mb-1.5 block text-sm font-medium text-text-secondary">
           Name <span aria-hidden="true">*</span>
         </label>
@@ -62,7 +67,7 @@ export function SeriesForm({
         />
       </div>
 
-      <div>
+      {draft.nodeType === "series" && <div>
         <label htmlFor={`${prefix}-author`} className="mb-1.5 block text-sm font-medium text-text-secondary">
           Author
         </label>
@@ -73,31 +78,7 @@ export function SeriesForm({
           placeholder="Optional"
           className="form-control w-full px-3 py-2.5"
         />
-      </div>
-
-      <div>
-        <label htmlFor={`${prefix}-parent`} className="mb-1.5 block text-sm font-medium text-text-secondary">
-          Parent Series
-        </label>
-        <select
-          id={`${prefix}-parent`}
-          value={draft.parentId ?? ""}
-          onChange={(event) =>
-            onChange({
-              ...draft,
-              parentId: event.target.value ? Number(event.target.value) : null,
-            })
-          }
-          className="form-control w-full px-3 py-2.5"
-        >
-          <option value="">No parent (root Series)</option>
-          {parentOptions.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      </div>}
 
       <div>
         <label htmlFor={`${prefix}-description`} className="mb-1.5 block text-sm font-medium text-text-secondary">

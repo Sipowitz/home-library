@@ -34,6 +34,12 @@ export function buildTreeElements<
   T extends {
     id: number;
 
+    flowId?: string;
+
+    flowData?: Record<string, unknown>;
+
+    preserveVisibility?: boolean;
+
     name: string;
 
     children?: T[];
@@ -74,11 +80,11 @@ export function buildTreeElements<
   edges: Edge[] = [],
 ) {
   categories.forEach((category) => {
-    const id = String(category.id);
+    const id = category.flowId ?? String(category.id);
 
     const focused = focusedPath.includes(category.id);
 
-    const dimmed = focusedId !== null && !focused;
+    const dimmed = focusedId !== null && !focused && !category.preserveVisibility;
 
     nodes.push({
       id,
@@ -115,6 +121,8 @@ export function buildTreeElements<
         onAddChild,
 
         onDelete,
+
+        ...category.flowData,
       },
 
       position: {

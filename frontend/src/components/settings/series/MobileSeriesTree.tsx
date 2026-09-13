@@ -1,3 +1,4 @@
+import { FolderTree, GitBranch } from "lucide-react";
 import type { SeriesTreeNode } from "../../../types/series";
 
 type Props = {
@@ -23,9 +24,9 @@ export function MobileSeriesTree({ nodes, selectedId, onSelect, level = 0 }: Pro
             }`}
             style={{ paddingLeft: `${12 + Math.min(level, 8) * 12}px` }}
           >
-            <span className="block break-words font-medium">{node.name}</span>
+            <span className="flex items-center gap-2 break-words font-medium">{node.node_type === "group" ? <FolderTree size={14} /> : <GitBranch size={14} />}{node.name}</span>
             <span className="mt-1 block text-xs text-text-muted">
-              {node.children.length} {node.children.length === 1 ? "subseries" : "subseries"}
+              {node.node_type === "group" ? "Group" : "Series"}
             </span>
           </button>
           {node.children.length > 0 && (

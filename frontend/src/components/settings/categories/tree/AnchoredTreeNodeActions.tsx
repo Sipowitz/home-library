@@ -14,6 +14,7 @@ type Props = {
   onAdd: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  actions?: (closeAndRun: (action: () => void) => void) => ReactNode;
   children: ReactNode;
 };
 
@@ -87,7 +88,7 @@ function calculatePosition(anchor: HTMLElement, popover: HTMLElement): Point {
   };
 }
 
-export function AnchoredTreeNodeActions({ label, onAdd, onEdit, onDelete, children }: Props) {
+export function AnchoredTreeNodeActions({ label, onAdd, onEdit, onDelete, actions, children }: Props) {
   const [anchor, setAnchor] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<Point | null>(null);
@@ -136,6 +137,7 @@ export function AnchoredTreeNodeActions({ label, onAdd, onEdit, onDelete, childr
         className="h-10 w-[150px]"
         onMouseEnter={show}
         onMouseLeave={scheduleClose}
+        onClick={show}
       >
         {children}
       </div>
@@ -151,13 +153,15 @@ export function AnchoredTreeNodeActions({ label, onAdd, onEdit, onDelete, childr
           onMouseEnter={cancelClose}
           onMouseLeave={scheduleClose}
         >
-          <TreeNodeActions
-            label={label}
-            alwaysVisible
-            onAdd={() => closeAndRun(onAdd)}
-            onEdit={() => closeAndRun(onEdit)}
-            onDelete={() => closeAndRun(onDelete)}
-          />
+          {actions ? actions(closeAndRun) : (
+            <TreeNodeActions
+              label={label}
+              alwaysVisible
+              onAdd={() => closeAndRun(onAdd)}
+              onEdit={() => closeAndRun(onEdit)}
+              onDelete={() => closeAndRun(onDelete)}
+            />
+          )}
         </div>,
         document.body,
       )}

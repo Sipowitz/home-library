@@ -2,7 +2,6 @@
 import os
 from destructive_db_guard import require_disposable_database
 from datetime import datetime, timezone
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -58,12 +57,14 @@ def populated(db):
         date_added=datetime(2024, 1, 1, tzinfo=timezone.utc), last_metadata_refresh_at=datetime(2025, 2, 2, tzinfo=timezone.utc))
     other_book = models.Book(owner_id=other.id, title="Untouched", author="Other")
     db.add_all([book, other_book]); db.flush()
-    series_root = models.Series(name="Discworld", author="Terry Pratchett", description="Universe", cover_url="/covers/uploaded/one.png", owner_id=source.id)
+    series_root = models.Series(name="Discworld", node_type="series", author="Terry Pratchett", description="Universe", cover_url="/covers/uploaded/one.png", owner_id=source.id)
     db.add(series_root); db.flush()
-    series_child = models.Series(name="City Watch", parent_id=series_root.id, owner_id=source.id)
+    series_child = models.Series(name="City Watch", node_type="series", parent_id=series_root.id, owner_id=source.id)
     db.add(series_child); db.flush()
-    db.add(models.BookSeriesMembership(book_id=book.id, series_id=series_child.id, node_order=Decimal("1.5")))
-    db.add(models.BookSeriesOrdering(book_id=book.id, series_id=series_root.id, publication_order=Decimal("8.25"), chronological_order=None))
+    db.add(models.BookSeriesMembership(book_id=book.id, series_id=series_root.id))
+    db.add(models.BookSeriesMembership(book_id=book.id, series_id=series_child.id))
+    db.add(models.BookSeriesOrdering(book_id=book.id, series_id=series_root.id, publication_order=1, chronological_order=None))
+    db.add(models.BookSeriesReadingOrder(book_id=book.id, series_id=series_child.id, position=1))
     snap = models.ProviderMetadataSnapshot(book_id=book.id, provider="test", provider_book_id="p1", isbn_query="9780306406157",
         raw_json={"title":"raw"}, http_status=200, http_etag="etag", normalizer_version="v2",
         fetched_at=datetime(2025, 2, 1, tzinfo=timezone.utc), created_at=datetime(2025, 2, 1, tzinfo=timezone.utc))
@@ -99,10 +100,11 @@ def test_populated_round_trip_remaps_ids_preserves_data_and_other_user(db):
     restored_series = db.query(models.Series).filter_by(owner_id=user_id).order_by(models.Series.id).all()
     assert [(row.name, row.parent.name if row.parent else None) for row in restored_series] == [("Discworld", None), ("City Watch", "Discworld")]
     assert restored_series[0].author == "Terry Pratchett" and restored_series[0].description == "Universe"
-    membership = db.query(models.BookSeriesMembership).filter_by(book_id=restored.id).one()
+    memberships = db.query(models.BookSeriesMembership).filter_by(book_id=restored.id).all()
     ordering = db.query(models.BookSeriesOrdering).filter_by(book_id=restored.id).one()
-    assert membership.node_order == Decimal("1.500000")
-    assert (ordering.series.name, ordering.publication_order, ordering.chronological_order) == ("Discworld", Decimal("8.250000"), None)
+    assert len(memberships) == 2
+    assert (ordering.series.name, ordering.publication_order, ordering.chronological_order) == ("Discworld", 1, None)
+    assert db.query(models.BookSeriesReadingOrder).filter_by(book_id=restored.id).one().position == 1
     assert db.query(models.UserPreferences).filter_by(user_id=user_id).one().appearance_mode == "dark"
     assert Path(settings.COVERS_DIR, restored.cover_url.removeprefix("/covers/")).read_bytes() == cover_bytes
     assert db.query(models.Book).filter_by(owner_id=other_id).one().title == "Untouched"
@@ -119,6 +121,7 @@ def test_legacy_library_payload_without_series_defaults_to_empty():
     assert data.series == []
     assert data.series_memberships == []
     assert data.series_orderings == []
+    assert data.series_reading_orderings == []
 
 
 @pytest.mark.parametrize("checkpoint", ["after_books_deleted", "inserting_categories", "inserting_books", "inserting_snapshots", "final_invariants"])

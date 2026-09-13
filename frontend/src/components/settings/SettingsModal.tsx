@@ -41,6 +41,7 @@ type Props = {
   onClose: () => void;
   onReviewBook: (bookId: number, target: ReviewTarget, guided?: boolean, followUp?: ReviewTarget | null) => void;
   onReviewSequenceComplete: () => void;
+  onViewBook: (bookId: number) => void;
   reviewSaved?: { bookId: number; nonce: number; guided?: boolean } | null;
 };
 
@@ -55,7 +56,7 @@ type Section =
   | "preferences"
   | "users";
 
-export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, reviewSaved }: Props) {
+export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, onViewBook, reviewSaved }: Props) {
   const { user } = useAuth();
   const { locations, deleteLocation } = useLocations();
 
@@ -316,16 +317,16 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
             {activeSection === "series" && (
               <div className="max-w-full relative">
-                <div className="bg-surface/60 border border-border rounded-lg sm:rounded-xl p-2.5 sm:p-4 lg:p-5 w-full">
-                  <div className="mb-3 lg:mb-5">
+                <div className="w-full rounded-lg border border-border bg-surface/60 p-2.5 sm:rounded-xl sm:p-3 lg:border-0 lg:bg-transparent lg:p-0">
+                  <div className="mb-2 lg:hidden">
                     <h2 className="text-lg font-semibold">Series</h2>
 
-                    <p className="text-sm text-text-muted mt-1">
+                    <p className="mt-0.5 text-sm text-text-muted">
                       Organize Series and subseries in your library.
                     </p>
                   </div>
 
-                  <SeriesSettings />
+                  <SeriesSettings onViewBook={onViewBook} />
                 </div>
               </div>
             )}

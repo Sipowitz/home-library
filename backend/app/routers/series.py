@@ -72,44 +72,46 @@ def effective_books(series_id: int, db: Session = Depends(get_db), current_user:
 
 @router.post("/{series_id}/books", response_model=schemas.SeriesMembershipResponse, status_code=status.HTTP_201_CREATED)
 def add_book(series_id: int, data: schemas.SeriesMembershipCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    row = _translate(lambda: series_service.add_membership(db, current_user.id, series_id, data.book_id, data.node_order))
+    row = _translate(lambda: series_service.add_membership(db, current_user.id, series_id, data.book_id))
     if row is None:
         raise HTTPException(status_code=404, detail="Series not found")
     return row
 
 
-@router.patch("/{series_id}/books/{book_id}", response_model=schemas.SeriesMembershipResponse)
-def update_book(series_id: int, book_id: int, data: schemas.SeriesMembershipUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    row = series_service.update_membership(db, current_user.id, series_id, book_id, data.node_order)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Series membership not found")
-    return row
-
-
 @router.delete("/{series_id}/books/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_book(series_id: int, book_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    removed = _translate(lambda: series_service.remove_membership(db, current_user.id, series_id, book_id))
+def remove_book(series_id: int, book_id: int, cascade: bool = False, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    removed = _translate(lambda: series_service.remove_membership(db, current_user.id, series_id, book_id, cascade))
     if not removed:
         raise HTTPException(status_code=404, detail="Series membership not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.put("/{series_id}/books/{book_id}/ordering", response_model=schemas.SeriesOrderingResponse | None)
-def set_ordering(series_id: int, book_id: int, data: schemas.SeriesOrderingUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    if not data.model_fields_set:
-        raise HTTPException(status_code=400, detail="At least one ordering field is required")
-    row = _translate(lambda: series_service.set_ordering(db, current_user.id, series_id, book_id, data.model_dump(exclude_unset=True)))
-    if row is None and series_service.get_series(db, current_user.id, series_id) is None:
+@router.get("/{series_id}/books/{book_id}/removal-impact", response_model=schemas.RootRemovalImpact)
+def removal_impact(series_id: int, book_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    result = series_service.root_removal_impact(db, current_user.id, series_id, book_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="Series not found")
-    return row
+    return result
 
 
-@router.delete("/{series_id}/books/{book_id}/ordering", status_code=status.HTTP_204_NO_CONTENT)
-def remove_ordering(series_id: int, book_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    _translate(lambda: series_service.set_ordering(
-        db, current_user.id, series_id, book_id,
-        {"publication_order": None, "chronological_order": None},
-    ))
+@router.put("/{series_id}/orders/{kind}", response_model=list[schemas.EffectiveSeriesBook])
+def replace_root_order(series_id: int, kind: str, data: schemas.SeriesOrderReplace, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    rows = _translate(lambda: series_service.replace_root_order(db, current_user.id, series_id, kind, data.ordered_book_ids))
+    if rows is None: raise HTTPException(status_code=404, detail="Series not found")
+    return rows
+
+
+@router.put("/{series_id}/reading-order", response_model=list[schemas.EffectiveSeriesBook])
+def replace_reading_order(series_id: int, data: schemas.SeriesOrderReplace, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    rows = _translate(lambda: series_service.replace_reading_order(db, current_user.id, series_id, data.ordered_book_ids))
+    if rows is None: raise HTTPException(status_code=404, detail="Series not found")
+    return rows
+
+
+@router.delete("/{series_id}/reading-order", status_code=status.HTTP_204_NO_CONTENT)
+def reset_reading_order(series_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    if not _translate(lambda: series_service.reset_reading_order(db, current_user.id, series_id)):
+        raise HTTPException(status_code=404, detail="Series not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

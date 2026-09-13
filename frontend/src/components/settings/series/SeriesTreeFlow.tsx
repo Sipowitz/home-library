@@ -1,25 +1,47 @@
 import { useCallback, useMemo } from "react";
 
 import { BaseTreeFlow } from "../shared/BaseTreeFlow";
-import { findPathIdsToNode } from "../shared/treeLayout";
+import { findPathIdsToNode, type TreeLayoutOptions } from "../shared/treeLayout";
 
-import type { SeriesTreeNode as SeriesTreeNodeType } from "../../../types/series";
+import type { EffectiveSeriesBook, SeriesTreeNode as SeriesTreeNodeType } from "../../../types/series";
 
 import { SeriesTreeNode } from "./SeriesTreeNode";
-import { toSeriesFlowItems } from "./seriesTree";
+import { toSeriesFlowItems, type SeriesBookLeafSelection, type SeriesTreeOrder } from "./seriesTree";
 
 type Props = {
   series: SeriesTreeNodeType[];
+  books?: EffectiveSeriesBook[];
+  order: SeriesTreeOrder;
   selectedId: number | null;
+  selectedBookLeafId: string | null;
   onSelect: (id: number | null) => void;
+  onSelectBook: (selection: SeriesBookLeafSelection) => void;
+  onAddBook: (seriesId: number) => void;
+  onManageBooks: (seriesId: number) => void;
+  searchTargetId: string | null;
+  onAdd: (parentId: number) => void;
+  onEdit: (id: number) => void;
+  onDelete: (id: number) => void;
 };
 
-const noopRename = async () => undefined;
-const noopAdd = async () => undefined;
-const noopDelete = async () => undefined;
+const compactSeriesLayout = {
+  nodeWidth: 150,
+  nodeHeight: 40,
+  nodesep: 24,
+  ranksep: 64,
+  rankdir: "LR",
+  subtreeBands: {
+    nodeHeight: 40,
+    siblingGap: 20,
+    rootGap: 40,
+  },
+} satisfies TreeLayoutOptions;
 
-export function SeriesTreeFlow({ series, selectedId, onSelect }: Props) {
-  const items = useMemo(() => toSeriesFlowItems(series), [series]);
+export function SeriesTreeFlow({ series, books = [], order, selectedId, selectedBookLeafId, onSelect, onSelectBook, onAddBook, onManageBooks, searchTargetId, onAdd, onEdit, onDelete }: Props) {
+  const items = useMemo(
+    () => toSeriesFlowItems(series, books, selectedBookLeafId, onSelectBook, onAddBook, onManageBooks, order),
+    [books, onAddBook, onManageBooks, onSelectBook, order, selectedBookLeafId, series],
+  );
   const selectedPath = useMemo(
     () => (selectedId === null ? [] : findPathIdsToNode(series, selectedId)),
     [selectedId, series],
@@ -34,15 +56,16 @@ export function SeriesTreeFlow({ series, selectedId, onSelect }: Props) {
       items={items}
       focusedId={selectedId}
       focusedPath={selectedPath}
-      searchTargetId={null}
+      searchTargetId={searchTargetId}
       nodeType="seriesNode"
       nodeComponent={SeriesTreeNode}
+      layoutOptions={compactSeriesLayout}
       minZoom={0.35}
       nodesDraggable={false}
       onFocus={handleFocus}
-      onRename={noopRename}
-      onAddChild={noopAdd}
-      onDelete={noopDelete}
+      onRename={async (id) => onEdit(id)}
+      onAddChild={async (id) => onAdd(id)}
+      onDelete={async (id) => onDelete(id)}
     />
   );
 }
