@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 from sqlalchemy.orm import Session
 
@@ -36,7 +36,7 @@ from ..services.providers.evidence_service import (
 )
 
 from ..services.providers.refresh_metadata_service import (
-    refresh_book_metadata,
+    refresh_book_metadata, refresh_created_book_metadata,
 )
 from ..services.providers.refresh_cover_service import refresh_book_covers
 from ..services.providers.evidence_service import latest_cover_evidence
@@ -514,6 +514,8 @@ def create_book(
 async def create_book_from_isbn_endpoint(
     payload: CreateBookWithMetadataRequest,
 
+    background_tasks: BackgroundTasks,
+
     db: Session = Depends(get_db),
 
     current_user: models.User = Depends(
@@ -616,6 +618,11 @@ async def create_book_from_isbn_endpoint(
     update_cover_evidence_signature(db, created_book)
 
     db.commit()
+
+    # The fast ISBN preview is intentionally not authoritative evidence.  Once
+    # the Book is durable, collect fresh provider metadata independently so a
+    # slow or failed refresh cannot undo creation.
+    background_tasks.add_task(refresh_created_book_metadata, created_book.id)
 
     return created_book
 

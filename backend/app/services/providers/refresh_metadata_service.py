@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from sqlalchemy.orm import Session
+from app.database import SessionLocal
 from app.models import Book
+from app.core.logging import logger
 from app.services.providers.evidence_service import latest_cover_snapshots, update_metadata_evidence_signature
 from app.services.providers.manager import fetch_all_metadata_results
 from app.services.providers.metadata_snapshot_service import persist_provider_result
@@ -28,3 +30,18 @@ async def refresh_book_metadata(db: Session, book_id: int) -> list[ProviderResul
             data.update({"cover_candidates": candidates, "cover_url": candidates[0]["url"] if candidates else None})
         compatible.append(result.model_copy(update={"data": data}))
     return compatible
+
+
+async def refresh_created_book_metadata(book_id: int) -> None:
+    """Enrich a newly committed Book without sharing the request session.
+
+    This is deliberately best-effort: creation has already succeeded, so a
+    provider or persistence failure must not be observable as a failed add.
+    """
+    db = SessionLocal()
+    try:
+        await refresh_book_metadata(db, book_id)
+    except Exception:
+        logger.exception("Post-create metadata refresh failed for book %s", book_id)
+    finally:
+        db.close()
