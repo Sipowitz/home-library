@@ -13,7 +13,7 @@ if TEST_DATABASE_URL:
 from app import models
 from app.services import book_service
 from app.services.providers.cover_snapshot_service import persist_cover_result
-from app.services.providers.evidence_service import update_cover_evidence_signature, update_metadata_evidence_signature
+from app.services.providers.evidence_service import latest_cover_evidence, update_cover_evidence_signature, update_metadata_evidence_signature
 from app.services.providers.metadata_snapshot_service import persist_provider_result
 from app.services.providers.types import ProviderResult
 
@@ -82,6 +82,14 @@ def test_cover_evidence_is_independent_of_active_and_manual_covers(db, book):
     book.uploaded_cover_candidates_json = [{"provider": "uploaded", "url": "/covers/manual.jpg"}]
     update_cover_evidence_signature(db, book)
     assert book.cover_evidence_signature == signature
+
+
+def test_newer_empty_openlibrary_cover_snapshot_supersedes_old_candidates(db, book):
+    old_candidates = [{"provider": "openlibrary", "label": "L", "url": "https://covers.openlibrary.org/b/isbn/9780306406157-L.jpg"}]
+    persist_cover_result(db, book.id, result({"cover_candidates": old_candidates}, provider="openlibrary"))
+    persist_cover_result(db, book.id, result({"cover_candidates": []}, provider="openlibrary"))
+
+    assert latest_cover_evidence(db, book) == []
 
 
 def test_atomic_book_update_marks_both_current_and_sets_timestamps(db, book):

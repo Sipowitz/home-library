@@ -738,12 +738,12 @@ class MonthlyStat(BaseModel):
     count: int
 
 
-class DailyBookStat(BaseModel):
+class ChartPoint(BaseModel):
     date: str
 
-    added_books: int
+    total: int
 
-    read_books: int
+    read: int
 
 
 class StatsResponse(BaseModel):
@@ -767,7 +767,7 @@ class StatsResponse(BaseModel):
 
     monthly_reads: List[MonthlyStat]
 
-    books_over_time: List[DailyBookStat]
+    books_over_time: List[ChartPoint]
 
     class Config:
         from_attributes = True

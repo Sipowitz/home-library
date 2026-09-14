@@ -8,10 +8,10 @@ export type MonthlyStat = {
   count: number;
 };
 
-export type DailyBookStat = {
+export type ChartPoint = {
   date: string;
-  added_books: number;
-  read_books: number;
+  total: number;
+  read: number;
 };
 
 export type LibraryStats = {
@@ -25,5 +25,5 @@ export type LibraryStats = {
   recent_added_7_days: number;
   recent_added_30_days: number;
   monthly_reads: MonthlyStat[];
-  books_over_time: DailyBookStat[];
+  books_over_time: ChartPoint[];
 };

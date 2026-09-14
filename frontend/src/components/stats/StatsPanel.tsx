@@ -22,14 +22,6 @@ import type { Preferences } from "../../types/preferences";
 
 import type { LibraryStats } from "../../types/stats";
 
-type ChartPoint = {
-  date: string;
-
-  total: number;
-
-  read: number;
-};
-
 type Range = "7d" | "30d" | "all";
 
 type StatCardProps = {
@@ -79,8 +71,6 @@ export function StatsPanel() {
 
   const [error, setError] = useState<string | null>(null);
 
-  const [chartData, setChartData] = useState<ChartPoint[]>([]);
-
   const [range, setRange] = useState<Range>("30d");
 
   const { ready, token } = useAuth();
@@ -92,7 +82,7 @@ export function StatsPanel() {
     setError(null);
 
     try {
-      setStats(await getStats());
+      setStats(await getStats(range));
     } catch (err) {
       console.error("Failed to load stats", err);
       setStats(null);
@@ -118,52 +108,7 @@ export function StatsPanel() {
     window.addEventListener("stats-updated", handler);
 
     return () => window.removeEventListener("stats-updated", handler);
-  }, [ready, token]);
-
-  // -------------------
-  // 📈 CHART FILTERING
-  // -------------------
-
-  useEffect(() => {
-    if (!stats) {
-      setChartData([]);
-      return;
-    }
-
-    let filtered = [...stats.books_over_time];
-
-    if (range !== "all") {
-      const now = Date.now();
-
-      const days = range === "7d" ? 7 : 30;
-
-      const cutoff = now - days * 24 * 60 * 60 * 1000;
-
-      filtered = filtered.filter((item) => {
-        const endOfDay = new Date(`${item.date}T23:59:59.999Z`).getTime();
-        return endOfDay >= cutoff;
-      });
-    }
-
-    let total = 0;
-
-    let read = 0;
-
-    const data: ChartPoint[] = [];
-
-    filtered.forEach((item) => {
-      total += item.added_books;
-      read += item.read_books;
-
-      data.push({
-        date: item.date,
-        total,
-        read,
-      });
-    });
-
-    setChartData(data);
-  }, [stats, range]);
+  }, [ready, token, range]);
 
   // -------------------
   // 📊 TOTALS
@@ -241,7 +186,7 @@ export function StatsPanel() {
             </div>
 
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={chartData}>
+              <LineChart data={stats.books_over_time}>
                 <CartesianGrid
                   stroke="rgb(var(--color-border-strong))"
                   strokeDasharray="3 3"
@@ -251,7 +196,7 @@ export function StatsPanel() {
                 <XAxis
                   dataKey="date"
                   tickFormatter={(value, index) => {
-                    if (index % Math.ceil(chartData.length / 5 || 1) !== 0) {
+                    if (index % Math.ceil(stats.books_over_time.length / 5 || 1) !== 0) {
                       return "";
                     }
 
