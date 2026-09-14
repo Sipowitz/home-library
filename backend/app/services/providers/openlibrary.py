@@ -9,7 +9,7 @@ OPENLIBRARY_SEARCH_URL = (
 )
 
 OPENLIBRARY_COVER_URL = (
-    "https://covers.openlibrary.org/b/isbn"
+    "https://covers.openlibrary.org/b/id"
 )
 
 def clean_isbn(isbn: str) -> str:
@@ -19,6 +19,20 @@ def clean_isbn(isbn: str) -> str:
         isbn,
         flags=re.IGNORECASE,
     )
+
+
+def valid_cover_id(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+
+    if isinstance(value, int):
+        return value if value > 0 else None
+
+    if isinstance(value, str) and value.strip().isdigit():
+        cover_id = int(value.strip())
+        return cover_id if cover_id > 0 else None
+
+    return None
 
 
 class OpenLibraryProvider(BookProvider):
@@ -77,25 +91,20 @@ class OpenLibraryProvider(BookProvider):
             "subtitle",
         )
 
-        cover_candidates = []
+        cover_id = valid_cover_id(book.get("cover_i"))
 
-        for size in [
-            "L",
-            "M",
-            "S",
-        ]:
-            cover_url = (
-                f"{OPENLIBRARY_COVER_URL}/"
-                f"{isbn}-{size}.jpg"
-            )
-
-            cover_candidates.append(
+        cover_candidates = (
+            [
                 {
                     "provider": self.provider_name,
                     "label": size,
-                    "url": cover_url,
+                    "url": f"{OPENLIBRARY_COVER_URL}/{cover_id}-{size}.jpg",
                 }
-            )
+                for size in ["L", "M", "S"]
+            ]
+            if cover_id is not None
+            else []
+        )
 
         primary_cover = (
             cover_candidates[0]["url"]

@@ -41,6 +41,18 @@ def openlibrary_payload():
     }
 
 
+def openlibrary_payload_with_cover(cover_id=12345):
+    return {
+        "docs": [
+            {
+                "title": "OpenLibrary title",
+                "author_name": ["Author"],
+                "cover_i": cover_id,
+            }
+        ]
+    }
+
+
 def response(status_code, payload=None, content=None):
     request = httpx.Request("GET", "https://provider.example.test/books")
     if content is not None:
@@ -229,6 +241,39 @@ def test_google_lookup_and_forced_refreshes_keep_request_semantics_and_bypass_ca
     assert len(FakeAsyncClient.calls) == 3
     assert all(call[0] == google_books.GOOGLE_BOOKS_URL for call in FakeAsyncClient.calls)
     assert all(call[1] == {"q": f"isbn:{ISBN}", "key": "configured-key"} for call in FakeAsyncClient.calls)
+
+
+def test_openlibrary_cover_id_generates_exactly_three_id_based_candidates():
+    FakeAsyncClient.events = [response(200, openlibrary_payload_with_cover(12345))]
+
+    result = asyncio.run(provider_case(OpenLibraryProvider).fetch_book_by_isbn(ISBN))
+
+    assert result["cover_candidates"] == [
+        {"provider": "openlibrary", "label": "L", "url": "https://covers.openlibrary.org/b/id/12345-L.jpg"},
+        {"provider": "openlibrary", "label": "M", "url": "https://covers.openlibrary.org/b/id/12345-M.jpg"},
+        {"provider": "openlibrary", "label": "S", "url": "https://covers.openlibrary.org/b/id/12345-S.jpg"},
+    ]
+    assert result["cover_url"] == result["cover_candidates"][0]["url"]
+    assert f"/isbn/{ISBN}-" not in str(result["cover_candidates"])
+
+
+def test_openlibrary_missing_cover_id_produces_no_cover_candidates_or_url():
+    FakeAsyncClient.events = [response(200, openlibrary_payload())]
+
+    result = asyncio.run(provider_case(OpenLibraryProvider).fetch_book_by_isbn(ISBN))
+
+    assert result["cover_candidates"] == []
+    assert result["cover_url"] is None
+
+
+@pytest.mark.parametrize("cover_id", [None, 0, -1, False, "", "invalid", "-1", 1.5])
+def test_openlibrary_invalid_or_non_positive_cover_id_produces_no_candidates(cover_id):
+    FakeAsyncClient.events = [response(200, openlibrary_payload_with_cover(cover_id))]
+
+    result = asyncio.run(provider_case(OpenLibraryProvider).fetch_book_by_isbn(ISBN))
+
+    assert result["cover_candidates"] == []
+    assert result["cover_url"] is None
 
 
 @pytest.mark.parametrize(
