@@ -181,11 +181,12 @@ export function AddBookForm({
         />
 
         {/* ACTIONS */}
-        <div className="mt-5 flex gap-2">
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
           <ActionButton
             type="button"
             variant="tertiary"
             onClick={handleStartOver}
+            className="w-full sm:w-auto"
           >
             Start Over
           </ActionButton>
@@ -193,7 +194,7 @@ export function AddBookForm({
             type="button"
             variant="addPrimary"
             onClick={handleAdd}
-            className="flex-1"
+            className="w-full sm:flex-1"
           >
             Add to Library
           </ActionButton>
@@ -202,6 +203,7 @@ export function AddBookForm({
             variant="secondary"
             onClick={handleAddReview}
             disabled={!canAddReview}
+            className="w-full sm:w-auto"
           >
             Add &amp; Review
           </ActionButton>

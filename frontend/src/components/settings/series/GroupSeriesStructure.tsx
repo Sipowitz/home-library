@@ -233,9 +233,9 @@ export function GroupSeriesStructure({ group, rootId, books, onChanged, onAssign
             </select>
           </label>
           {availableAdditionalTargets.length === 0 && <p className="mt-3 text-sm text-text-muted">This book already belongs to every child Series.</p>}
-          <div className="mt-5 flex justify-end gap-2">
-            <ActionButton onClick={() => setAddingAnother(null)} disabled={changing}>Cancel</ActionButton>
-            <ActionButton variant="primary" onClick={() => void confirmAdditionalMembership()} disabled={additionalTargetId === null || changing}>{changing ? "Adding…" : "Confirm additional membership"}</ActionButton>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <ActionButton className="w-full sm:w-auto" onClick={() => setAddingAnother(null)} disabled={changing}>Cancel</ActionButton>
+            <ActionButton className="w-full sm:w-auto" variant="primary" onClick={() => void confirmAdditionalMembership()} disabled={additionalTargetId === null || changing}>{changing ? "Adding…" : "Confirm additional membership"}</ActionButton>
           </div>
         </div>
       </Dialog>

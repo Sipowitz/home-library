@@ -311,11 +311,12 @@ export function MetadataComparisonPanel({
                         key={`${field.key}-${entry.provider}-${index}`}
                         className={`
                           grid
-                          grid-cols-[180px_1fr_120px]
+                          grid-cols-1
+                          sm:grid-cols-[180px_minmax(0,1fr)_120px]
                           items-start
                           gap-4
                           border-b border-border
-                          px-5 py-4
+                          px-4 py-4 sm:px-5
                           transition
                           last:border-b-0
                           ${
@@ -354,7 +355,7 @@ export function MetadataComparisonPanel({
 
                         {/* ACTION */}
 
-                        <div className="flex justify-end">
+                        <div className="flex justify-start sm:justify-end">
                           <ActionButton
                             type="button"
                             variant="secondary"

@@ -9,12 +9,13 @@ type Props = {
 
 export function Header({ libraryName, onOpenSettings, onLogout }: Props) {
   return (
-    <div className="flex justify-between items-center mb-8">
-      <h1 className="text-2xl flex items-center gap-2 font-semibold">
-        <BookIcon /> {libraryName}
+    <div className="mb-8 flex min-w-0 items-center justify-between gap-3">
+      <h1 className="flex min-w-0 flex-1 items-center gap-2 text-2xl font-semibold">
+        <BookIcon className="shrink-0" />
+        <span className="truncate">{libraryName}</span>
       </h1>
 
-      <div className="flex gap-3">
+      <div className="flex shrink-0 gap-3">
         <ActionButton variant="icon" size="icon" onClick={onOpenSettings}>
           <Settings size={20} />
         </ActionButton>
