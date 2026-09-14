@@ -5,8 +5,8 @@ export function DeleteModal({ open, book, onClose, onDelete }: any) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="w-80 rounded-xl border border-border-strong bg-surface-raised p-6 text-center text-text-primary shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
+      <div className="w-full max-w-xs rounded-xl border border-border-strong bg-surface-raised p-6 text-center text-text-primary shadow-2xl">
         <h3 className="mb-4 text-lg font-semibold text-danger">
           Delete Book?
         </h3>
