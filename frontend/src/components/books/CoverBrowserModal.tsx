@@ -14,7 +14,7 @@ type Props = {
   title?: string;
   covers: CoverCandidate[];
   bookId?: number;
-  onSelectCover?: (cover: CoverCandidate) => void;
+  onSelectCover?: (cover: CoverCandidate) => Promise<void> | void;
   onCoverUploaded?: (cover: CoverCandidate) => void;
   onCoversRefreshed?: (response: CoverRefreshResponse) => void;
   onMarkReviewed?: () => void;
@@ -32,6 +32,7 @@ export function CoverBrowserModal({
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
 
   async function handleUpload(file: File) {
     if (!bookId) return;
@@ -71,6 +72,18 @@ export function CoverBrowserModal({
     }
   }
 
+  async function handleSelect(cover: CoverCandidate) {
+    if (isSelecting) return;
+    setIsSelecting(true);
+    try {
+      await onSelectCover?.(cover);
+    } catch {
+      toast.error("Cover selection failed. The previous cover was kept.");
+    } finally {
+      setIsSelecting(false);
+    }
+  }
+
   if (!open) return null;
 
   return (
@@ -102,7 +115,7 @@ export function CoverBrowserModal({
               {covers.map((cover, index) => {
                 const selected = selectedCoverUrl === cover.url;
                 return (
-                  <button key={`${cover.url}-${index}`} type="button" onClick={() => onSelectCover?.(cover)} className="group space-y-3 text-left">
+                  <button key={`${cover.url}-${index}`} type="button" disabled={isSelecting} onClick={() => void handleSelect(cover)} className="group space-y-3 text-left disabled:cursor-wait">
                     <div className={`aspect-[2/3] overflow-hidden rounded-xl border bg-black/30 transition ${selected ? "border-blue-600 ring-2 ring-blue-500/45 dark:border-blue-500" : "border-border-strong group-hover:border-text-muted"}`}>
                       <img src={cover.url} alt={`Cover ${index + 1}`} className="h-full w-full object-cover transition group-hover:scale-[1.02]" />
                     </div>

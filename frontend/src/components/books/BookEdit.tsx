@@ -26,7 +26,7 @@ import { ActionButton } from "../ui/ActionButton";
 
 import { fetchMetadataCandidates } from "../../api/metadataCandidates";
 
-import { getBook, getCoverCandidates, refreshMetadata } from "../../api/books";
+import { getBook, getCoverCandidates, refreshMetadata, selectCoverCandidate } from "../../api/books";
 import type { CoverCandidate, CoverRefreshResponse, ReviewIntent } from "../../api/books";
 
 import toast from "react-hot-toast";
@@ -519,12 +519,16 @@ export function BookEdit({
             ],
           });
         }}
-        onSelectCover={(cover) => {
+        onSelectCover={async (cover) => {
+          if (cover.url.startsWith("/covers/candidate-cache/")) {
+            const selected = await selectCoverCandidate(editData!.id, cover);
+            setEditData(selected);
+            return;
+          }
           setEditData({
             ...editData!,
             cover_url: cover.url,
           });
-
         }}
       />
     </>

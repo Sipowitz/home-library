@@ -223,3 +223,27 @@ async def store_permanent_cover(chunks: AsyncIterable[bytes]) -> StoredCover:
         f"/covers/objects/sha256/{content_digest[:2]}/{final.name}",
         expected_content_digest=content_digest,
     )
+
+
+async def promote_cached_candidate_cover(candidate_url: str) -> StoredCover:
+    """Copy a validated candidate-cache object into permanent object storage."""
+    source = resolve_local_cover_path(candidate_url)
+    candidate_root = (covers_root() / "candidate-cache").resolve()
+    try:
+        source.relative_to(candidate_root)
+    except ValueError as exc:
+        raise CoverUploadError(400, "Cover candidate is not a cached provider cover") from exc
+    if not source.is_file():
+        raise CoverUploadError(400, "Cached cover candidate is unavailable")
+
+    try:
+        validate_image(source)
+    except (ImageValidationError, OSError) as exc:
+        raise CoverUploadError(400, "Cached cover candidate is invalid") from exc
+
+    async def chunks():
+        with source.open("rb") as input_file:
+            while chunk := input_file.read(READ_CHUNK_BYTES):
+                yield chunk
+
+    return await store_permanent_cover(chunks())

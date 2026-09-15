@@ -32,7 +32,7 @@ from ..services.providers.metadata_snapshot_service import (
 )
 from ..services.providers.cover_snapshot_service import persist_cover_result
 from ..services.providers.evidence_service import (
-    update_metadata_evidence_signature, update_cover_evidence_signature,
+    latest_cover_snapshots, update_metadata_evidence_signature, update_cover_evidence_signature,
 )
 
 from ..services.providers.refresh_metadata_service import (
@@ -59,7 +59,7 @@ from fastapi import (
 from pathlib import Path
 from typing import Literal
 
-from ..services.cover_storage import CoverUploadError, store_uploaded_cover
+from ..services.cover_storage import CoverUploadError, promote_cached_candidate_cover, store_uploaded_cover
 
 router = APIRouter(
     prefix="/books",
@@ -299,6 +299,55 @@ async def get_cover_candidates(
     candidates = await displayable_cover_candidates(db, book)
     db.refresh(book)
     return {"candidates": candidates, "cover_review": book.cover_review}
+
+
+@router.post(
+    "/{book_id}/select-cover-candidate",
+    response_model=schemas.BookResponse,
+)
+async def select_cover_candidate(
+    book_id: int,
+    selection: schemas.CoverCandidateSelection,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Promote a current, locally cached provider candidate to the selected cover."""
+    book = book_service.get_book(db, current_user.id, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    snapshot = latest_cover_snapshots(db, book).get(selection.provider)
+    if snapshot is None:
+        raise HTTPException(status_code=400, detail="Cover candidate is not current for this book")
+
+    candidate = next(
+        (
+            item for item in (snapshot.candidates_json or [])
+            if isinstance(item, dict)
+            and (item.get("provider") or snapshot.provider) == selection.provider
+            and item.get("label") == selection.label
+            and item.get("url") == selection.url
+        ),
+        None,
+    )
+    if candidate is None:
+        raise HTTPException(status_code=400, detail="Cover candidate is not current for this book")
+
+    try:
+        stored = await promote_cached_candidate_cover(selection.url)
+    except CoverUploadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+    book.cover_url = stored.url
+    try:
+        db.commit()
+        db.refresh(book)
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to select provider cover candidate for book %s", book.id)
+        raise HTTPException(status_code=500, detail="Failed to save selected cover") from exc
+
+    return book
 
 
 @router.post(

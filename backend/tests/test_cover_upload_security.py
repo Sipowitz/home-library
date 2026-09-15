@@ -34,6 +34,28 @@ def image_bytes(image_format: str, size=(12, 18)) -> bytes:
     return output.getvalue()
 
 
+def add_cached_provider_candidate(db, book, source_url: str, data: bytes, *, provider="google_books", label="large"):
+    async def chunks():
+        yield data
+
+    cached = asyncio.run(cover_storage.store_candidate_cover(source_url, chunks()))
+    book.isbn = "9780306406157"
+    snapshot = models.ProviderCoverSnapshot(
+        book_id=book.id,
+        provider=provider,
+        isbn_query=book.isbn,
+        candidates_json=[{
+            "provider": provider,
+            "label": label,
+            "source_url": source_url,
+            "url": cached.url,
+        }],
+    )
+    db.add(snapshot)
+    db.commit()
+    return cached, snapshot
+
+
 @pytest.fixture()
 def context(tmp_path):
     engine = create_engine(TEST_DATABASE_URL)
@@ -312,6 +334,91 @@ def test_permanent_cover_storage_is_content_addressed_and_valid(context):
     assert first.path == covers_root / expected.removeprefix("/covers/")
     assert first.path.read_bytes() == data
     assert image_validation.validate_image(first.path) == ("image/webp", "webp")
+
+
+def test_selecting_cached_provider_candidate_promotes_permanent_cover_and_preserves_provenance(context):
+    client, db, book, _other_book, headers, covers_root = context
+    source_url = "https://provider.example/covers/one.jpg"
+    cached, snapshot = add_cached_provider_candidate(db, book, source_url, image_bytes("PNG"))
+    selection = {"provider": "google_books", "label": "large", "url": cached.url}
+
+    first = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
+    second = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
+
+    assert first.status_code == second.status_code == 200
+    permanent_url = first.json()["cover_url"]
+    assert permanent_url.startswith("/covers/objects/sha256/")
+    assert second.json()["cover_url"] == permanent_url
+    permanent = covers_root / permanent_url.removeprefix("/covers/")
+    assert permanent.is_file()
+    assert permanent.read_bytes() == (covers_root / cached.url.removeprefix("/covers/")).read_bytes()
+    assert len(list((covers_root / "objects" / "sha256").rglob("*.*"))) == 1
+    db.refresh(book)
+    db.refresh(snapshot)
+    assert book.cover_url == permanent_url
+    assert snapshot.candidates_json == [{
+        "provider": "google_books", "label": "large", "source_url": source_url, "url": cached.url,
+    }]
+
+
+def test_cover_candidate_selection_rejects_foreign_and_arbitrary_candidates(context):
+    client, db, book, other_book, headers, _covers_root = context
+    cached, _snapshot = add_cached_provider_candidate(
+        db, other_book, "https://provider.example/covers/foreign.jpg", image_bytes("JPEG")
+    )
+    selection = {"provider": "google_books", "label": "large", "url": cached.url}
+
+    foreign = client.post(f"/books/{other_book.id}/select-cover-candidate", headers=headers, json=selection)
+    arbitrary = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json={
+        "provider": "google_books", "label": "large", "url": "https://attacker.example/cover.jpg",
+    })
+
+    assert foreign.status_code == 404
+    assert arbitrary.status_code == 400
+    db.refresh(book)
+    assert book.cover_url is None
+
+
+@pytest.mark.parametrize("broken", ["missing", "invalid"])
+def test_missing_or_invalid_cached_candidate_fails_without_replacing_existing_cover(context, broken):
+    client, db, book, _other_book, headers, covers_root = context
+    book.cover_url = "/covers/uploaded/existing.jpg"
+    cached, snapshot = add_cached_provider_candidate(
+        db, book, "https://provider.example/covers/missing.jpg", image_bytes("JPEG")
+    )
+    cached_path = covers_root / cached.url.removeprefix("/covers/")
+    if broken == "missing":
+        cached_path.unlink()
+    else:
+        cached_path.write_bytes(b"not an image")
+    selection = {"provider": "google_books", "label": "large", "url": cached.url}
+
+    response = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
+
+    assert response.status_code == 400
+    db.refresh(book)
+    db.refresh(snapshot)
+    assert book.cover_url == "/covers/uploaded/existing.jpg"
+    assert snapshot.candidates_json[0]["url"] == cached.url
+
+
+def test_cover_candidate_selection_db_failure_keeps_existing_cover(context, monkeypatch):
+    client, db, book, _other_book, headers, _covers_root = context
+    book.cover_url = "/covers/uploaded/existing.jpg"
+    cached, _snapshot = add_cached_provider_candidate(
+        db, book, "https://provider.example/covers/rollback.jpg", image_bytes("WEBP")
+    )
+    selection = {"provider": "google_books", "label": "large", "url": cached.url}
+
+    def fail_commit():
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(db, "commit", fail_commit)
+    response = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
+
+    assert response.status_code == 500
+    db.refresh(book)
+    assert book.cover_url == "/covers/uploaded/existing.jpg"
 
 
 @pytest.mark.parametrize("url", [

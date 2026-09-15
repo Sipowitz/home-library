@@ -479,6 +479,12 @@ class CoverCandidateResponse(BaseModel):
     url: str
 
 
+class CoverCandidateSelection(BaseModel):
+    provider: str = Field(min_length=1, max_length=64)
+    label: Optional[str] = Field(default=None, max_length=100)
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class CoverCandidatesResponse(BaseModel):
     candidates: List[CoverCandidateResponse] = Field(default_factory=list)
     cover_review: ReviewStatusResponse
