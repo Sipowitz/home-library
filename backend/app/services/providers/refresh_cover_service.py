@@ -2,7 +2,7 @@
 from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 from app.models import Book
-from app.services.providers.cover_snapshot_service import persist_cover_result
+from app.services.providers.cover_snapshot_service import cache_provider_cover_candidates, persist_cover_result
 from app.services.providers.evidence_service import update_cover_evidence_signature
 from app.services.providers.manager import fetch_all_cover_results
 
@@ -14,6 +14,7 @@ async def refresh_book_covers(db: Session, book_id: int):
         raise ValueError(f"Book {book_id} has no ISBN")
     results = await fetch_all_cover_results(db, book.isbn)
     for result in results:
+        await cache_provider_cover_candidates(result)
         persist_cover_result(db, book.id, result)
     update_cover_evidence_signature(db, book)
     book.last_cover_refresh_at = datetime.now(UTC)

@@ -1,3 +1,4 @@
+import asyncio
 import os
 from datetime import UTC, datetime, timedelta
 import pytest
@@ -12,8 +13,9 @@ if TEST_DATABASE_URL:
 
 from app import models
 from app.services import book_service
+from app.services.providers import cover_snapshot_service
 from app.services.providers.cover_snapshot_service import persist_cover_result
-from app.services.providers.evidence_service import latest_cover_evidence, update_cover_evidence_signature, update_metadata_evidence_signature
+from app.services.providers.evidence_service import displayable_cover_candidates, latest_cover_evidence, update_cover_evidence_signature, update_metadata_evidence_signature
 from app.services.providers.metadata_snapshot_service import persist_provider_result
 from app.services.providers.types import ProviderResult
 
@@ -90,6 +92,99 @@ def test_newer_empty_openlibrary_cover_snapshot_supersedes_old_candidates(db, bo
     persist_cover_result(db, book.id, result({"cover_candidates": []}, provider="openlibrary"))
 
     assert latest_cover_evidence(db, book) == []
+
+
+def test_refresh_persists_provider_source_url_and_local_cached_url(db, book, monkeypatch):
+    import app.services.providers.refresh_cover_service as cover_refresh
+    source = "https://books.google.example/cover.jpg"
+    local = "/covers/candidate-cache/aa/cached.jpg"
+
+    async def provider_results(_db, _isbn):
+        return [result({"cover_candidates": [{"provider": "google_books", "label": "large", "url": source}]})]
+
+    async def cache(url):
+        assert url == source
+        return local
+
+    monkeypatch.setattr(cover_refresh, "fetch_all_cover_results", provider_results)
+    monkeypatch.setattr(cover_snapshot_service, "download_candidate_cover", cache)
+    asyncio.run(cover_refresh.refresh_book_covers(db, book.id))
+
+    snapshot = db.query(models.ProviderCoverSnapshot).one()
+    assert snapshot.candidates_json == [{"provider": "google_books", "label": "large", "source_url": source, "url": local}]
+    assert latest_cover_evidence(db, book)[0]["source_url"] == source
+
+
+def test_refresh_survives_an_individual_candidate_cache_failure(db, book, monkeypatch):
+    import app.services.providers.refresh_cover_service as cover_refresh
+    good = "https://books.google.example/good.jpg"
+    broken = "https://books.google.example/broken.jpg"
+    local = "/covers/candidate-cache/aa/good.jpg"
+
+    async def provider_results(_db, _isbn):
+        return [result({"cover_candidates": [
+            {"provider": "google_books", "label": "large", "url": good},
+            {"provider": "google_books", "label": "small", "url": broken},
+        ]})]
+
+    async def cache(url):
+        return local if url == good else None
+
+    monkeypatch.setattr(cover_refresh, "fetch_all_cover_results", provider_results)
+    monkeypatch.setattr(cover_snapshot_service, "download_candidate_cover", cache)
+    results = asyncio.run(cover_refresh.refresh_book_covers(db, book.id))
+
+    assert results[0].success
+    snapshot = db.query(models.ProviderCoverSnapshot).one()
+    assert snapshot.candidates_json == [
+        {"provider": "google_books", "label": "large", "source_url": good, "url": local},
+        {"provider": "google_books", "label": "small", "source_url": broken},
+    ]
+
+
+def test_legacy_candidates_hydrate_to_local_urls_without_losing_provenance(db, book, monkeypatch):
+    import app.services.providers.evidence_service as evidence_service
+    source = "https://covers.openlibrary.org/b/id/12345-L.jpg"
+    local = "/covers/candidate-cache/bb/cached.jpg"
+    persist_cover_result(db, book.id, result({"cover_candidates": [{"provider": "openlibrary", "label": "L", "url": source}]}, provider="openlibrary"))
+    db.commit()
+
+    async def cache(url):
+        assert url == source
+        return local
+
+    monkeypatch.setattr(evidence_service, "download_candidate_cover", cache)
+    candidates = asyncio.run(displayable_cover_candidates(db, book))
+
+    assert candidates == [{"provider": "openlibrary", "label": "L", "url": local}]
+    snapshot = db.query(models.ProviderCoverSnapshot).one()
+    assert snapshot.candidates_json == [{"provider": "openlibrary", "label": "L", "source_url": source, "url": local}]
+
+
+def test_cache_failure_keeps_evidence_but_omits_candidate_from_browser_result(db, book, monkeypatch):
+    import app.services.providers.evidence_service as evidence_service
+    good = "https://books.google.example/good.jpg"
+    broken = "https://books.google.example/broken.jpg"
+    local = "/covers/candidate-cache/cc/good.jpg"
+    persist_cover_result(db, book.id, result({"cover_candidates": [
+        {"provider": "google_books", "label": "large", "url": good},
+        {"provider": "google_books", "label": "small", "url": broken},
+    ]}))
+    db.commit()
+
+    async def cache(url):
+        return local if url == good else None
+
+    monkeypatch.setattr(evidence_service, "download_candidate_cover", cache)
+    candidates = asyncio.run(displayable_cover_candidates(db, book))
+
+    assert candidates == [{"provider": "google_books", "label": "large", "url": local}]
+    snapshot = db.query(models.ProviderCoverSnapshot).one()
+    assert snapshot.candidates_json == [
+        {"provider": "google_books", "label": "large", "source_url": good, "url": local},
+        {"provider": "google_books", "label": "small", "source_url": broken},
+    ]
+    assert {item["source_url"] for item in latest_cover_evidence(db, book)} == {good, broken}
 
 
 def test_atomic_book_update_marks_both_current_and_sets_timestamps(db, book):

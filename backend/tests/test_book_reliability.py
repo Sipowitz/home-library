@@ -301,8 +301,13 @@ def isbn_payload(isbn="9780306406157", **book_changes):
 
 
 @pytest.mark.parametrize("isbn", ["0306406152", "9780306406157"])
-def test_from_isbn_frontend_payload_persists_owned_book_and_metadata(client, db, users, isbn):
+def test_from_isbn_frontend_payload_persists_owned_book_and_metadata(client, db, users, isbn, monkeypatch):
     owner, other = users
+
+    async def skip_post_create_refresh(_book_id):
+        pass
+
+    monkeypatch.setattr(books_router, "refresh_created_book_metadata", skip_post_create_refresh)
     response = client.post("/books/from-isbn", json=isbn_payload(isbn), headers=headers(owner))
     assert response.status_code == 200, response.text
     book = db.query(models.Book).filter_by(id=response.json()["id"]).one()
@@ -511,7 +516,7 @@ def test_book_update_review_intent_is_write_only_and_owner_scoped(client, db, us
     assert "mark_metadata_reviewed" not in payload
 
 
-def test_cover_candidates_are_owner_scoped_and_keep_manual_state_separate(client, db, users):
+def test_cover_candidates_are_owner_scoped_and_keep_manual_state_separate(client, db, users, monkeypatch):
     owner, other = users
     book = models.Book(title="Covers", author="Author", isbn="9780306406157", owner_id=owner.id, read=False,
         cover_url="/covers/active.jpg", uploaded_cover_candidates_json=[{"provider": "upload", "label": "Manual", "url": "/covers/manual.jpg"}])
@@ -520,10 +525,16 @@ def test_cover_candidates_are_owner_scoped_and_keep_manual_state_separate(client
         candidates_json=[{"provider": "google_books", "label": "L", "url": "https://example.test/provider.jpg"}]))
     db.commit()
 
+    import app.services.providers.evidence_service as evidence_service
+    async def cache(url):
+        assert url == "https://example.test/provider.jpg"
+        return "/covers/candidate-cache/aa/provider.jpg"
+    monkeypatch.setattr(evidence_service, "download_candidate_cover", cache)
+
     assert client.get(f"/books/{book.id}/cover-candidates", headers=headers(other)).status_code == 404
     response = client.get(f"/books/{book.id}/cover-candidates", headers=headers(owner))
     assert response.status_code == 200
-    assert response.json()["candidates"] == [{"provider": "google_books", "label": "L", "url": "https://example.test/provider.jpg"}]
+    assert response.json()["candidates"] == [{"provider": "google_books", "label": "L", "url": "/covers/candidate-cache/aa/provider.jpg"}]
     assert all(candidate["provider"] != "upload" for candidate in response.json()["candidates"])
     db.refresh(book)
     assert book.cover_url == "/covers/active.jpg"

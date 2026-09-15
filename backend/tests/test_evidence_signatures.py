@@ -38,6 +38,15 @@ def test_cover_meaningful_url_or_variant_changes_signature():
     assert cover_evidence_signature(base) != cover_evidence_signature([{**base[0], "url": "https://example/b"}])
     assert cover_evidence_signature(base) != cover_evidence_signature([{**base[0], "label": "small"}])
 
+
+def test_cover_signature_uses_source_url_not_the_local_cache_representation():
+    source = "https://provider.example/covers/one.jpg"
+    first = [{"provider": "google_books", "label": "large", "source_url": source, "url": "/covers/candidate-cache/aa/one.jpg"}]
+    recached = [{"provider": "google_books", "label": "large", "source_url": source, "url": "/covers/candidate-cache/bb/two.jpg"}]
+    legacy = [{"provider": "google_books", "label": "large", "url": source}]
+    assert cover_evidence_signature(first) == cover_evidence_signature(recached)
+    assert cover_evidence_signature(first) == cover_evidence_signature(legacy)
+
 def test_manual_candidates_and_active_cover_do_not_participate():
     provider = {"provider": "google_books", "label": "L", "url": "https://example/a"}
     extras = [{"provider": "uploaded", "label": "manual", "url": "/covers/local.jpg"}, {"provider": "manual", "url": "/other"}]
