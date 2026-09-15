@@ -1,6 +1,7 @@
 import io
 import os
 import asyncio
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -211,3 +212,117 @@ def test_remote_cover_download_uses_the_same_validation_and_verified_extension(c
     monkeypatch.setattr(cover_download.httpx, "AsyncClient", lambda **_kwargs: FakeClient(b"not an image"))
     assert asyncio.run(cover_download.download_cover("https://example.test/bad.png")) is None
     assert set(covers_root.rglob("*.*")) == before
+
+
+class _FakeDownloadResponse:
+    status_code = 200
+
+    def __init__(self, data: bytes, status_code: int = 200):
+        self.data = data
+        self.status_code = status_code
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def aiter_bytes(self):
+        yield self.data
+
+
+class _CountingFakeClient:
+    calls = 0
+    data = b""
+    status_code = 200
+
+    def __init__(self, **_kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    def stream(self, *_args, **_kwargs):
+        type(self).calls += 1
+        return _FakeDownloadResponse(type(self).data, type(self).status_code)
+
+
+def test_candidate_download_is_cached_under_a_deterministic_local_path(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source_url = "https://example.test/covers/one"
+    key = hashlib.sha256(source_url.encode("utf-8")).hexdigest()
+    _CountingFakeClient.calls = 0
+    _CountingFakeClient.data = image_bytes("PNG")
+    _CountingFakeClient.status_code = 200
+    monkeypatch.setattr(cover_download.httpx, "AsyncClient", _CountingFakeClient)
+
+    first = asyncio.run(cover_download.download_candidate_cover(source_url))
+    second = asyncio.run(cover_download.download_candidate_cover(source_url))
+
+    expected = f"/covers/candidate-cache/{key[:2]}/{key}.png"
+    assert first == second == expected
+    assert _CountingFakeClient.calls == 1
+    assert (covers_root / expected.removeprefix("/covers/")).is_file()
+    assert cover_storage.candidate_cache_key(source_url) == key
+
+
+def test_candidate_download_rejects_invalid_content_without_publishing(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source_url = "https://example.test/covers/not-an-image"
+    _CountingFakeClient.calls = 0
+    _CountingFakeClient.data = b"not an image"
+    _CountingFakeClient.status_code = 200
+    monkeypatch.setattr(cover_download.httpx, "AsyncClient", _CountingFakeClient)
+
+    assert asyncio.run(cover_download.download_candidate_cover(source_url)) is None
+    assert _CountingFakeClient.calls == 1
+    assert not list((covers_root / "candidate-cache").rglob("*"))
+    assert not list((covers_root / "staging").rglob("*"))
+
+
+def test_failed_candidate_response_leaves_no_published_cache_file(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source_url = "https://example.test/covers/missing"
+    _CountingFakeClient.calls = 0
+    _CountingFakeClient.data = image_bytes("JPEG")
+    _CountingFakeClient.status_code = 404
+    monkeypatch.setattr(cover_download.httpx, "AsyncClient", _CountingFakeClient)
+
+    assert asyncio.run(cover_download.download_candidate_cover(source_url)) is None
+    assert _CountingFakeClient.calls == 1
+    assert not (covers_root / "candidate-cache").exists()
+
+
+def test_permanent_cover_storage_is_content_addressed_and_valid(context):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    data = image_bytes("WEBP")
+
+    async def chunks():
+        yield data[:5]
+        yield data[5:]
+
+    first = asyncio.run(cover_storage.store_permanent_cover(chunks()))
+    second = asyncio.run(cover_storage.store_permanent_cover(chunks()))
+    digest = hashlib.sha256(data).hexdigest()
+    expected = f"/covers/objects/sha256/{digest[:2]}/{digest}.webp"
+    assert first.url == second.url == expected
+    assert first.path == covers_root / expected.removeprefix("/covers/")
+    assert first.path.read_bytes() == data
+    assert image_validation.validate_image(first.path) == ("image/webp", "webp")
+
+
+@pytest.mark.parametrize("url", [
+    "/covers/../outside.jpg",
+    "/covers/%2e%2e/outside.jpg",
+    "/covers/..%2Foutside.jpg",
+    "/covers/\\outside.jpg",
+    "https://example.test/cover.jpg",
+    "/covers/candidate-cache/image.jpg?query=not-allowed",
+])
+def test_local_cover_path_resolution_rejects_unsafe_paths(context, url):
+    _client, _db, _book, _other_book, _headers, _covers_root = context
+    with pytest.raises(cover_storage.CoverUploadError):
+        cover_storage.resolve_local_cover_path(url)
