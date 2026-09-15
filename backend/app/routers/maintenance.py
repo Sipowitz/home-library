@@ -31,6 +31,16 @@ def cache_existing_covers(background_tasks: BackgroundTasks, db: Session = Depen
     background_tasks.add_task(maintenance_jobs.run_job, job.id)
     return maintenance_jobs.serialize(job, db)
 
+
+@router.post("/clean-cover-cache", response_model=schemas.MaintenanceJobResponse, status_code=202)
+def clean_cover_cache(background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    try:
+        job = maintenance_jobs.create_cover_cache_cleanup_job(db, current_user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    background_tasks.add_task(maintenance_jobs.run_job, job.id)
+    return maintenance_jobs.serialize(job, db)
+
 @router.get("/jobs/active", response_model=schemas.MaintenanceJobResponse | None)
 def active_job(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     job = maintenance_jobs._active(db, current_user.id)

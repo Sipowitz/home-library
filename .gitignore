@@ -45,6 +45,7 @@ Thumbs.db
 
 # Docker
 postgres_data/
+backend/covers/
 
 # Python cache
 .pytest_cache/

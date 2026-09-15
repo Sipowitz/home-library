@@ -663,6 +663,7 @@ class MaintenanceJobResponse(BaseModel):
     error_summary: Optional[str] = None
     current_title: Optional[str] = None
     cover_cache_counts: Optional[dict[str, int]] = None
+    cover_cache_cleanup_counts: Optional[dict[str, int]] = None
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None

@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
@@ -9,6 +10,7 @@ from app.database import SessionLocal
 from app.services.providers.refresh_metadata_service import refresh_book_metadata
 from app.services.providers.refresh_cover_service import refresh_book_covers
 from app.services.covers.download import download_permanent_cover
+from app.services.cover_cache_cleanup import clean_cover_cache, empty_counts
 
 _tasks: dict[int, asyncio.Task] = {}
 
@@ -33,6 +35,27 @@ def create_job(db: Session, owner_id: int, kind: str) -> models.MaintenanceJob:
     db.commit(); db.refresh(job)
     return job
 
+
+def create_cover_cache_cleanup_job(db: Session, owner_id: int) -> models.MaintenanceJob:
+    if _active(db, owner_id):
+        raise ValueError("A provider refresh is already running")
+    job = models.MaintenanceJob(owner_id=owner_id, kind="cover_cache_cleanup", status="pending", total=0)
+    db.add(job); db.commit(); db.refresh(job)
+    return job
+
+
+def _cleanup_counts(job: models.MaintenanceJob) -> dict[str, int] | None:
+    if job.kind != "cover_cache_cleanup" or not job.error_summary:
+        return None
+    try:
+        data = json.loads(job.error_summary)
+    except (TypeError, ValueError):
+        return None
+    expected = empty_counts()
+    if not isinstance(data, dict) or set(data) != set(expected) or not all(isinstance(value, int) and value >= 0 for value in data.values()):
+        return None
+    return data
+
 def serialize(job: models.MaintenanceJob, db: Session):
     current = db.query(models.Book.title).join(models.MaintenanceJobItem, models.MaintenanceJobItem.book_id == models.Book.id).filter(models.MaintenanceJobItem.job_id == job.id, models.MaintenanceJobItem.status == "running").first()
     data = {**{c.name: getattr(job, c.name) for c in models.MaintenanceJob.__table__.columns}, "current_title": current[0] if current else None}
@@ -46,6 +69,10 @@ def serialize(job: models.MaintenanceJob, db: Session):
             "failed": sum(item.status == "failed" for item in items),
             "skipped": sum(item.status == "skipped" and item.error_summary != "no_cover" for item in items),
         }
+    cleanup_counts = _cleanup_counts(job)
+    if cleanup_counts is not None:
+        data["cover_cache_cleanup_counts"] = cleanup_counts
+        data["error_summary"] = None
     return data
 
 
@@ -103,6 +130,19 @@ async def _run_cover_cache_job(db: Session, job: models.MaintenanceJob) -> None:
             job.skipped += 1
         item.completed_at = datetime.now(UTC); job.processed += 1; db.commit()
 
+
+def _run_cover_cache_cleanup_job(db: Session, job: models.MaintenanceJob) -> None:
+    counts = clean_cover_cache(db)
+    job.total = counts["candidate_scanned"] + counts["staging_scanned"]
+    job.processed = job.total
+    job.changed = counts["candidate_deleted"] + counts["staging_deleted"]
+    job.unchanged = counts["candidate_retained"] + counts["staging_retained"]
+    job.skipped = counts["candidate_skipped"] + counts["staging_skipped"]
+    job.failed = counts["candidate_failed"] + counts["staging_failed"]
+    job.succeeded = job.total - job.failed
+    job.error_summary = json.dumps(counts, separators=(",", ":"))
+    db.commit()
+
 async def run_job(job_id: int):
     db = SessionLocal()
     try:
@@ -114,6 +154,10 @@ async def run_job(job_id: int):
             db.refresh(job)
             if job.status == "cancelled":
                 return
+            job.status = "completed"; job.completed_at = datetime.now(UTC); db.commit()
+            return
+        if job.kind == "cover_cache_cleanup":
+            _run_cover_cache_cleanup_job(db, job)
             job.status = "completed"; job.completed_at = datetime.now(UTC); db.commit()
             return
         for item in job.items:

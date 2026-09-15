@@ -38,6 +38,7 @@ from .core.error_handlers import (
     validation_exception_handler,
     general_exception_handler,
 )
+from .core.config import settings
 from .services.maintenance_jobs import recover_interrupted_jobs
 
 app = FastAPI()
@@ -52,7 +53,7 @@ def recover_maintenance_jobs_on_startup():
 
 app.mount(
     "/covers",
-    StaticFiles(directory="covers"),
+    StaticFiles(directory=settings.COVERS_DIR),
     name="covers",
 )
 
