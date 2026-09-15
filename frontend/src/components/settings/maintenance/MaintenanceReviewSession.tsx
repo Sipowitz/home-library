@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 
-import { getBook, getCoverCandidates, refreshMetadata } from "../../../api/books";
+import { getBook, getCoverCandidates, refreshMetadata, selectCoverCandidate } from "../../../api/books";
 import type { CoverCandidate, CoverRefreshResponse, ReviewIntent } from "../../../api/books";
 import type { Book } from "../../../types/book";
 import type { ReviewTarget } from "./MaintenanceSettings";
@@ -190,7 +190,13 @@ export function MaintenanceReviewSession({
               ...(current.uploaded_cover_candidates_json || []),
             ],
           }))}
-          onSelectCover={(cover) => setDraft((current) => ({ ...current, cover_url: cover.url }))}
+          onSelectCover={async (cover) => {
+            if (cover.url.startsWith("/covers/candidate-cache/")) {
+              setDraft(await selectCoverCandidate(draft.id, cover));
+              return;
+            }
+            setDraft((current) => ({ ...current, cover_url: cover.url }));
+          }}
           onMarkReviewed={handleCoverDone}
         />
       )}

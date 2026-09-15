@@ -479,6 +479,12 @@ class CoverCandidateResponse(BaseModel):
     url: str
 
 
+class CoverCandidateSelection(BaseModel):
+    provider: str = Field(min_length=1, max_length=64)
+    label: Optional[str] = Field(default=None, max_length=100)
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class CoverCandidatesResponse(BaseModel):
     candidates: List[CoverCandidateResponse] = Field(default_factory=list)
     cover_review: ReviewStatusResponse
@@ -656,6 +662,8 @@ class MaintenanceJobResponse(BaseModel):
     cancellation_requested: bool
     error_summary: Optional[str] = None
     current_title: Optional[str] = None
+    cover_cache_counts: Optional[dict[str, int]] = None
+    cover_cache_cleanup_counts: Optional[dict[str, int]] = None
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None

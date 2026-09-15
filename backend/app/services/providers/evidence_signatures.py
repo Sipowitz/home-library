@@ -64,7 +64,9 @@ def canonicalize_cover_evidence(candidates: Iterable[dict[str, Any]]) -> list[di
         provider = normalize_text(candidate.get("provider"))
         if provider in {None, "manual", "uploaded", "upload"}:
             continue
-        url = normalize_cover_url(candidate.get("url"))
+        # Stage 1B stores a local display URL separately.  Provider provenance,
+        # and therefore review/change detection, remains the original URL.
+        url = normalize_cover_url(candidate.get("source_url") or candidate.get("url"))
         if url:
             grouped[url].add((provider, normalize_text(candidate.get("label"))))
     return [{"url": url, "sources": [{"provider": provider, "label": label} for provider, label in sorted(sources, key=lambda value: ((value[0] or ""), (value[1] or "")))]} for url, sources in sorted(grouped.items())]

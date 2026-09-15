@@ -1,6 +1,7 @@
 import io
 import os
 import asyncio
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -31,6 +32,28 @@ def image_bytes(image_format: str, size=(12, 18)) -> bytes:
     output = io.BytesIO()
     Image.new("RGB", size, "navy").save(output, format=image_format)
     return output.getvalue()
+
+
+def add_cached_provider_candidate(db, book, source_url: str, data: bytes, *, provider="google_books", label="large"):
+    async def chunks():
+        yield data
+
+    cached = asyncio.run(cover_storage.store_candidate_cover(source_url, chunks()))
+    book.isbn = "9780306406157"
+    snapshot = models.ProviderCoverSnapshot(
+        book_id=book.id,
+        provider=provider,
+        isbn_query=book.isbn,
+        candidates_json=[{
+            "provider": provider,
+            "label": label,
+            "source_url": source_url,
+            "url": cached.url,
+        }],
+    )
+    db.add(snapshot)
+    db.commit()
+    return cached, snapshot
 
 
 @pytest.fixture()
@@ -211,3 +234,351 @@ def test_remote_cover_download_uses_the_same_validation_and_verified_extension(c
     monkeypatch.setattr(cover_download.httpx, "AsyncClient", lambda **_kwargs: FakeClient(b"not an image"))
     assert asyncio.run(cover_download.download_cover("https://example.test/bad.png")) is None
     assert set(covers_root.rglob("*.*")) == before
+
+
+class _FakeDownloadResponse:
+    status_code = 200
+
+    def __init__(self, data: bytes, status_code: int = 200):
+        self.data = data
+        self.status_code = status_code
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def aiter_bytes(self):
+        yield self.data
+
+
+class _CountingFakeClient:
+    calls = 0
+    data = b""
+    status_code = 200
+
+    def __init__(self, **_kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    def stream(self, *_args, **_kwargs):
+        type(self).calls += 1
+        return _FakeDownloadResponse(type(self).data, type(self).status_code)
+
+
+class _RedirectResponse:
+    def __init__(self, status_code, data=b"", headers=None):
+        self.status_code = status_code
+        self.data = data
+        self.headers = headers or {}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def aiter_bytes(self):
+        yield self.data
+
+
+class _RedirectClient:
+    routes = {}
+    calls = []
+
+    def __init__(self, **_kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    def stream(self, _method, url):
+        type(self).calls.append(url)
+        return type(self).routes[url]
+
+
+def configure_redirect_client(monkeypatch, routes):
+    _RedirectClient.routes = routes
+    _RedirectClient.calls = []
+    monkeypatch.setattr(cover_download.httpx, "AsyncClient", _RedirectClient)
+
+    async def safe(_url):
+        return True
+
+    monkeypatch.setattr(cover_download, "_is_safe_remote_url", safe)
+
+
+def test_candidate_download_is_cached_under_a_deterministic_local_path(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source_url = "https://example.test/covers/one"
+    key = hashlib.sha256(source_url.encode("utf-8")).hexdigest()
+    _CountingFakeClient.calls = 0
+    _CountingFakeClient.data = image_bytes("PNG")
+    _CountingFakeClient.status_code = 200
+    monkeypatch.setattr(cover_download.httpx, "AsyncClient", _CountingFakeClient)
+
+    first = asyncio.run(cover_download.download_candidate_cover(source_url))
+    second = asyncio.run(cover_download.download_candidate_cover(source_url))
+
+    expected = f"/covers/candidate-cache/{key[:2]}/{key}.png"
+    assert first == second == expected
+    assert _CountingFakeClient.calls == 1
+    assert (covers_root / expected.removeprefix("/covers/")).is_file()
+    assert cover_storage.candidate_cache_key(source_url) == key
+
+
+def test_candidate_download_rejects_invalid_content_without_publishing(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source_url = "https://example.test/covers/not-an-image"
+    _CountingFakeClient.calls = 0
+    _CountingFakeClient.data = b"not an image"
+    _CountingFakeClient.status_code = 200
+    monkeypatch.setattr(cover_download.httpx, "AsyncClient", _CountingFakeClient)
+
+    assert asyncio.run(cover_download.download_candidate_cover(source_url)) is None
+    assert _CountingFakeClient.calls == 1
+    assert not list((covers_root / "candidate-cache").rglob("*"))
+    assert not list((covers_root / "staging").rglob("*"))
+
+
+def test_failed_candidate_response_leaves_no_published_cache_file(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source_url = "https://example.test/covers/missing"
+    _CountingFakeClient.calls = 0
+    _CountingFakeClient.data = image_bytes("JPEG")
+    _CountingFakeClient.status_code = 404
+    monkeypatch.setattr(cover_download.httpx, "AsyncClient", _CountingFakeClient)
+
+    assert asyncio.run(cover_download.download_candidate_cover(source_url)) is None
+    assert _CountingFakeClient.calls == 1
+    assert not (covers_root / "candidate-cache").exists()
+
+
+def test_permanent_download_follows_openlibrary_style_redirect_to_valid_jpeg(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source = "https://covers.openlibrary.org/b/isbn/9780743429900-L.jpg"
+    archive = "https://ia800805.us.archive.org/view_archive.php?file=cover.jpg"
+    configure_redirect_client(monkeypatch, {
+        source: _RedirectResponse(302, headers={"location": archive}),
+        archive: _RedirectResponse(200, image_bytes("JPEG")),
+    })
+
+    url = asyncio.run(cover_download.download_permanent_cover(source))
+
+    assert url and url.startswith("/covers/objects/sha256/")
+    assert (covers_root / url.removeprefix("/covers/")).is_file()
+    assert _RedirectClient.calls == [source, archive]
+
+
+def test_permanent_download_allows_bounded_safe_redirect_chain(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, _covers_root = context
+    urls = [f"https://covers.example/{index}" for index in range(cover_download.MAX_REDIRECTS + 1)]
+    routes = {url: _RedirectResponse(302, headers={"location": urls[index + 1]}) for index, url in enumerate(urls[:-1])}
+    routes[urls[-1]] = _RedirectResponse(200, image_bytes("PNG"))
+    configure_redirect_client(monkeypatch, routes)
+
+    assert asyncio.run(cover_download.download_permanent_cover(urls[0]))
+    assert _RedirectClient.calls == urls
+
+
+@pytest.mark.parametrize("kind", ["excessive", "loop", "missing", "invalid_location", "malformed_location", "final_non_200"])
+def test_permanent_download_rejects_unsafe_redirect_shapes(context, monkeypatch, kind):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source = "https://covers.example/start"
+    if kind == "excessive":
+        urls = [f"https://covers.example/{index}" for index in range(cover_download.MAX_REDIRECTS + 2)]
+        routes = {url: _RedirectResponse(302, headers={"location": urls[index + 1]}) for index, url in enumerate(urls[:-1])}
+        source = urls[0]
+    elif kind == "loop":
+        routes = {
+            source: _RedirectResponse(302, headers={"location": "https://covers.example/again"}),
+            "https://covers.example/again": _RedirectResponse(302, headers={"location": source}),
+        }
+    elif kind == "missing":
+        routes = {source: _RedirectResponse(302)}
+    elif kind == "invalid_location":
+        routes = {source: _RedirectResponse(302, headers={"location": "file:///etc/passwd"})}
+    elif kind == "malformed_location":
+        routes = {source: _RedirectResponse(302, headers={"location": "http://[::1"})}
+    else:
+        routes = {source: _RedirectResponse(404)}
+    configure_redirect_client(monkeypatch, routes)
+
+    assert asyncio.run(cover_download.download_permanent_cover(source)) is None
+    assert not list(covers_root.rglob("*.*"))
+
+
+def test_permanent_download_revalidates_redirect_destination_and_rejects_private_ip(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source = "https://covers.example/start"
+    private = "http://localhost/private.jpg"
+    _RedirectClient.routes = {source: _RedirectResponse(302, headers={"location": private})}
+    _RedirectClient.calls = []
+    monkeypatch.setattr(cover_download.httpx, "AsyncClient", _RedirectClient)
+
+    def resolve(host, *_args, **_kwargs):
+        address = "8.8.8.8" if host == "covers.example" else "127.0.0.1"
+        return [(None, None, None, None, (address, 0))]
+
+    monkeypatch.setattr(cover_download.socket, "getaddrinfo", resolve)
+    assert asyncio.run(cover_download.download_permanent_cover(source)) is None
+    assert _RedirectClient.calls == [source]
+    assert not list(covers_root.rglob("*.*"))
+
+
+@pytest.mark.parametrize("data", [b"not an image", image_bytes("GIF")])
+def test_permanent_download_rejects_invalid_or_gif_final_image(context, monkeypatch, data):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source = "https://covers.example/start"
+    final = "https://archive.example/cover"
+    configure_redirect_client(monkeypatch, {
+        source: _RedirectResponse(302, headers={"location": final}),
+        final: _RedirectResponse(200, data),
+    })
+
+    assert asyncio.run(cover_download.download_permanent_cover(source)) is None
+    assert not list(covers_root.rglob("*.*"))
+
+
+def test_permanent_download_rejects_oversized_redirected_image_and_keeps_direct_200_support(context, monkeypatch):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    source = "https://covers.example/start"
+    final = "https://archive.example/cover"
+    configure_redirect_client(monkeypatch, {
+        source: _RedirectResponse(302, headers={"location": final}),
+        final: _RedirectResponse(200, image_bytes("JPEG")),
+    })
+    monkeypatch.setattr(cover_storage, "MAX_COVER_UPLOAD_BYTES", 16)
+    assert asyncio.run(cover_download.download_permanent_cover(source)) is None
+    assert not list(covers_root.rglob("*.*"))
+
+    monkeypatch.setattr(cover_storage, "MAX_COVER_UPLOAD_BYTES", 15 * 1024 * 1024)
+    direct = "https://covers.example/direct"
+    configure_redirect_client(monkeypatch, {direct: _RedirectResponse(200, image_bytes("PNG"))})
+    assert asyncio.run(cover_download.download_permanent_cover(direct))
+
+
+def test_permanent_cover_storage_is_content_addressed_and_valid(context):
+    _client, _db, _book, _other_book, _headers, covers_root = context
+    data = image_bytes("WEBP")
+
+    async def chunks():
+        yield data[:5]
+        yield data[5:]
+
+    first = asyncio.run(cover_storage.store_permanent_cover(chunks()))
+    second = asyncio.run(cover_storage.store_permanent_cover(chunks()))
+    digest = hashlib.sha256(data).hexdigest()
+    expected = f"/covers/objects/sha256/{digest[:2]}/{digest}.webp"
+    assert first.url == second.url == expected
+    assert first.path == covers_root / expected.removeprefix("/covers/")
+    assert first.path.read_bytes() == data
+    assert image_validation.validate_image(first.path) == ("image/webp", "webp")
+
+
+def test_selecting_cached_provider_candidate_promotes_permanent_cover_and_preserves_provenance(context):
+    client, db, book, _other_book, headers, covers_root = context
+    source_url = "https://provider.example/covers/one.jpg"
+    cached, snapshot = add_cached_provider_candidate(db, book, source_url, image_bytes("PNG"))
+    selection = {"provider": "google_books", "label": "large", "url": cached.url}
+
+    first = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
+    second = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
+
+    assert first.status_code == second.status_code == 200
+    permanent_url = first.json()["cover_url"]
+    assert permanent_url.startswith("/covers/objects/sha256/")
+    assert second.json()["cover_url"] == permanent_url
+    permanent = covers_root / permanent_url.removeprefix("/covers/")
+    assert permanent.is_file()
+    assert permanent.read_bytes() == (covers_root / cached.url.removeprefix("/covers/")).read_bytes()
+    assert len(list((covers_root / "objects" / "sha256").rglob("*.*"))) == 1
+    db.refresh(book)
+    db.refresh(snapshot)
+    assert book.cover_url == permanent_url
+    assert snapshot.candidates_json == [{
+        "provider": "google_books", "label": "large", "source_url": source_url, "url": cached.url,
+    }]
+
+
+def test_cover_candidate_selection_rejects_foreign_and_arbitrary_candidates(context):
+    client, db, book, other_book, headers, _covers_root = context
+    cached, _snapshot = add_cached_provider_candidate(
+        db, other_book, "https://provider.example/covers/foreign.jpg", image_bytes("JPEG")
+    )
+    selection = {"provider": "google_books", "label": "large", "url": cached.url}
+
+    foreign = client.post(f"/books/{other_book.id}/select-cover-candidate", headers=headers, json=selection)
+    arbitrary = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json={
+        "provider": "google_books", "label": "large", "url": "https://attacker.example/cover.jpg",
+    })
+
+    assert foreign.status_code == 404
+    assert arbitrary.status_code == 400
+    db.refresh(book)
+    assert book.cover_url is None
+
+
+@pytest.mark.parametrize("broken", ["missing", "invalid"])
+def test_missing_or_invalid_cached_candidate_fails_without_replacing_existing_cover(context, broken):
+    client, db, book, _other_book, headers, covers_root = context
+    book.cover_url = "/covers/uploaded/existing.jpg"
+    cached, snapshot = add_cached_provider_candidate(
+        db, book, "https://provider.example/covers/missing.jpg", image_bytes("JPEG")
+    )
+    cached_path = covers_root / cached.url.removeprefix("/covers/")
+    if broken == "missing":
+        cached_path.unlink()
+    else:
+        cached_path.write_bytes(b"not an image")
+    selection = {"provider": "google_books", "label": "large", "url": cached.url}
+
+    response = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
+
+    assert response.status_code == 400
+    db.refresh(book)
+    db.refresh(snapshot)
+    assert book.cover_url == "/covers/uploaded/existing.jpg"
+    assert snapshot.candidates_json[0]["url"] == cached.url
+
+
+def test_cover_candidate_selection_db_failure_keeps_existing_cover(context, monkeypatch):
+    client, db, book, _other_book, headers, _covers_root = context
+    book.cover_url = "/covers/uploaded/existing.jpg"
+    cached, _snapshot = add_cached_provider_candidate(
+        db, book, "https://provider.example/covers/rollback.jpg", image_bytes("WEBP")
+    )
+    selection = {"provider": "google_books", "label": "large", "url": cached.url}
+
+    def fail_commit():
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(db, "commit", fail_commit)
+    response = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
+
+    assert response.status_code == 500
+    db.refresh(book)
+    assert book.cover_url == "/covers/uploaded/existing.jpg"
+
+
+@pytest.mark.parametrize("url", [
+    "/covers/../outside.jpg",
+    "/covers/%2e%2e/outside.jpg",
+    "/covers/..%2Foutside.jpg",
+    "/covers/\\outside.jpg",
+    "https://example.test/cover.jpg",
+    "/covers/candidate-cache/image.jpg?query=not-allowed",
+])
+def test_local_cover_path_resolution_rejects_unsafe_paths(context, url):
+    _client, _db, _book, _other_book, _headers, _covers_root = context
+    with pytest.raises(cover_storage.CoverUploadError):
+        cover_storage.resolve_local_cover_path(url)

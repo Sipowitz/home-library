@@ -52,6 +52,7 @@ frontend.tar.gz
 
 # Docker
 postgres_data/
+backend/covers/
 
 # Python cache
 .pytest_cache/

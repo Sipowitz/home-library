@@ -195,6 +195,14 @@ export async function refreshCovers(bookId: number): Promise<CoverRefreshRespons
   return res.data;
 }
 
+export async function selectCoverCandidate(
+  bookId: number,
+  candidate: CoverCandidate,
+): Promise<Book> {
+  const res = await client.post(`/books/${bookId}/select-cover-candidate`, candidate);
+  return res.data;
+}
+
 export async function updateBook(
   id: number,
   book: BookUpdateInput,

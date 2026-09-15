@@ -38,6 +38,7 @@ from .core.error_handlers import (
     validation_exception_handler,
     general_exception_handler,
 )
+from .core.config import settings
 from .services.maintenance_jobs import recover_interrupted_jobs
 
 from .core.config import settings
