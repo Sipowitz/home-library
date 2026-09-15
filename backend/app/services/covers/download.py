@@ -1,7 +1,10 @@
+import asyncio
+import ipaddress
+import socket
 import httpx
 
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from app.core.config import settings
 from app.services.cover_storage import (
@@ -13,6 +16,8 @@ from app.services.cover_storage import (
 )
 
 TIMEOUT = 10.0
+MAX_REDIRECTS = 5
+REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 
 
 async def download_cover(
@@ -37,8 +42,33 @@ async def download_cover(
 def _is_remote_http_url(value: str | None) -> bool:
     if not value:
         return False
-    parsed = urlsplit(value)
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return False
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+async def _is_safe_remote_url(value: str | None) -> bool:
+    """Validate the URL and its current DNS answers before each outbound hop."""
+    if not _is_remote_http_url(value):
+        return False
+    parsed = urlsplit(value)
+    if parsed.username or parsed.password or not parsed.hostname:
+        return False
+    try:
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        addresses = await asyncio.to_thread(
+            socket.getaddrinfo, parsed.hostname, port, type=socket.SOCK_STREAM
+        )
+    except (OSError, ValueError):
+        return False
+    if not addresses:
+        return False
+    try:
+        return all(ipaddress.ip_address(item[4][0]).is_global for item in addresses)
+    except ValueError:
+        return False
 
 
 async def download_candidate_cover(source_url: str | None) -> str | None:
@@ -64,15 +94,28 @@ async def download_candidate_cover(source_url: str | None) -> str | None:
 
 
 async def download_permanent_cover(source_url: str | None) -> str | None:
-    """Fetch provider artwork into immutable local permanent object storage."""
-    if not _is_remote_http_url(source_url):
-        return None
+    """Fetch artwork through a bounded, revalidated redirect chain."""
+    current_url = source_url
+    seen: set[str] = set()
     try:
-        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-            async with client.stream("GET", source_url) as response:
-                if response.status_code != 200:
+        async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=False) as client:
+            for redirect_count in range(MAX_REDIRECTS + 1):
+                if current_url in seen or not await _is_safe_remote_url(current_url):
                     return None
-                stored = await store_permanent_cover(response.aiter_bytes())
-        return stored.url
-    except (CoverUploadError, httpx.HTTPError, OSError):
+                seen.add(current_url)
+                async with client.stream("GET", current_url) as response:
+                    if response.status_code == 200:
+                        stored = await store_permanent_cover(response.aiter_bytes())
+                        return stored.url
+                    if response.status_code not in REDIRECT_STATUSES or redirect_count == MAX_REDIRECTS:
+                        return None
+                    location = response.headers.get("location")
+                    if not location:
+                        return None
+                    next_url = urljoin(current_url, location)
+                    if not _is_remote_http_url(next_url):
+                        return None
+                    current_url = next_url
+    except (CoverUploadError, httpx.HTTPError, OSError, ValueError):
         return None
+    return None
