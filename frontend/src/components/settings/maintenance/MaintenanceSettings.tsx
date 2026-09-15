@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import type { ReviewQueueBook } from "../../../api/maintenance";
-import { getReviewQueue, startMaintenanceRefresh, getActiveMaintenanceJob, getMaintenanceJob, cancelMaintenanceJob, type MaintenanceJob } from "../../../api/maintenance";
+import { cacheExistingCovers, getReviewQueue, startMaintenanceRefresh, getActiveMaintenanceJob, getMaintenanceJob, cancelMaintenanceJob, type MaintenanceJob } from "../../../api/maintenance";
 import { useMaintenance } from "../../../hooks/useMaintenance";
 import { resolveCoverUrl } from "../../books/BookView";
 import { ActionButton } from "../../ui/ActionButton";
@@ -52,13 +52,14 @@ function jobLabel(job: MaintenanceJob) {
   if (job.status === "failed") return "Refresh failed";
   if (job.status === "cancelled") return "Refresh cancelled";
   if (job.status === "pending") return "Refresh queued";
+  if (job.kind === "cover_cache") return "Caching existing covers";
   return `Refreshing ${job.kind === "metadata_refresh" ? "metadata" : "covers"}`;
 }
 
 export function MaintenanceSettings({ active, reviewSaved, evidenceRefreshVersion = 0, onReview, onReviewSequenceComplete }: Props) {
   const queue = useMaintenance(active);
   const [job, setJob] = useState<MaintenanceJob | null>(null);
-  const [confirmKind, setConfirmKind] = useState<"metadata" | "covers" | null>(null);
+  const [confirmKind, setConfirmKind] = useState<"metadata" | "covers" | "cover_cache" | null>(null);
   const handledSaveRef = useRef<number | null>(null);
   const handledRefreshRef = useRef(evidenceRefreshVersion);
   const refreshQueue = queue.refresh;
@@ -81,7 +82,7 @@ export function MaintenanceSettings({ active, reviewSaved, evidenceRefreshVersio
   async function startRefresh() {
     if (!confirmKind) return;
     try {
-      setJob(await startMaintenanceRefresh(confirmKind));
+      setJob(confirmKind === "cover_cache" ? await cacheExistingCovers() : await startMaintenanceRefresh(confirmKind));
     } catch (err: unknown) {
       const message = axios.isAxiosError<{ message?: string }>(err)
         ? err.response?.data?.message
@@ -200,10 +201,12 @@ export function MaintenanceSettings({ active, reviewSaved, evidenceRefreshVersio
         <div className="mt-3 flex flex-wrap gap-2">
           <ActionButton variant="utility" disabled={Boolean(job && ["pending", "running"].includes(job.status))} onClick={() => setConfirmKind("metadata")} className="px-3">Refresh All Metadata</ActionButton>
           <ActionButton variant="utility" disabled={Boolean(job && ["pending", "running"].includes(job.status))} onClick={() => setConfirmKind("covers")} className="px-3">Refresh All Covers</ActionButton>
+          <ActionButton variant="utility" disabled={Boolean(job && ["pending", "running"].includes(job.status))} onClick={() => setConfirmKind("cover_cache")} className="px-3">Cache Existing Covers</ActionButton>
         </div>
-        {job && <div className={`mt-4 rounded-lg border bg-surface-muted/70 p-3 text-xs dark:bg-canvas/60 ${jobTone(job.status)}`} aria-live="polite"><div className="flex justify-between text-text-secondary"><span>{jobLabel(job)}</span><span>{job.processed} / {job.total}</span></div><progress className="mt-2 h-2 w-full accent-blue-600" max={job.total || 1} value={job.processed} aria-label="Refresh progress" />{job.current_title && <div className="mt-2 truncate text-text-secondary">Current: {job.current_title}</div>}<div className="mt-2 text-text-muted"><span className={job.changed ? "text-success" : ""}>{job.changed} changed</span> · {job.unchanged} unchanged · <span className={job.partially_succeeded ? "text-warning" : ""}>{job.partially_succeeded} partial</span> · <span className={job.failed ? "text-danger" : ""}>{job.failed} failed</span> · {job.skipped} skipped</div>{job.error_summary && <div className="mt-2 text-danger">{job.error_summary}</div>}{["pending", "running"].includes(job.status) && <ActionButton variant="danger" size="sm" onClick={() => cancelMaintenanceJob(job.id).then(setJob)} className="mt-2">Cancel Refresh</ActionButton>}</div>}
+        <p className="mt-2 text-xs text-text-muted">Cache Existing Covers downloads externally hosted selected covers into local Library App storage.</p>
+        {job && <div className={`mt-4 rounded-lg border bg-surface-muted/70 p-3 text-xs dark:bg-canvas/60 ${jobTone(job.status)}`} aria-live="polite"><div className="flex justify-between text-text-secondary"><span>{jobLabel(job)}</span><span>{job.processed} / {job.total}</span></div><progress className="mt-2 h-2 w-full accent-blue-600" max={job.total || 1} value={job.processed} aria-label="Refresh progress" />{job.current_title && <div className="mt-2 truncate text-text-secondary">Current: {job.current_title}</div>}{job.cover_cache_counts ? <div className="mt-2 text-text-muted">{job.cover_cache_counts.cached} cached · {job.cover_cache_counts.already_local} already local · {job.cover_cache_counts.no_cover} no cover · <span className={job.cover_cache_counts.failed ? "text-danger" : ""}>{job.cover_cache_counts.failed} failed</span> · {job.cover_cache_counts.skipped} skipped</div> : <div className="mt-2 text-text-muted"><span className={job.changed ? "text-success" : ""}>{job.changed} changed</span> · {job.unchanged} unchanged · <span className={job.partially_succeeded ? "text-warning" : ""}>{job.partially_succeeded} partial</span> · <span className={job.failed ? "text-danger" : ""}>{job.failed} failed</span> · {job.skipped} skipped</div>}{job.error_summary && <div className="mt-2 text-danger">{job.error_summary}</div>}{["pending", "running"].includes(job.status) && <ActionButton variant="danger" size="sm" onClick={() => cancelMaintenanceJob(job.id).then(setJob)} className="mt-2">Cancel Refresh</ActionButton>}</div>}
       </section>
-      {confirmKind && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-xl border border-border-strong bg-surface-raised p-5 text-text-primary shadow-2xl dark:bg-surface"><h2 className="text-lg font-semibold">Start provider refresh?</h2><p className="mt-2 text-sm text-text-secondary">This may take several minutes. Saved Book fields and selected covers will not change; updated evidence may add books to the Review Queue.</p><div className="mt-5 flex justify-end gap-2"><ActionButton variant="tertiary" onClick={() => setConfirmKind(null)}>Cancel</ActionButton><ActionButton variant="primary" onClick={startRefresh}>Start Refresh</ActionButton></div></div></div>}
+      {confirmKind && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-xl border border-border-strong bg-surface-raised p-5 text-text-primary shadow-2xl dark:bg-surface"><h2 className="text-lg font-semibold">{confirmKind === "cover_cache" ? "Cache existing covers?" : "Start provider refresh?"}</h2><p className="mt-2 text-sm text-text-secondary">{confirmKind === "cover_cache" ? "Downloads externally hosted selected covers into local Library App storage. Failed covers remain unchanged, and this is safe to run again." : "This may take several minutes. Saved Book fields and selected covers will not change; updated evidence may add books to the Review Queue."}</p><div className="mt-5 flex justify-end gap-2"><ActionButton variant="tertiary" onClick={() => setConfirmKind(null)}>Cancel</ActionButton><ActionButton variant="primary" onClick={startRefresh}>{confirmKind === "cover_cache" ? "Cache Covers" : "Start Refresh"}</ActionButton></div></div></div>}
     </div>
   );
 }

@@ -37,10 +37,15 @@ export type MaintenanceJob = {
   succeeded: number; unchanged: number; changed: number; partially_succeeded: number;
   failed: number; skipped: number; cancellation_requested: boolean;
   current_title?: string | null; error_summary?: string | null;
+  cover_cache_counts?: { total_considered: number; cached: number; already_local: number; no_cover: number; failed: number; skipped: number } | null;
 };
 
 export async function startMaintenanceRefresh(kind: "metadata" | "covers") {
   const response = await client.post(`/maintenance/refresh-${kind}`);
+  return response.data as MaintenanceJob;
+}
+export async function cacheExistingCovers() {
+  const response = await client.post("/maintenance/cache-existing-covers");
   return response.data as MaintenanceJob;
 }
 export async function getActiveMaintenanceJob() {
