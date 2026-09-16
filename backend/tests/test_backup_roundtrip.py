@@ -1,5 +1,8 @@
 """Integration tests require a dedicated disposable PostgreSQL URL in TEST_DATABASE_URL."""
+import hashlib
+import io
 import os
+import zipfile
 from destructive_db_guard import require_disposable_database
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +24,7 @@ from app import models
 from app.core.config import settings
 from app.database import Base
 from app.services.backup.archive import ValidationSession, inspect_archive, sha256_file
+from app.services.backup.errors import BackupError
 from app.services.backup.export_service import create_backup
 from app.services.backup.restore_service import restore_user
 from app.services.backup import restore_service
@@ -83,6 +87,25 @@ def validation_session(path, user_id):
     return ValidationSession(0, user_id, path, digest, datetime.max.replace(tzinfo=timezone.utc), manifest, library, covers)
 
 
+def cover_bytes(color):
+    output = io.BytesIO()
+    Image.new("RGB", (8, 8), color).save(output, format="PNG")
+    return output.getvalue()
+
+
+def write_local_cover(root, relative, data):
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return f"/covers/{relative.as_posix()}"
+
+
+def content_addressed_cover(root, data):
+    digest = hashlib.sha256(data).hexdigest()
+    url = write_local_cover(root, Path("objects") / "sha256" / digest[:2] / f"{digest}.png", data)
+    return url, digest
+
+
 def test_populated_round_trip_remaps_ids_preserves_data_and_other_user(db):
     user_id, other_id, cover_bytes = populated(db)
     original_book_id = db.query(models.Book).filter_by(owner_id=user_id).one().id
@@ -109,6 +132,97 @@ def test_populated_round_trip_remaps_ids_preserves_data_and_other_user(db):
     assert Path(settings.COVERS_DIR, restored.cover_url.removeprefix("/covers/")).read_bytes() == cover_bytes
     assert db.query(models.Book).filter_by(owner_id=other_id).one().title == "Untouched"
     archive.unlink()
+
+
+def test_content_addressed_covers_round_trip_portably_with_deduplication_and_reuse(db, tmp_path):
+    source_root = Path(settings.COVERS_DIR)
+    shared = cover_bytes("red")
+    uploaded = cover_bytes("blue")
+    series = cover_bytes("green")
+    unused = cover_bytes("black")
+    shared_url, shared_digest = content_addressed_cover(source_root, shared)
+    uploaded_url = write_local_cover(source_root, Path("uploaded") / "candidate.png", uploaded)
+    series_url = write_local_cover(source_root, Path("series") / "series.png", series)
+    _unused_object_url, unused_digest = content_addressed_cover(source_root, unused)
+    write_local_cover(source_root, Path("uploaded") / "unused.png", unused)
+    write_local_cover(source_root, Path("candidate-cache") / "aa" / ("a" * 64 + ".png"), unused)
+    write_local_cover(source_root, Path("staging") / "temporary.png", unused)
+
+    user = models.User(username="portable", email="portable@example.test", hashed_password="x")
+    db.add(user); db.flush()
+    first = models.Book(
+        owner_id=user.id, title="Permanent", author="Author", cover_url=shared_url,
+        uploaded_cover_candidates_json=[{"provider": "upload", "label": "Candidate", "url": uploaded_url}],
+    )
+    second = models.Book(owner_id=user.id, title="Shared", author="Author", cover_url=shared_url)
+    series_row = models.Series(name="Series", node_type="series", owner_id=user.id, cover_url=series_url)
+    db.add_all([first, second, series_row]); db.commit()
+    user_id, username = user.id, user.username
+
+    archive, _ = create_backup(db, user_id, username)
+    db.rollback()  # End export's repeatable-read transaction before restore begins.
+    session = validation_session(archive, user_id)
+    candidate_digest = hashlib.sha256(uploaded).hexdigest()
+    series_digest = hashlib.sha256(series).hexdigest()
+    expected_digests = {shared_digest, candidate_digest, series_digest}
+    assert session.manifest.record_counts.cover_files == len(expected_digests)
+    assert set(session.cover_entries) == expected_digests
+    with zipfile.ZipFile(archive) as zf:
+        names = set(zf.namelist())
+    assert all("candidate-cache" not in name and "staging" not in name for name in names)
+    assert unused_digest not in "\n".join(names)
+
+    destination_root = tmp_path / "portable-destination"
+    existing = destination_root / "objects" / "sha256" / shared_digest[:2] / f"{shared_digest}.png"
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(shared)
+    before_inode = existing.stat().st_ino
+    previous_root = settings.COVERS_DIR
+    settings.COVERS_DIR = str(destination_root)
+    try:
+        urls = publish_covers(session)
+        assert existing.stat().st_ino == before_inode
+        restore_user(db, user_id, session, urls)
+        restored = db.query(models.Book).filter_by(owner_id=user_id).order_by(models.Book.title).all()
+        restored_by_title = {book.title: book for book in restored}
+        expected_shared_url = f"/covers/objects/sha256/{shared_digest[:2]}/{shared_digest}.png"
+        expected_uploaded_url = f"/covers/objects/sha256/{candidate_digest[:2]}/{candidate_digest}.png"
+        expected_series_url = f"/covers/objects/sha256/{series_digest[:2]}/{series_digest}.png"
+        assert restored_by_title["Permanent"].cover_url == restored_by_title["Shared"].cover_url == expected_shared_url
+        assert restored_by_title["Permanent"].uploaded_cover_candidates_json == [{"provider": "upload", "label": "Candidate", "url": expected_uploaded_url}]
+        assert db.query(models.Series).filter_by(owner_id=user_id).one().cover_url == expected_series_url
+        assert (destination_root / expected_shared_url.removeprefix("/covers/")).read_bytes() == shared
+        assert (destination_root / expected_uploaded_url.removeprefix("/covers/")).read_bytes() == uploaded
+        assert (destination_root / expected_series_url.removeprefix("/covers/")).read_bytes() == series
+        assert str(source_root) not in str(session.library.model_dump())
+    finally:
+        settings.COVERS_DIR = previous_root
+        archive.unlink()
+
+
+@pytest.mark.parametrize("reference_kind,relative", [
+    ("book", Path("candidate-cache") / "aa" / ("a" * 64 + ".png")),
+    ("candidate", Path("staging") / "temporary.png"),
+    ("series", Path("candidate-cache") / "bb" / ("b" * 64 + ".png")),
+])
+def test_disposable_cover_references_fail_closed_in_backup(db, reference_kind, relative):
+    root = Path(settings.COVERS_DIR)
+    disposable_url = write_local_cover(root, relative, cover_bytes("purple"))
+    user = models.User(username=f"disposable-{reference_kind}", email=f"{reference_kind}@example.test", hashed_password="x")
+    db.add(user); db.flush()
+    book = models.Book(owner_id=user.id, title="Book", author="Author")
+    if reference_kind == "book":
+        book.cover_url = disposable_url
+    elif reference_kind == "candidate":
+        book.uploaded_cover_candidates_json = [{"provider": "upload", "label": "Bad", "url": disposable_url}]
+    db.add(book)
+    if reference_kind == "series":
+        db.add(models.Series(name="Series", node_type="series", owner_id=user.id, cover_url=disposable_url))
+    db.commit()
+
+    with pytest.raises(BackupError) as raised:
+        create_backup(db, user.id, user.username)
+    assert raised.value.code == "BACKUP_REFERENCE_INVALID"
 
 
 def test_legacy_library_payload_without_series_defaults_to_empty():

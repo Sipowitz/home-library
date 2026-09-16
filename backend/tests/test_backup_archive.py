@@ -54,6 +54,35 @@ def assert_code(tmp_path, content, code):
     assert raised.value.code == code
 
 
+def archive_with_local_cover(content: bytes, *, media_type="image/png"):
+    digest = hashlib.sha256(content).hexdigest()
+    library = entity_library()
+    library["books"][0]["cover"] = {
+        "kind": "local", "object_sha256": digest, "media_type": media_type, "origin": "restored",
+    }
+    library_bytes = json.dumps(library, separators=(",", ":")).encode()
+    cover_name = f"covers/sha256/{digest[:2]}/{digest}.png"
+    manifest = {
+        "format": "library-app-backup", "format_version": 1, "created_at": "2026-08-19T00:00:00Z",
+        "application": {"name": "Library App", "schema": "test"}, "subject_username": "source-user",
+        "feature_flags": {"content_addressed_covers": True},
+        "record_counts": {
+            "books": 1, "categories": 1, "locations": 1, "metadata_snapshots": 0,
+            "normalized_metadata_records": 0, "cover_files": 1,
+        },
+        "files": [
+            {"path": "library.json", "size": len(library_bytes), "sha256": hashlib.sha256(library_bytes).hexdigest(), "media_type": "application/json"},
+            {"path": cover_name, "size": len(content), "sha256": digest, "media_type": media_type},
+        ],
+    }
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("manifest.json", json.dumps(manifest))
+        zf.writestr("library.json", library_bytes)
+        zf.writestr(cover_name, content)
+    return stream.getvalue()
+
+
 def test_empty_archive_is_valid(tmp_path):
     manifest, library, covers = inspect(tmp_path, archive_bytes())
     assert manifest.record_counts.books == 0
@@ -129,6 +158,11 @@ def test_missing_referenced_cover_rejected(tmp_path):
     library = entity_library()
     library["books"][0]["cover"] = {"kind": "local", "object_sha256": "a" * 64, "media_type": "image/png", "origin": "upload"}
     assert_code(tmp_path, archive_bytes(library), "BACKUP_FILE_MISSING")
+
+
+@pytest.mark.parametrize("content", [b"not an image", b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"])
+def test_invalid_or_unsupported_archived_cover_is_rejected(tmp_path, content):
+    assert_code(tmp_path, archive_with_local_cover(content), "BACKUP_IMAGE_INVALID")
 
 
 def test_passwords_and_api_keys_are_not_part_of_schema(tmp_path):
