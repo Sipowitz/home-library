@@ -8,6 +8,7 @@ import { BookView, resolveCoverUrl } from "./BookView";
 import { BookEdit } from "./BookEdit";
 import { DeleteModal } from "./DeleteModal";
 import { ActionButton } from "../ui/ActionButton";
+import { useOverlayScrollLock } from "../../hooks/useOverlayScrollLock";
 
 import type { Book } from "../../types/book";
 import type { ReviewIntent } from "../../api/books";
@@ -39,6 +40,7 @@ export function BookPanel({
   onSave,
   onDelete,
 }: Props) {
+  useOverlayScrollLock(Boolean(book));
   const { locations } = useLocations();
 
   const { categories } = useCategories();

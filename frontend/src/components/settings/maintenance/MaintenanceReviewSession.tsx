@@ -8,6 +8,7 @@ import type { Book } from "../../../types/book";
 import type { ReviewTarget } from "./MaintenanceSettings";
 import { MetadataComparisonPanel } from "../../books/MetadataComparisonPanel";
 import { CoverBrowserModal } from "../../books/CoverBrowserModal";
+import { useOverlayScrollLock } from "../../../hooks/useOverlayScrollLock";
 
 type Props = {
   book: Book;
@@ -30,6 +31,7 @@ export function MaintenanceReviewSession({
   onCancel,
   onEvidenceRefreshed,
 }: Props) {
+  useOverlayScrollLock(true);
   const [draft, setDraft] = useState(book);
   const [target, setTarget] = useState<ReviewTarget>(initialTarget);
   const [coverCandidates, setCoverCandidates] = useState<CoverCandidate[]>([]);

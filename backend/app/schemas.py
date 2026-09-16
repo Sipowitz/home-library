@@ -52,6 +52,9 @@ class PreferencesBase(BaseModel):
 
     appearance_mode: Literal["system", "light", "dark"] = "system"
 
+    show_collections_in_library: bool = False
+    root_collection_display_mode: Literal["collections_only", "collections_and_books"] = "collections_only"
+
 
 class PreferencesUpdate(BaseModel):
     library_name: Optional[str] = Field(default=None, max_length=60)
@@ -68,6 +71,9 @@ class PreferencesUpdate(BaseModel):
     show_stats_mobile: Optional[bool] = None
 
     appearance_mode: Optional[Literal["system", "light", "dark"]] = None
+
+    show_collections_in_library: Optional[bool] = None
+    root_collection_display_mode: Optional[Literal["collections_only", "collections_and_books"]] = None
 
     @field_validator("library_name", mode="before")
     @classmethod
@@ -305,6 +311,25 @@ class EffectiveSeriesBook(BaseModel):
 class RootRemovalImpact(BaseModel):
     requires_confirmation: bool
     affected_series: List[SeriesResponse] = Field(default_factory=list)
+
+
+class CollectionBrowseBook(BaseModel):
+    id: int
+    title: str
+    author: str
+    cover_url: Optional[str] = None
+    read: bool = False
+    publication_order: Optional[int] = None
+    chronological_order: Optional[int] = None
+    reading_order: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CollectionBrowseResponse(BaseModel):
+    collection: Optional[SeriesResponse] = None
+    collections: List[SeriesResponse] = Field(default_factory=list)
+    books: List[CollectionBrowseBook] = Field(default_factory=list)
+    total: int = 0
 
 
 # -------------------

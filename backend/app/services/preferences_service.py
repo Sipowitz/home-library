@@ -28,6 +28,8 @@ DEFAULT_SHOW_STATS_MOBILE = True
 DEFAULT_APPEARANCE_MODE = "system"
 
 DEFAULT_LIBRARY_NAME = "My Library"
+DEFAULT_SHOW_COLLECTIONS_IN_LIBRARY = False
+DEFAULT_ROOT_COLLECTION_DISPLAY_MODE = "collections_only"
 MAX_LIBRARY_NAME_LENGTH = 60
 
 # -------------------
@@ -60,6 +62,8 @@ def get_or_create_preferences(
         show_stats_mobile=DEFAULT_SHOW_STATS_MOBILE,
         appearance_mode=DEFAULT_APPEARANCE_MODE,
         library_name=DEFAULT_LIBRARY_NAME,
+        show_collections_in_library=DEFAULT_SHOW_COLLECTIONS_IN_LIBRARY,
+        root_collection_display_mode=DEFAULT_ROOT_COLLECTION_DISPLAY_MODE,
     )
 
     db.add(preferences)
@@ -174,6 +178,15 @@ def update_preferences(
         if len(value) > MAX_LIBRARY_NAME_LENGTH:
             raise ValueError("Library name must be 60 characters or fewer")
         preferences.library_name = value
+
+    if "show_collections_in_library" in data and data["show_collections_in_library"] is not None:
+        preferences.show_collections_in_library = bool(data["show_collections_in_library"])
+
+    if "root_collection_display_mode" in data and data["root_collection_display_mode"] is not None:
+        value = data["root_collection_display_mode"]
+        if value not in {"collections_only", "collections_and_books"}:
+            raise ValueError("Invalid root collection display mode")
+        preferences.root_collection_display_mode = value
 
     db.commit()
 

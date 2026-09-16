@@ -5,7 +5,7 @@ type Section =
   | "providers"
   | "maintenance"
   | "backup"
-  | "appearance"
+  | "library"
   | "preferences"
   | "users";
 
@@ -45,10 +45,7 @@ const items: {
   },
   { id: "users", label: "Users" },
 
-  {
-    id: "appearance",
-    label: "Appearance",
-  },
+  { id: "library", label: "Library" },
 
   {
     id: "preferences",

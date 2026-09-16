@@ -7,6 +7,7 @@ export type LibraryViewMode = "grid" | "list";
 export type AppearanceMode = "system" | "light" | "dark";
 
 export type EffectiveTheme = "light" | "dark";
+export type RootCollectionDisplayMode = "collections_only" | "collections_and_books";
 
 export type Preferences = {
   id: number;
@@ -28,6 +29,8 @@ export type Preferences = {
   appearance_mode: AppearanceMode;
 
   library_name: string;
+  show_collections_in_library: boolean;
+  root_collection_display_mode: RootCollectionDisplayMode;
 
   created_at: string;
 
@@ -49,4 +52,6 @@ export type PreferencesUpdate = {
   show_stats_mobile?: boolean;
 
   appearance_mode?: AppearanceMode;
+  show_collections_in_library?: boolean;
+  root_collection_display_mode?: RootCollectionDisplayMode;
 };

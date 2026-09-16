@@ -137,6 +137,7 @@ class UserPreferences(Base):
 
     __table_args__ = (
         UniqueConstraint("user_id", name="uq_user_preferences_user_id"),
+        CheckConstraint("root_collection_display_mode IN ('collections_only', 'collections_and_books')", name="ck_preferences_root_collection_display_mode"),
     )
 
     date_format = Column(
@@ -175,6 +176,9 @@ class UserPreferences(Base):
         default="My Library",
         server_default="My Library",
     )
+
+    show_collections_in_library = Column(Boolean, nullable=False, default=False, server_default="false")
+    root_collection_display_mode = Column(String, nullable=False, default="collections_only", server_default="collections_only")
 
     created_at = Column(
         DateTime(timezone=True),
