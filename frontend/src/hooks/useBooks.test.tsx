@@ -6,47 +6,35 @@ import { useBooks } from "./useBooks";
 const getBooks = vi.hoisted(() => vi.fn());
 const updateBook = vi.hoisted(() => vi.fn());
 
-vi.mock("../api/books", () => ({
-  getBooks,
-  createBook: vi.fn(),
-  createBookFromISBN: vi.fn(),
-  deleteBook: vi.fn(),
-  updateBook,
-}));
-vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ ready: true, token: "test-token" }),
-}));
+vi.mock("../api/books", () => ({ getBooks, createBook: vi.fn(), createBookFromISBN: vi.fn(), deleteBook: vi.fn(), updateBook }));
+vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ ready: true, token: "test-token" }) }));
 
-function Harness() {
-  const { books, saveBook } = useBooks();
-  return (
-    <>
-      <div data-testid="books">{books.map((book) => `${book.id}:${book.location_id}`).join(",")}</div>
-      <button onClick={() => void saveBook({ ...books[0], location_id: 2 })}>save</button>
-    </>
-  );
-}
-
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
+const page = (start: number) => ({
+  items: Array.from({ length: 20 }, (_, index) => ({ id: start + index, title: `Book ${start + index}`, author: "Author", location_id: 1 })),
+  total: 60,
 });
 
-it("updates the saved book without clearing the grid while refetch is pending", async () => {
-  const first = { id: 1, title: "One", author: "A", location_id: 1 };
-  const second = { id: 2, title: "Two", author: "B", location_id: 1 };
-  let resolveRefresh!: (value: { items: typeof first[]; total: number }) => void;
-  getBooks.mockImplementationOnce(() => Promise.resolve({ items: [first, second], total: 2 }))
-    .mockImplementationOnce(() => new Promise((resolve) => { resolveRefresh = resolve; }));
-  const updated = { ...first, location_id: 2 };
-  updateBook.mockResolvedValue(updated);
+function Harness() {
+  const { books, saveBook, loadMoreBooks, hasMore } = useBooks();
+  const laterBook = books.find((book) => book.id === 45);
+  return <><div data-testid="book-count">{books.length}</div><div data-testid="later-book">{laterBook ? `${laterBook.id}:${laterBook.location_id}` : "missing"}</div>{hasMore && <button onClick={() => void loadMoreBooks()}>load more</button>}<button disabled={!laterBook} onClick={() => void saveBook({ ...laterBook!, location_id: 2 })}>save</button></>;
+}
+
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+it("merges an edited later-page book without resetting loaded pages or pagination", async () => {
+  getBooks.mockResolvedValueOnce(page(1)).mockResolvedValueOnce(page(21)).mockResolvedValueOnce(page(41));
+  updateBook.mockResolvedValue({ id: 45, title: "Book 45", author: "Author", location_id: 2 });
 
   render(<Harness />);
-  await waitFor(() => expect(screen.getByTestId("books").textContent).toBe("1:1,2:1"));
+  await waitFor(() => expect(screen.getByTestId("book-count").textContent).toBe("20"));
+  await act(async () => { screen.getByRole("button", { name: "load more" }).click(); });
+  await waitFor(() => expect(screen.getByTestId("book-count").textContent).toBe("40"));
+  await act(async () => { screen.getByRole("button", { name: "load more" }).click(); });
+  await waitFor(() => expect(screen.getByTestId("book-count").textContent).toBe("60"));
 
   await act(async () => { screen.getByRole("button", { name: "save" }).click(); });
-  expect(screen.getByTestId("books").textContent).toBe("1:2,2:1");
-
-  await act(async () => { resolveRefresh({ items: [updated, second], total: 2 }); });
-  expect(screen.getByTestId("books").textContent).toBe("1:2,2:1");
+  expect(screen.getByTestId("book-count").textContent).toBe("60");
+  expect(screen.getByTestId("later-book").textContent).toBe("45:2");
+  expect(getBooks).toHaveBeenCalledTimes(3);
 });

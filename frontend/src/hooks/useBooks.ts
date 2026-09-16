@@ -264,13 +264,11 @@ export function useBooks() {
       ...reviewIntent,
     });
 
-    // Keep the current grid rendered while the authoritative list refreshes in
-    // the background. The saved book is already the authoritative response,
-    // so update it in place before refreshing the page.
+    // The update response is authoritative for this book. Merge it into the
+    // currently loaded pages instead of resetting infinite-scroll pagination.
     setBooks((prev) =>
       prev.map((item) => (item.id === updated.id ? updated : item)),
     );
-    void loadBooks(true);
 
     notifyStatsUpdate();
 
