@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
-
+import { useMemo } from "react";
 import toast from "react-hot-toast";
 
 import { usePreferences } from "../../../hooks/usePreferences";
+import { AppearanceSettings } from "../appearance/AppearanceSettings";
 
 import { formatDateTime } from "../../../utils/dateFormatters";
 
@@ -16,7 +16,6 @@ export function PreferencesSettings() {
   const { preferences, updatePreferences, loading } = usePreferences();
 
   const previewDate = useMemo(() => new Date("2026-05-17T18:42:00"), []);
-  const [libraryNameDraft, setLibraryNameDraft] = useState<string | null>(null);
 
   // -------------------
   // ⏳ LOADING
@@ -25,8 +24,6 @@ export function PreferencesSettings() {
   if (loading || !preferences) {
     return <div className="text-sm text-text-muted">Loading preferences...</div>;
   }
-
-  const currentPreferences = preferences;
 
   // -------------------
   // ✏️ UPDATE
@@ -60,45 +57,9 @@ export function PreferencesSettings() {
     }
   }
 
-  async function handleLibraryNameBlur() {
-    const value = (libraryNameDraft ?? currentPreferences.library_name).trim();
-    if (!value || value.length > 60) {
-      setLibraryNameDraft(currentPreferences.library_name);
-      toast.error(!value ? "Library name must not be blank" : "Library name must be 60 characters or fewer");
-      return;
-    }
-    if (value === currentPreferences.library_name) {
-      setLibraryNameDraft(value);
-      return;
-    }
-    try {
-      await updatePreferences({ library_name: value });
-      setLibraryNameDraft(value);
-      toast.success("Library name updated");
-    } catch (err) {
-      console.error(err);
-      setLibraryNameDraft(currentPreferences.library_name);
-      toast.error("Failed to update library name");
-    }
-  }
-
   return (
     <div className="space-y-8">
-      <div>
-        <label htmlFor="library-name" className="mb-3 block text-sm font-medium text-text-primary">Library Name</label>
-        <input
-          id="library-name"
-          type="text"
-          maxLength={60}
-          value={libraryNameDraft ?? currentPreferences.library_name}
-          onChange={(event) => setLibraryNameDraft(event.target.value)}
-          onBlur={() => void handleLibraryNameBlur()}
-          onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
-          className="form-control w-full"
-          aria-describedby="library-name-help"
-        />
-        <p id="library-name-help" className="mt-2 text-sm text-text-muted">Shown in the browser title and Library heading.</p>
-      </div>
+      <AppearanceSettings />
 
       {/* DATE FORMAT */}
       <div>

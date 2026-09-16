@@ -58,6 +58,21 @@ def test_stats_visibility_preferences_update_independently(db):
     assert updated.show_stats_mobile is False
 
 
+def test_library_collection_preferences_default_and_round_trip(db):
+    user = models.User(username="collections-owner", email="collections@example.test", hashed_password="x")
+    db.add(user); db.commit()
+    preferences = preferences_service.get_preferences(db, user.id)
+    assert preferences.show_collections_in_library is False
+    assert preferences.root_collection_display_mode == "collections_only"
+
+    updated = preferences_service.update_preferences(db, user.id, {
+        "show_collections_in_library": True,
+        "root_collection_display_mode": "collections_and_books",
+    })
+    assert updated.show_collections_in_library is True
+    assert updated.root_collection_display_mode == "collections_and_books"
+
+
 @pytest.mark.parametrize("appearance_mode", ["system", "light", "dark"])
 def test_appearance_mode_accepts_supported_values(db, appearance_mode):
     user = models.User(

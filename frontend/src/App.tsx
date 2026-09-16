@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronRight, FolderTree, GitBranch } from "lucide-react";
 
 import { login as loginApi } from "./api/auth";
 
@@ -32,6 +33,8 @@ import type { LibraryViewMode } from "./types/preferences";
 import { getBook } from "./api/books";
 import type { ReviewTarget } from "./components/settings/maintenance/MaintenanceSettings";
 import type { ReviewIntent } from "./api/books";
+import { browseCollection, browseRootCollections, type CollectionBrowseResult } from "./api/collections";
+import type { Series } from "./types/series";
 
 export default function App() {
   const {
@@ -45,6 +48,7 @@ export default function App() {
     updateFilters,
     isLoading,
     loadError,
+    filters,
   } = useBooks();
 
   const { locations } = useLocations();
@@ -94,6 +98,10 @@ export default function App() {
   } | null>(null);
   const [reviewSaved, setReviewSaved] = useState<{ bookId: number; nonce: number; guided?: boolean } | null>(null);
   const [evidenceRefreshVersion, setEvidenceRefreshVersion] = useState(0);
+  const [collectionPath, setCollectionPath] = useState<Series[]>([]);
+  const [collectionBrowse, setCollectionBrowse] = useState<CollectionBrowseResult | null>(null);
+  const [collectionLoading, setCollectionLoading] = useState(false);
+  const [collectionSort, setCollectionSort] = useState<"reading" | "publication" | "chronological" | "alphabetical">("reading");
 
   const [isScrolling, setIsScrolling] = useState(false);
   const [isSearchPanelPastThreshold, setIsSearchPanelPastThreshold] =
@@ -166,6 +174,32 @@ export default function App() {
   const viewMode: LibraryViewMode = preferences?.library_view_mode ?? "grid";
 
   const showCoversInList = preferences?.show_covers_in_list ?? true;
+  const showCollections = preferences?.show_collections_in_library ?? false;
+  const rootCollectionMode = preferences?.root_collection_display_mode ?? "collections_only";
+  const currentCollection = collectionPath.at(-1) ?? null;
+
+  useEffect(() => {
+    if (!showCollections || viewMode !== "grid") {
+      setCollectionBrowse(null);
+      return;
+    }
+    let cancelled = false;
+    setCollectionLoading(true);
+    const options = { search: filters.search, categoryId: filters.categoryId, locationId: filters.locationId, read: filters.read, sort: currentCollection?.node_type === "series" ? collectionSort : "alphabetical" as const, rootMode: rootCollectionMode };
+    const request = currentCollection ? browseCollection(currentCollection.id, options) : browseRootCollections(options);
+    void request.then((result) => { if (!cancelled) setCollectionBrowse(result); }).catch((error) => { if (!cancelled) { console.error("Failed to browse collections", error); setCollectionBrowse(null); } }).finally(() => { if (!cancelled) setCollectionLoading(false); });
+    return () => { cancelled = true; };
+  }, [collectionSort, currentCollection?.id, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode, showCollections, viewMode]);
+
+  function enterCollection(collection: Series) {
+    setCollectionPath((path) => [...path, collection]);
+    setCollectionSort("reading");
+  }
+
+  function goToCollection(level: number) {
+    setCollectionPath((path) => path.slice(0, level));
+    setCollectionSort("reading");
+  }
 
   async function handleViewModeChange(mode: LibraryViewMode) {
     try {
@@ -446,12 +480,12 @@ export default function App() {
 
         <div className="mb-3 mt-3 flex min-h-12 items-center justify-between gap-3 px-1">
           <div className="min-w-0">
-            {isLoading ? (
+            {isLoading || collectionLoading ? (
               <div className="text-sm text-text-muted">Searching...</div>
             ) : loadError ? (
               <div className="text-sm text-danger">{loadError}</div>
             ) : (
-              <h2 className="text-sm font-medium text-text-secondary">Books</h2>
+              <h2 className="text-sm font-medium text-text-secondary">{currentCollection ? currentCollection.name : "Books"}</h2>
             )}
           </div>
 
@@ -461,10 +495,20 @@ export default function App() {
           />
         </div>
 
+        {showCollections && viewMode === "grid" && currentCollection && (
+          <div className="mb-3 flex flex-wrap items-center gap-1 text-sm text-text-muted" aria-label="Collection breadcrumb">
+            <button type="button" onClick={() => goToCollection(0)} className="rounded px-1 py-1 hover:bg-surface-muted hover:text-text-primary">Library</button>
+            {collectionPath.map((item, index) => <span key={item.id} className="flex min-w-0 items-center gap-1"><ChevronRight size={14} aria-hidden="true" /><button type="button" onClick={() => goToCollection(index + 1)} aria-current={index === collectionPath.length - 1 ? "page" : undefined} className="flex min-w-0 items-center gap-1 rounded px-1 py-1 hover:bg-surface-muted hover:text-text-primary"><span className="shrink-0">{item.node_type === "group" ? <FolderTree size={14} /> : <GitBranch size={14} />}</span><span className="max-w-40 truncate">{item.name}</span></button></span>)}
+            {currentCollection.node_type === "series" && <label className="ml-auto flex items-center gap-2 text-xs"><span className="sr-only">Collection sort</span><select value={collectionSort} onChange={(event) => setCollectionSort(event.target.value as typeof collectionSort)} className="form-control max-w-44 py-1.5 text-xs"><option value="reading">Reading order</option><option value="publication">Publication order</option><option value="chronological">Chronological order</option><option value="alphabetical">Alphabetical</option></select></label>}
+          </div>
+        )}
+
         {/* BOOK VIEWS */}
         {viewMode === "grid" ? (
           <BookGridView
-            books={books}
+            books={collectionBrowse ? collectionBrowse.books : books}
+            collections={collectionBrowse?.collections}
+            onSelectCollection={enterCollection}
             onSelect={(book) => {
               setSelectedBook(book);
 

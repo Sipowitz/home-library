@@ -130,3 +130,51 @@ def test_group_rejects_reading_order_and_cross_user_is_scoped(db, library):
     with pytest.raises(ValueError, match="Book not found"):
         series_service.add_membership(db, owner.id, group.id, foreign.id)
     assert series_service.add_membership(db, owner.id, foreign_root.id, books[0].id) is None
+
+
+def test_collection_browse_root_hiding_and_level_navigation(db, library):
+    owner, _, books, _ = library
+    grouped, direct, ungrouped, other_ungrouped = books
+    group = node(db, owner, "Naval", "group")
+    child = node(db, owner, "Royal Navy", parent=group)
+    root_series = node(db, owner, "Discworld")
+    series_service.add_membership(db, owner.id, child.id, grouped.id)
+    series_service.add_membership(db, owner.id, group.id, direct.id)
+
+    root = series_service.browse_collection(db, owner.id, None, root_mode="collections_only")
+    assert [item.name for item in root["collections"]] == ["Discworld", "Naval"]
+    assert [item["id"] for item in root["books"]] == [ungrouped.id, other_ungrouped.id]
+
+    expanded = series_service.browse_collection(db, owner.id, None, root_mode="collections_and_books")
+    assert [item["id"] for item in expanded["books"]] == [grouped.id, direct.id, ungrouped.id, books[3].id]
+
+    level = series_service.browse_collection(db, owner.id, group.id)
+    assert [item.name for item in level["collections"]] == ["Royal Navy"]
+    assert [item["id"] for item in level["books"]] == [direct.id]
+
+    child_level = series_service.browse_collection(db, owner.id, child.id)
+    assert child_level["collections"] == []
+    assert [item["id"] for item in child_level["books"]] == [grouped.id]
+
+
+def test_collection_browse_filters_recursively_deduplicates_and_sorts_series(db, library):
+    owner, _, books, _ = library
+    alpha, beta, gamma, _ = books
+    root = node(db, owner, "Root")
+    child = node(db, owner, "Child", parent=root)
+    series_service.add_membership(db, owner.id, root.id, alpha.id)
+    series_service.add_membership(db, owner.id, child.id, beta.id)
+    series_service.add_membership(db, owner.id, child.id, gamma.id)
+    series_service.replace_root_order(db, owner.id, root.id, "publication", [gamma.id, alpha.id])
+    series_service.replace_reading_order(db, owner.id, root.id, [beta.id, alpha.id, gamma.id])
+
+    ordinary = series_service.browse_collection(db, owner.id, root.id, sort="reading")
+    assert [item["id"] for item in ordinary["books"]] == [alpha.id]
+
+    recursive = series_service.browse_collection(db, owner.id, root.id, search="Author", sort="reading")
+    assert recursive["collections"] == []
+    assert {item["id"] for item in recursive["books"]} == {alpha.id, beta.id, gamma.id}
+    assert [item["id"] for item in recursive["books"]] == [beta.id, alpha.id, gamma.id]
+
+    publication = series_service.browse_collection(db, owner.id, root.id, search="Author", sort="publication")
+    assert [item["id"] for item in publication["books"]] == [gamma.id, alpha.id, beta.id]

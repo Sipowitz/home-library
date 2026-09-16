@@ -43,6 +43,8 @@ class PreferencesData(StrictModel):
     show_stats_desktop: bool = True
     show_stats_mobile: bool = True
     appearance_mode: str = "system"
+    show_collections_in_library: bool = False
+    root_collection_display_mode: Literal["collections_only", "collections_and_books"] = "collections_only"
     created_at: datetime
     updated_at: datetime
 

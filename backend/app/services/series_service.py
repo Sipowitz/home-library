@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app import models
+from app.services.book_service import _owned_subtree_ids
 
 
 class SeriesConflict(ValueError):
@@ -246,3 +248,75 @@ def get_effective_books(db: Session, user_id: int, series_id: int):
             "root_publication_order": root_order.publication_order if root_order else None, "root_chronological_order": root_order.chronological_order if root_order else None,
             "reading_order": reading.get(bid) if custom else publication.get(bid), "reading_order_custom": custom, "explicit_memberships": membership_map[bid]})
     return sorted(result, key=lambda item: (item["publication_order"] is None, item["publication_order"] or 0, item["title"].lower()))
+
+
+def browse_collection(
+    db: Session, user_id: int, collection_id: int | None, *, search: str | None = None,
+    category_id: int | None = None, location_id: int | None = None, read: bool | None = None,
+    sort: str = "reading", skip: int = 0, limit: int = 100,
+    root_mode: str = "collections_and_books",
+):
+    """Return a single collection level, or the root-library collection projection.
+
+    Membership and descendant traversal remain centralized here so root hiding and
+    recursive filtered browsing cannot drift from the Series model.
+    """
+    if collection_id is None:
+        collection = None
+        children = db.query(models.Series).filter_by(owner_id=user_id, parent_id=None).order_by(models.Series.name, models.Series.id).all()
+        descendant_ids: set[int] = set()
+        direct_ids: set[int] = set()
+    else:
+        collection = _owned_series(db, user_id, collection_id)
+        if collection is None:
+            return None
+        children = db.query(models.Series).filter_by(owner_id=user_id, parent_id=collection.id).order_by(models.Series.name, models.Series.id).all()
+        direct_ids = {collection.id}
+        descendant_ids = _descendant_ids(db, user_id, collection.id) | direct_ids
+
+    active_filter = bool((search or "").strip() or category_id is not None or location_id is not None or read is not None)
+    query = db.query(models.Book).filter(models.Book.owner_id == user_id)
+    if collection_id is None:
+        if root_mode == "collections_only":
+            query = query.filter(~models.Book.series_memberships.any())
+    else:
+        membership_ids = descendant_ids if active_filter else direct_ids
+        query = query.join(models.BookSeriesMembership).filter(models.BookSeriesMembership.series_id.in_(membership_ids)).distinct()
+        # Child assignment creates an ancestor/root membership for integrity.
+        # At an ordinary level that inherited membership is not a direct book
+        # tile; filtered search deliberately includes all descendants instead.
+        if not active_filter:
+            child_ids = descendant_ids - direct_ids
+            if child_ids:
+                query = query.filter(~models.Book.series_memberships.any(models.BookSeriesMembership.series_id.in_(child_ids)))
+    if search:
+        term = f"%{search.strip()}%"
+        query = query.filter(or_(models.Book.title.ilike(term), models.Book.author.ilike(term)))
+    if category_id is not None:
+        category_ids = _owned_subtree_ids(db, models.Category, user_id, category_id)
+        query = query.filter(models.Book.category_id.in_(category_ids)) if category_ids else query.filter(False)
+    if location_id is not None:
+        location_ids = _owned_subtree_ids(db, models.Location, user_id, location_id)
+        query = query.filter(models.Book.location_id.in_(location_ids)) if location_ids else query.filter(False)
+    if read is not None:
+        query = query.filter(models.Book.read == read)
+
+    total = query.count()
+    books = query.order_by(models.Book.title, models.Book.id).offset(skip).limit(limit).all()
+    root = _root(db, collection) if collection is not None else None
+    root_orders = {} if root is None else {item.book_id: item for item in db.query(models.BookSeriesOrdering).filter_by(series_id=root.id)}
+    reading = {} if collection is None else {item.book_id: item.position for item in db.query(models.BookSeriesReadingOrder).filter_by(series_id=collection.id)}
+    results = []
+    for book in books:
+        ordering = root_orders.get(book.id)
+        results.append({"id": book.id, "title": book.title, "author": book.author, "cover_url": book.cover_url, "read": book.read,
+                        "publication_order": ordering.publication_order if ordering else None,
+                        "chronological_order": ordering.chronological_order if ordering else None,
+                        "reading_order": reading.get(book.id)})
+    if collection is not None and collection.node_type == "series":
+        field = {"publication": "publication_order", "chronological": "chronological_order", "alphabetical": None}.get(sort, "reading_order")
+        if field:
+            results.sort(key=lambda item: (item[field] is None, item[field] if item[field] is not None else 0, item["title"].casefold(), item["id"]))
+        else:
+            results.sort(key=lambda item: (item["title"].casefold(), item["id"]))
+    return {"collection": collection, "collections": children if not active_filter else [], "books": results, "total": total}

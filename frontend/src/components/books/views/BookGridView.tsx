@@ -1,16 +1,31 @@
 import React from "react";
 
 import type { Book } from "../../../types/book";
+import type { Series } from "../../../types/series";
+import { FolderTree, GitBranch } from "lucide-react";
 
 type Props = {
   books: Book[];
 
   onSelect: (book: Book) => void;
+  collections?: Series[];
+  onSelectCollection?: (collection: Series) => void;
 };
 
-function BookGridViewComponent({ books, onSelect }: Props) {
+function BookGridViewComponent({ books, onSelect, collections = [], onSelectCollection }: Props) {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-5">
+      {collections.map((collection) => {
+        const isGroup = collection.node_type === "group";
+        return <button key={`collection-${collection.id}`} type="button" onClick={() => onSelectCollection?.(collection)} className="cursor-pointer group min-w-0 text-left">
+          <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-muted shadow-md transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-[1.02] group-hover:shadow-2xl">
+            {collection.cover_url ? <img src={collection.cover_url} alt="" className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="flex h-full flex-col justify-between bg-gradient-to-br from-surface-raised to-surface-muted p-3 text-text-primary"><span className="line-clamp-4 text-[11px] font-semibold leading-tight">{collection.name}</span><span className="text-[10px] text-text-muted">{isGroup ? "Group" : "Series"}</span></div>}
+            <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/20" />
+            <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-white/20 bg-black/55 px-1.5 py-1 text-[10px] text-white shadow" title={isGroup ? "Group" : "Series"}>{isGroup ? <FolderTree size={12} /> : <GitBranch size={12} />}{isGroup ? "Group" : "Series"}</span>
+          </div>
+          <div className="mt-2 px-1"><div className="truncate text-xs font-medium text-text-primary">{collection.name}</div><div className="truncate text-[10px] text-text-muted">{isGroup ? "Group" : "Series"}</div></div>
+        </button>;
+      })}
       {books.map((book) => {
         const hasCover = book.cover_url && book.cover_url.trim() !== "";
 

@@ -1,6 +1,7 @@
 import { Flashlight, FlashlightOff, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { ActionButton } from "../ui/ActionButton";
+import { useOverlayScrollLock } from "../../hooks/useOverlayScrollLock";
 
 type Props = {
   open: boolean;
@@ -19,6 +20,7 @@ export function ISBNScannerModal({
   onToggleTorch,
   onClose,
 }: Props) {
+  useOverlayScrollLock(open);
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(

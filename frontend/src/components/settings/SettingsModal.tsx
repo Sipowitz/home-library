@@ -24,7 +24,7 @@ import { CategorySettings } from "./categories/CategorySettings";
 import { SeriesSettings } from "./series/SeriesSettings";
 
 import { PreferencesSettings } from "./preferences/PreferencesSettings";
-import { AppearanceSettings } from "./appearance/AppearanceSettings";
+import { LibrarySettings } from "./LibrarySettings";
 
 import { ProviderSettingsPanel } from "./providers/ProviderSettingsPanel";
 
@@ -34,6 +34,7 @@ import { PendingUsersPanel } from "./users/PendingUsersPanel";
 import { useAuth } from "../../context/AuthContext";
 import { MaintenanceSettings, type ReviewTarget } from "./maintenance/MaintenanceSettings";
 import { ActionButton } from "../ui/ActionButton";
+import { useOverlayScrollLock } from "../../hooks/useOverlayScrollLock";
 
 type Props = {
   isOpen: boolean;
@@ -53,11 +54,12 @@ type Section =
   | "providers"
   | "maintenance"
   | "backup"
-  | "appearance"
+  | "library"
   | "preferences"
   | "users";
 
 export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, onViewBook, reviewSaved, evidenceRefreshVersion }: Props) {
+  useOverlayScrollLock(isOpen);
   const { user } = useAuth();
   const { locations, deleteLocation } = useLocations();
 
@@ -364,18 +366,16 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
               <div className="max-w-4xl space-y-4"><div><h2 className="text-lg font-semibold">Users</h2><p className="text-sm text-text-muted mt-1">Approve or reject pending accounts.</p></div><PendingUsersPanel /></div>
             )}
 
-            {/* PREFERENCES */}
-
-            {activeSection === "appearance" && (
+            {activeSection === "library" && (
               <div className="max-w-2xl">
                 <div className="rounded-xl border border-border bg-surface p-4 lg:p-5">
                   <div className="mb-3 lg:mb-5">
-                    <h2 className="text-lg font-semibold">Appearance</h2>
+                    <h2 className="text-lg font-semibold">Library</h2>
                     <p className="mt-1 text-sm text-text-muted">
-                      Configure how your library is presented.
+                      Configure your library name, collection display, and statistics panels.
                     </p>
                   </div>
-                  <AppearanceSettings />
+                  <LibrarySettings />
                 </div>
               </div>
             )}
@@ -389,8 +389,7 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
                     <h2 className="text-lg font-semibold">Preferences</h2>
 
                     <p className="text-sm text-text-muted mt-1">
-                      Configure how dates and times are shown throughout the
-                      library.
+                      Configure appearance and date/time formatting preferences.
                     </p>
                   </div>
 

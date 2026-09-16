@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
+from typing import Literal
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -31,6 +32,29 @@ def _translate(call):
 @router.get("/", response_model=list[schemas.SeriesTreeResponse])
 def list_series(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return series_service.get_tree(db, current_user.id)
+
+
+@router.get("/browse", response_model=schemas.CollectionBrowseResponse)
+def browse_root(
+    root_mode: Literal["collections_only", "collections_and_books"] = "collections_and_books",
+    search: str | None = None, category_id: int | None = None, location_id: int | None = None,
+    read: bool | None = None, skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=100),
+    db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user),
+):
+    return series_service.browse_collection(db, current_user.id, None, root_mode=root_mode, search=search, category_id=category_id, location_id=location_id, read=read, skip=skip, limit=limit)
+
+
+@router.get("/{series_id}/browse", response_model=schemas.CollectionBrowseResponse)
+def browse_collection(
+    series_id: int, search: str | None = None, category_id: int | None = None, location_id: int | None = None,
+    read: bool | None = None, sort: Literal["reading", "publication", "chronological", "alphabetical"] = "reading",
+    skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=100),
+    db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user),
+):
+    result = series_service.browse_collection(db, current_user.id, series_id, search=search, category_id=category_id, location_id=location_id, read=read, sort=sort, skip=skip, limit=limit)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Series not found")
+    return result
 
 
 @router.post("/", response_model=schemas.SeriesResponse, status_code=status.HTTP_201_CREATED)

@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { ActionButton } from "./ActionButton";
+import { useOverlayScrollLock } from "../../hooks/useOverlayScrollLock";
 
 type Props = {
   open: boolean;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function Dialog({ open, title, onClose, children, className = "max-w-2xl" }: Props) {
+  useOverlayScrollLock(open);
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {

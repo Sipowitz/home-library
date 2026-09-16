@@ -1,9 +1,6 @@
 import toast from "react-hot-toast";
 import { usePreferences } from "../../../hooks/usePreferences";
-import type {
-  AppearanceMode,
-  PreferencesUpdate,
-} from "../../../types/preferences";
+import type { AppearanceMode, PreferencesUpdate } from "../../../types/preferences";
 
 const appearanceChoices: Array<{
   value: AppearanceMode;
@@ -75,35 +72,6 @@ export function AppearanceSettings() {
         ))}
       </fieldset>
 
-      <div className="border-t border-border pt-4">
-      <div>
-        <h3 className="text-sm font-medium text-text-primary">Library Stats</h3>
-        <p className="mt-1 text-sm text-text-muted">
-          Choose where the library statistics panel is displayed.
-        </p>
-      </div>
-
-      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface-muted">
-        <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-sm text-text-secondary">
-          <span>Show Library Stats on desktop</span>
-          <input
-            type="checkbox"
-            checked={preferences.show_stats_desktop}
-            onChange={(event) => void updateVisibility({ show_stats_desktop: event.target.checked })}
-            className="h-4 w-4 accent-blue-600"
-          />
-        </label>
-        <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-sm text-text-secondary">
-          <span>Show Library Stats on mobile</span>
-          <input
-            type="checkbox"
-            checked={preferences.show_stats_mobile}
-            onChange={(event) => void updateVisibility({ show_stats_mobile: event.target.checked })}
-            className="h-4 w-4 accent-blue-600"
-          />
-        </label>
-      </div>
-      </div>
     </div>
   );
 }
