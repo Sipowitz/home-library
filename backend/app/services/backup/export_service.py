@@ -39,6 +39,12 @@ def _local_path(url: str) -> tuple[Path, str] | None:
         candidate.relative_to(root)
     except ValueError as exc:
         raise BackupError(400, "BACKUP_FILE_MISSING", "A local cover reference is unsafe") from exc
+    if relative.parts[:1] in (("candidate-cache",), ("staging",)):
+        raise BackupError(
+            400,
+            "BACKUP_REFERENCE_INVALID",
+            "A disposable cover reference cannot be included in a backup",
+        )
     origin = "restored" if relative.parts[:2] == ("objects", "sha256") else ("upload" if relative.parts[:1] in (("uploaded",), ("series",)) else "download")
     return candidate, origin
 
