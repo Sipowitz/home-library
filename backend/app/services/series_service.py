@@ -4,7 +4,7 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from app import models
-from app.services.book_service import _owned_subtree_ids
+from app.services.book_service import _owned_subtree_ids, apply_book_ordering
 
 
 class SeriesConflict(ValueError):
@@ -302,7 +302,14 @@ def browse_collection(
         query = query.filter(models.Book.read == read)
 
     total = query.count()
-    books = query.order_by(models.Book.title, models.Book.id).offset(skip).limit(limit).all()
+    # Root Library books must retain the same ordering as /books. Keep the
+    # existing level-browse query ordering for Groups; Series ordering is
+    # applied below only when browsing inside a Series.
+    if collection_id is None:
+        query = apply_book_ordering(query)
+    else:
+        query = query.order_by(models.Book.title, models.Book.id)
+    books = query.offset(skip).limit(limit).all()
     root = _root(db, collection) if collection is not None else None
     root_orders = {} if root is None else {item.book_id: item for item in db.query(models.BookSeriesOrdering).filter_by(series_id=root.id)}
     reading = {} if collection is None else {item.book_id: item.position for item in db.query(models.BookSeriesReadingOrder).filter_by(series_id=collection.id)}

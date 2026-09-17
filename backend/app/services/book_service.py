@@ -28,6 +28,19 @@ SORT_COLUMNS = {
 }
 
 
+def apply_book_ordering(query, sort: str = "author", order: str = "asc"):
+    """Apply the canonical Library book ordering to an existing query."""
+    sort_column = SORT_COLUMNS.get(sort)
+    if sort_column is None:
+        raise HTTPException(status_code=400, detail="Invalid sort field")
+    if order not in {"asc", "desc"}:
+        raise HTTPException(status_code=400, detail="Invalid sort direction")
+
+    if order == "asc":
+        return query.order_by(asc(sort_column), asc(Book.id))
+    return query.order_by(desc(sort_column), desc(Book.id))
+
+
 def _validate_required_fields(data: dict, partial: bool = False) -> None:
     for field in ("title", "author"):
         if partial and field not in data:
@@ -116,16 +129,7 @@ def get_books(
 
     total = query.count()
 
-    sort_column = SORT_COLUMNS.get(sort)
-    if sort_column is None:
-        raise HTTPException(status_code=400, detail="Invalid sort field")
-    if order not in {"asc", "desc"}:
-        raise HTTPException(status_code=400, detail="Invalid sort direction")
-
-    if order == "asc":
-        query = query.order_by(asc(sort_column), asc(Book.id))
-    else:
-        query = query.order_by(desc(sort_column), desc(Book.id))
+    query = apply_book_ordering(query, sort, order)
 
     items = (
         query
