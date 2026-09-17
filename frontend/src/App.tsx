@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronRight, FolderTree, GitBranch } from "lucide-react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { login as loginApi } from "./api/auth";
 
@@ -101,6 +100,7 @@ export default function App() {
   const [collectionPath, setCollectionPath] = useState<Series[]>([]);
   const [collectionBrowse, setCollectionBrowse] = useState<CollectionBrowseResult | null>(null);
   const [collectionLoading, setCollectionLoading] = useState(false);
+  const [collectionPageLoading, setCollectionPageLoading] = useState(false);
   const [collectionHasMore, setCollectionHasMore] = useState(false);
   const [collectionRevision, setCollectionRevision] = useState(0);
   const [collectionSort, setCollectionSort] = useState<"reading" | "publication" | "chronological" | "alphabetical">("reading");
@@ -113,6 +113,11 @@ export default function App() {
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
   const searchPanelFlowAnchorRef = useRef<HTMLDivElement | null>(null);
   const searchPanelStickyOffsetRef = useRef(0);
+  const collectionBrowseKeyRef = useRef<string | null>(null);
+  const collectionRequestGenerationRef = useRef(0);
+  const collectionPageRequestGenerationRef = useRef(0);
+  const rootCollectionSnapshotRef = useRef<{ browse: CollectionBrowseResult; hasMore: boolean; key: string; scrollY: number } | null>(null);
+  const pendingRootScrollRestoreRef = useRef<number | null>(null);
 
   const {
     isFetching,
@@ -180,21 +185,68 @@ export default function App() {
   const rootCollectionMode = preferences?.root_collection_display_mode ?? "collections_only";
   const currentCollection = collectionPath.at(-1) ?? null;
 
+  function collectionOptions(path: Series[]) {
+    const current = path.at(-1) ?? null;
+    return {
+      search: filters.search,
+      categoryId: filters.categoryId,
+      locationId: filters.locationId,
+      read: filters.read,
+      sort: current?.node_type === "series" ? collectionSort : "alphabetical" as const,
+      rootMode: rootCollectionMode,
+    };
+  }
+
+  function collectionBrowseKey(path: Series[]) {
+    const options = collectionOptions(path);
+    return JSON.stringify({ collectionId: path.at(-1)?.id ?? null, ...options });
+  }
+
+  function collectionRequest(path: Series[]) {
+    const current = path.at(-1) ?? null;
+    const options = collectionOptions(path);
+    return current ? browseCollection(current.id, options) : browseRootCollections(options);
+  }
+
   useEffect(() => {
-    if (!showCollections || viewMode !== "grid") {
+    const snapshot = rootCollectionSnapshotRef.current;
+    if (snapshot && snapshot.key !== collectionBrowseKey([])) rootCollectionSnapshotRef.current = null;
+  }, [filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode]);
+
+  useLayoutEffect(() => {
+    const scrollY = pendingRootScrollRestoreRef.current;
+    if (scrollY === null || collectionPath.length !== 0) return;
+    pendingRootScrollRestoreRef.current = null;
+    window.scrollTo({ top: scrollY, behavior: "auto" });
+  }, [collectionBrowse, collectionPath.length]);
+
+  useEffect(() => {
+    if ((!showCollections || viewMode !== "grid") && !currentCollection) {
+      collectionRequestGenerationRef.current += 1;
+      collectionPageRequestGenerationRef.current += 1;
+      collectionBrowseKeyRef.current = null;
+      rootCollectionSnapshotRef.current = null;
+      setCollectionPageLoading(false);
       setCollectionBrowse(null);
       setCollectionHasMore(false);
       return;
     }
+    const browseKey = collectionBrowseKey(collectionPath);
+    if (collectionBrowseKeyRef.current === browseKey) return;
+
+    const generation = ++collectionRequestGenerationRef.current;
+    collectionPageRequestGenerationRef.current += 1;
+    setCollectionPageLoading(false);
     let cancelled = false;
     setCollectionLoading(true);
-    const options = { search: filters.search, categoryId: filters.categoryId, locationId: filters.locationId, read: filters.read, sort: currentCollection?.node_type === "series" ? collectionSort : "alphabetical" as const, rootMode: rootCollectionMode };
-    const request = currentCollection ? browseCollection(currentCollection.id, options) : browseRootCollections(options);
+    const request = collectionRequest(collectionPath);
     void request.then((result) => {
-      if (cancelled) return;
+      if (cancelled || generation !== collectionRequestGenerationRef.current) return;
+      collectionBrowseKeyRef.current = browseKey;
       setCollectionBrowse(result);
-      setCollectionHasMore(!currentCollection && result.items.length < result.total);
-    }).catch((error) => { if (!cancelled) { console.error("Failed to browse collections", error); setCollectionBrowse(null); setCollectionHasMore(false); } }).finally(() => { if (!cancelled) setCollectionLoading(false); });
+      const loadedCount = currentCollection ? result.books.length : result.items.length;
+      setCollectionHasMore(loadedCount < result.total);
+    }).catch((error) => { if (!cancelled && generation === collectionRequestGenerationRef.current) { console.error("Failed to browse collections", error); setCollectionBrowse(null); setCollectionHasMore(false); } }).finally(() => { if (!cancelled && generation === collectionRequestGenerationRef.current) setCollectionLoading(false); });
     return () => { cancelled = true; };
   }, [collectionRevision, collectionSort, currentCollection?.id, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode, showCollections, viewMode]);
 
@@ -210,15 +262,85 @@ export default function App() {
     }).finally(() => setCollectionLoading(false));
   }, [collectionBrowse, collectionHasMore, collectionLoading, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode]);
 
+  const loadMoreCollectionBooks = useCallback(() => {
+    if (!currentCollection || collectionLoading || collectionPageLoading || !collectionHasMore || !collectionBrowse) return;
+    const browseKey = collectionBrowseKey(collectionPath);
+    const generation = collectionRequestGenerationRef.current;
+    const pageGeneration = ++collectionPageRequestGenerationRef.current;
+    const skip = collectionBrowse.books.length;
+    setCollectionPageLoading(true);
+    void browseCollection(currentCollection.id, { ...collectionOptions(collectionPath), skip }).then((result) => {
+      if (generation !== collectionRequestGenerationRef.current || pageGeneration !== collectionPageRequestGenerationRef.current || collectionBrowseKeyRef.current !== browseKey) return;
+      setCollectionBrowse((current) => current ? {
+        ...result,
+        collections: current.collections,
+        books: [...current.books, ...result.books.filter((book) => !current.books.some((existing) => existing.id === book.id))],
+      } : result);
+      setCollectionHasMore(skip + result.books.length < result.total);
+    }).catch((error) => {
+      if (generation === collectionRequestGenerationRef.current && pageGeneration === collectionPageRequestGenerationRef.current) console.error("Failed to load more collection books", error);
+    }).finally(() => { if (pageGeneration === collectionPageRequestGenerationRef.current) setCollectionPageLoading(false); });
+  }, [collectionBrowse, collectionHasMore, collectionLoading, collectionPageLoading, collectionPath, currentCollection, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode, collectionSort]);
+
+  const navigateToCollectionPath = useCallback((nextPath: Series[]) => {
+    const nextSort = "reading" as const;
+    const options = {
+      search: filters.search,
+      categoryId: filters.categoryId,
+      locationId: filters.locationId,
+      read: filters.read,
+      sort: nextPath.at(-1)?.node_type === "series" ? nextSort : "alphabetical" as const,
+      rootMode: rootCollectionMode,
+    };
+    const browseKey = JSON.stringify({ collectionId: nextPath.at(-1)?.id ?? null, ...options });
+    const generation = ++collectionRequestGenerationRef.current;
+    collectionPageRequestGenerationRef.current += 1;
+    setCollectionPageLoading(false);
+    const rootSnapshot = nextPath.length === 0 ? rootCollectionSnapshotRef.current : null;
+    if (rootSnapshot?.key === browseKey) {
+      rootCollectionSnapshotRef.current = null;
+      collectionBrowseKeyRef.current = browseKey;
+      pendingRootScrollRestoreRef.current = rootSnapshot.scrollY;
+      setCollectionSort(nextSort);
+      setCollectionPath(nextPath);
+      setCollectionBrowse(rootSnapshot.browse);
+      setCollectionHasMore(rootSnapshot.hasMore);
+      return;
+    }
+    const nextCollection = nextPath.at(-1) ?? null;
+    const request = nextCollection ? browseCollection(nextCollection.id, options) : browseRootCollections(options);
+
+    void request.then((result) => {
+      if (generation !== collectionRequestGenerationRef.current) return;
+      collectionBrowseKeyRef.current = browseKey;
+      setCollectionSort(nextSort);
+      setCollectionPath(nextPath);
+      setCollectionBrowse(result);
+      const loadedCount = nextCollection ? result.books.length : result.items.length;
+      setCollectionHasMore(loadedCount < result.total);
+    }).catch((error) => {
+      if (generation === collectionRequestGenerationRef.current) console.error("Failed to navigate collections", error);
+    });
+  }, [filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode]);
+
   function enterCollection(collection: Series) {
-    setCollectionPath((path) => [...path, collection]);
-    setCollectionSort("reading");
+    if (collectionPath.length === 0 && collectionBrowse && collectionBrowseKeyRef.current === collectionBrowseKey([])) {
+      rootCollectionSnapshotRef.current = {
+        browse: collectionBrowse,
+        hasMore: collectionHasMore,
+        key: collectionBrowseKey([]),
+        scrollY: window.scrollY,
+      };
+    }
+    navigateToCollectionPath([...collectionPath, collection]);
   }
 
   function goToCollection(level: number) {
-    setCollectionPath((path) => path.slice(0, level));
-    setCollectionSort("reading");
+    navigateToCollectionPath(collectionPath.slice(0, level));
   }
+
+  const hasActiveCollectionFilter = Boolean(filters.search?.trim() || filters.categoryId != null || filters.locationId != null || filters.read != null);
+  const collectionEmpty = Boolean(currentCollection && collectionBrowse && !collectionLoading && !collectionPageLoading && collectionBrowse.books.length === 0 && collectionBrowse.collections.length === 0);
 
   async function handleViewModeChange(mode: LibraryViewMode) {
     try {
@@ -248,10 +370,13 @@ export default function App() {
 
   useEffect(() => {
     function handleScroll() {
-      if (showCollections && viewMode === "grid" && !currentCollection) {
-        if (!collectionHasMore || collectionLoading) return;
+      if (showCollections && (viewMode === "grid" || currentCollection)) {
+        if (!collectionHasMore || collectionLoading || collectionPageLoading) return;
         const bottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
-        if (bottom) loadMoreRootCollectionItems();
+        if (bottom) {
+          if (currentCollection) loadMoreCollectionBooks();
+          else loadMoreRootCollectionItems();
+        }
         return;
       }
       if (!hasMore || isLoading) return;
@@ -267,7 +392,7 @@ export default function App() {
     window.addEventListener("scroll", handleScroll);
 
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [books, collectionHasMore, collectionLoading, currentCollection, hasMore, isLoading, loadMoreRootCollectionItems, showCollections, viewMode]);
+  }, [books, collectionHasMore, collectionLoading, collectionPageLoading, currentCollection, hasMore, isLoading, loadMoreCollectionBooks, loadMoreRootCollectionItems, showCollections, viewMode]);
 
   useEffect(() => {
     function isPanelBottomAtThreshold() {
@@ -508,33 +633,36 @@ export default function App() {
           </div>
         </div>
 
-        <div className="mb-3 mt-3 flex min-h-12 items-center justify-between gap-3 px-1">
+        {showCollections && currentCollection && (
+          <nav className="mb-2 mt-3 px-1 text-sm text-text-secondary" aria-label="Breadcrumb">
+            <ol className="flex flex-wrap items-center gap-x-1 gap-y-1">
+              <li><button type="button" onClick={() => goToCollection(0)} className="rounded px-1 py-1 hover:bg-surface-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">Library</button></li>
+              {collectionPath.map((item, index) => <Fragment key={item.id}><li aria-hidden="true" className="px-0.5 text-text-muted">›</li><li className="min-w-0">{index === collectionPath.length - 1 ? <span aria-current="page" className="block max-w-40 truncate px-1 py-1 font-medium text-text-primary">{item.name}</span> : <button type="button" onClick={() => goToCollection(index + 1)} className="block max-w-40 truncate rounded px-1 py-1 hover:bg-surface-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">{item.name}</button>}</li></Fragment>)}
+            </ol>
+          </nav>
+        )}
+
+        <div className={"mb-3 flex min-h-12 items-center justify-between gap-3 px-1 " + (currentCollection ? "mt-0" : "mt-3")}>
           <div className="min-w-0">
             {isLoading || collectionLoading ? (
               <div className="text-sm text-text-muted">Searching...</div>
             ) : loadError ? (
               <div className="text-sm text-danger">{loadError}</div>
             ) : (
-              <h2 className="text-sm font-medium text-text-secondary">{currentCollection ? currentCollection.name : "Books"}</h2>
+              <h2 className={currentCollection ? "text-base font-semibold text-text-primary" : "text-sm font-medium text-text-secondary"}>{currentCollection ? currentCollection.name : "Books"}</h2>
             )}
           </div>
 
-          <ViewModeSwitcher
-            value={viewMode}
-            onChange={handleViewModeChange}
-          />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {currentCollection?.node_type === "series" && <label className="flex items-center gap-2 text-xs"><span className="sr-only">Collection sort</span><select value={collectionSort} onChange={(event) => setCollectionSort(event.target.value as typeof collectionSort)} className="form-control max-w-44 py-1.5 text-xs"><option value="reading">Reading order</option><option value="publication">Publication order</option><option value="chronological">Chronological order</option><option value="alphabetical">Alphabetical</option></select></label>}
+            <ViewModeSwitcher value={viewMode} onChange={handleViewModeChange} />
+          </div>
         </div>
 
-        {showCollections && viewMode === "grid" && currentCollection && (
-          <div className="mb-3 flex flex-wrap items-center gap-1 text-sm text-text-muted" aria-label="Collection breadcrumb">
-            <button type="button" onClick={() => goToCollection(0)} className="rounded px-1 py-1 hover:bg-surface-muted hover:text-text-primary">Library</button>
-            {collectionPath.map((item, index) => <span key={item.id} className="flex min-w-0 items-center gap-1"><ChevronRight size={14} aria-hidden="true" /><button type="button" onClick={() => goToCollection(index + 1)} aria-current={index === collectionPath.length - 1 ? "page" : undefined} className="flex min-w-0 items-center gap-1 rounded px-1 py-1 hover:bg-surface-muted hover:text-text-primary"><span className="shrink-0">{item.node_type === "group" ? <FolderTree size={14} /> : <GitBranch size={14} />}</span><span className="max-w-40 truncate">{item.name}</span></button></span>)}
-            {currentCollection.node_type === "series" && <label className="ml-auto flex items-center gap-2 text-xs"><span className="sr-only">Collection sort</span><select value={collectionSort} onChange={(event) => setCollectionSort(event.target.value as typeof collectionSort)} className="form-control max-w-44 py-1.5 text-xs"><option value="reading">Reading order</option><option value="publication">Publication order</option><option value="chronological">Chronological order</option><option value="alphabetical">Alphabetical</option></select></label>}
-          </div>
-        )}
-
         {/* BOOK VIEWS */}
-        {viewMode === "grid" ? (
+        {collectionEmpty ? (
+          <p className="px-1 py-6 text-sm text-text-muted">{hasActiveCollectionFilter ? "No matching books in this collection." : "This collection is empty."}</p>
+        ) : viewMode === "grid" ? (
           <BookGridView
             books={collectionBrowse ? collectionBrowse.books : books}
             collections={collectionBrowse?.collections}
@@ -548,7 +676,7 @@ export default function App() {
           />
         ) : (
           <BookListView
-            books={books}
+            books={currentCollection && collectionBrowse ? collectionBrowse.books as Book[] : books}
             locations={locations}
             categories={categories}
             showCovers={showCoversInList}

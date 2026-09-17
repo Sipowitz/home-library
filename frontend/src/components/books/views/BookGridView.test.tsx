@@ -5,18 +5,46 @@ import { BookGridView } from "./BookGridView";
 
 const book = { id: 1, title: "Loose Book", author: "Author" };
 const group = { id: 2, owner_id: 1, name: "Naval History", node_type: "group" as const, author: null, description: null, cover_url: null, parent_id: null, created_at: "", updated_at: "" };
-const nested = { ...group, id: 3, name: "Nested", node_type: "series" as const, parent_id: 2 };
+const series = { ...group, id: 3, name: "Discworld", node_type: "series" as const, author: "Terry Pratchett" };
+const nested = { ...series, id: 4, name: "Nested", parent_id: 2 };
 
-it("keeps book selection and renders collection tiles with a cover-shaped placeholder", () => {
-  const onBook = vi.fn(); const onCollection = vi.fn();
-  render(<BookGridView books={[book]} collections={[group]} onSelect={onBook} onSelectCollection={onCollection} />);
-  expect(screen.getAllByText("Group").length).toBeGreaterThan(0);
-  const collectionTitle = screen.getAllByText("Naval History")[0];
-  expect(collectionTitle).toBeTruthy();
-  fireEvent.click(collectionTitle);
+it("renders Groups and Series with the same no-cover Collection artwork and no type labels", () => {
+  const { container } = render(<BookGridView books={[]} collections={[group, series]} onSelect={vi.fn()} onSelectCollection={vi.fn()} />);
+  expect(container.querySelectorAll('[data-testid="collection-placeholder-artwork"]')).toHaveLength(2);
+  expect(container.querySelectorAll('[aria-label="Collection"]')).toHaveLength(0);
+  expect(screen.getByRole("button", { name: "Open collection: Naval History" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Open collection: Discworld" })).toBeTruthy();
+  expect(screen.queryByText("Group")).toBeNull();
+  expect(screen.queryByText("Series")).toBeNull();
+});
+
+it("renders collection covers, placeholder metadata, and collection selection", () => {
+  const onCollection = vi.fn();
+  const covered = { ...series, cover_url: "/covers/objects/sha256/ab/cover.jpg" };
+  const { container } = render(<BookGridView books={[book]} collections={[covered, group]} onSelect={vi.fn()} onSelectCollection={onCollection} />);
+  expect(container.querySelector('img[src="/covers/objects/sha256/ab/cover.jpg"]')).toBeTruthy();
+  const coveredButton = screen.getAllByRole("button", { name: "Open collection: Discworld" }).at(-1)!;
+  expect(coveredButton.textContent).toContain("Terry Pratchett");
+  expect(coveredButton.querySelector('[aria-label="Collection"]')).toBeTruthy();
+  const groupButton = screen.getAllByRole("button", { name: "Open collection: Naval History" }).at(-1)!;
+  expect(groupButton.textContent).not.toContain("Terry Pratchett");
+  expect(groupButton.querySelector('[aria-label="Collection"]')).toBeNull();
+  expect(groupButton.querySelector('[data-testid="collection-placeholder-artwork"]')).toBeTruthy();
+  fireEvent.click(groupButton);
   expect(onCollection).toHaveBeenCalledWith(group);
-  fireEvent.click(screen.getAllByText("Loose Book")[0]);
-  expect(onBook).toHaveBeenCalledWith(book);
+});
+
+it("falls back to the intentional collection placeholder when a cover fails", () => {
+  const covered = { ...series, cover_url: "/covers/objects/sha256/ab/missing.jpg" };
+  const { container } = render(<BookGridView books={[]} collections={[covered]} onSelect={vi.fn()} onSelectCollection={vi.fn()} />);
+  const cover = container.querySelector('img[src="/covers/objects/sha256/ab/missing.jpg"]');
+  expect(cover).toBeTruthy();
+  fireEvent.error(cover!);
+  expect(container.querySelector('img[src="/covers/objects/sha256/ab/missing.jpg"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Collection"]')).toBeNull();
+  expect(container.querySelector('[data-testid="collection-placeholder-artwork"]')).toBeTruthy();
+  expect(screen.getAllByText("Discworld").length).toBeGreaterThan(1);
+  expect(screen.getAllByText("Terry Pratchett").length).toBeGreaterThan(1);
 });
 
 it("does not create nested collection tiles unless supplied by the browse API", () => {

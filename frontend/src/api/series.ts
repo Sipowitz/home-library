@@ -34,6 +34,15 @@ export async function updateSeries(
   return response.data;
 }
 
+export async function uploadSeriesCover(id: number, file: File): Promise<Series> {
+  const data = new FormData();
+  data.append("file", file);
+  const response = await client.post<Series>(`/series/${id}/cover`, data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+}
+
 export async function deleteSeries(id: number): Promise<void> {
   await client.delete(`/series/${id}`);
 }
