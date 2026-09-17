@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const api = vi.hoisted(() => ({ root: vi.fn(), collection: vi.fn() }));
+const api = vi.hoisted(() => ({ root: vi.fn(), collection: vi.fn(), getBook: vi.fn() }));
 vi.mock("./api/collections", () => ({ browseRootCollections: api.root, browseCollection: api.collection }));
 vi.mock("./hooks/useBooks", () => ({ useBooks: () => ({ books: [], loadMoreBooks: vi.fn(), hasMore: false, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: vi.fn(), updateFilters: vi.fn(), isLoading: false, loadError: null, filters: {} }) }));
 vi.mock("./context/LocationContext", () => ({ useLocations: () => ({ locations: [] }) }));
@@ -11,15 +11,20 @@ vi.mock("./context/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: tru
 vi.mock("./hooks/usePreferences", () => ({ usePreferences: () => ({ preferences: { library_name: "Library", library_view_mode: "grid", show_collections_in_library: true, root_collection_display_mode: "collections_only" }, updatePreferences: vi.fn() }) }));
 vi.mock("./hooks/useSearch", () => ({ useSearch: () => ({ searchInput: "", setSearchInput: vi.fn() }) }));
 vi.mock("./hooks/useBookActions", () => ({ useBookActions: () => ({ isFetching: false, handleSearch: vi.fn(), handleAddBook: vi.fn(), handleQuickAdd: vi.fn(), handleAddAndReview: vi.fn(), handleDelete: vi.fn(), handleSave: vi.fn(), resetAddBook: vi.fn(), handleAddBookISBNChange: vi.fn() }) }));
-vi.mock("./api/books", () => ({ getBook: vi.fn() }));
+vi.mock("./api/books", () => ({ getBook: api.getBook }));
 vi.mock("./api/auth", () => ({ login: vi.fn() }));
-vi.mock("./components/books/views/BookGridView", () => ({ BookGridView: ({ items, collections, books, onSelectCollection }: any) => <div data-testid="grid">{(items ?? collections ?? []).map((item: any) => { const collection = item.collection ?? item; return <button key={collection.id} onClick={() => onSelectCollection?.(collection)}>{collection.name}</button>; })}{books.map((book: any) => <span key={book.id}>{book.title}</span>)}</div> }));
+vi.mock("./components/books/views/BookGridView", () => ({ BookGridView: ({ items, collections, books, onSelectCollection, onSelect }: any) => <div data-testid="grid">{(items ?? [
+  ...(collections ?? []).map((collection: any) => ({ kind: "collection", collection })),
+  ...(books ?? []).map((book: any) => ({ kind: "book", book })),
+]).map((item: any) => item.kind === "collection"
+  ? <button key={`collection-${item.collection.id}`} onClick={() => onSelectCollection?.(item.collection)}>{item.collection.name}</button>
+  : <button key={`book-${item.book.id}`} onClick={() => onSelect?.(item.book)}>{item.book.title}</button>)}</div> }));
 vi.mock("./components/layout/Header", () => ({ Header: () => null }));
 vi.mock("./components/layout/TopPanels", () => ({ TopPanels: () => null }));
 vi.mock("./components/search/SearchBar", () => ({ SearchBar: () => null }));
 vi.mock("./components/books/views/ViewModeSwitcher", () => ({ ViewModeSwitcher: () => null }));
 vi.mock("./components/settings/SettingsModal", () => ({ SettingsModal: () => null }));
-vi.mock("./components/books/BookPanel", () => ({ BookPanel: () => null }));
+vi.mock("./components/books/BookPanel", () => ({ BookPanel: ({ book, editing, editData, setEditing, setEditData, onClose }: any) => <section data-testid="book-panel"><span data-testid="panel-title">{book.title}</span><span data-testid="panel-publisher">{book.publisher}</span><span data-testid="panel-location">{book.location_id}</span><span data-testid="panel-category">{book.category_id}</span><button onClick={() => { setEditData(book); setEditing(true); }}>Edit selected book</button><button onClick={onClose}>Close selected book</button>{editing && <><span data-testid="edit-publisher">{editData?.publisher}</span><span data-testid="edit-year">{editData?.year}</span><span data-testid="edit-language">{editData?.language}</span><span data-testid="edit-pages">{editData?.page_count}</span><span data-testid="edit-isbn">{editData?.isbn}</span><span data-testid="edit-description">{editData?.description}</span><span data-testid="edit-location">{editData?.location_id}</span><span data-testid="edit-category">{editData?.category_id}</span></>}</section> }));
 vi.mock("./components/settings/maintenance/MaintenanceReviewSession", () => ({ MaintenanceReviewSession: () => null }));
 vi.mock("./components/books/AddBookDialog", () => ({ AddBookDialog: () => null }));
 vi.mock("./components/books/CheckLibraryDialog", () => ({ CheckLibraryDialog: () => null }));
@@ -29,6 +34,14 @@ import App from "./App";
 function deferred<T>() { let resolve!: (value: T) => void; return { promise: new Promise<T>((done) => { resolve = done; }), resolve }; }
 const root = { id: 1, name: "Root", node_type: "series", author: null, description: null, cover_url: null, parent_id: null };
 const nested = { ...root, id: 2, name: "Nested", parent_id: 1 };
+
+beforeEach(() => {
+  api.getBook.mockReset();
+});
+
+afterEach(() => {
+  cleanup();
+});
 
 it("keeps the source collection coherent until destination data is ready and ignores stale navigation", async () => {
   const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
@@ -81,4 +94,100 @@ it("shows a quiet message for a truly empty collection after its result is loade
   fireEvent.click(screen.getByText("Empty collection"));
   await act(async () => undefined);
   expect(screen.getAllByText("This collection is empty.").length).toBeGreaterThan(0);
+});
+
+it("hydrates a lightweight root browse book before opening the panel and supplies Book Edit with complete metadata", async () => {
+  api.root.mockReset(); api.collection.mockReset();
+  const tile = { id: 22, title: "The Life and Times of the Thunderbolt Kid", author: "Bill Bryson", cover_url: "/cover.jpg", read: false };
+  const fullBook = {
+    ...tile,
+    subtitle: "A Memoir",
+    publisher: "Random House",
+    language: "en",
+    page_count: 420,
+    year: 2007,
+    isbn: "9780552772549",
+    description: "Populated description",
+    location_id: 12,
+    category_id: 7,
+  };
+  const request = deferred<any>();
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "book", book: tile }], collections: [], books: [], total: 1 });
+  api.getBook.mockReturnValue(request.promise);
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText(tile.title));
+  expect(api.getBook).toHaveBeenCalledWith(22);
+  expect(screen.queryByTestId("book-panel")).toBeNull();
+
+  await act(async () => request.resolve(fullBook));
+  expect(screen.getByTestId("panel-publisher").textContent).toBe("Random House");
+  expect(screen.getByTestId("panel-location").textContent).toBe("12");
+  expect(screen.getByTestId("panel-category").textContent).toBe("7");
+
+  fireEvent.click(screen.getByText("Edit selected book"));
+  expect(screen.getByTestId("edit-publisher").textContent).toBe("Random House");
+  expect(screen.getByTestId("edit-year").textContent).toBe("2007");
+  expect(screen.getByTestId("edit-language").textContent).toBe("en");
+  expect(screen.getByTestId("edit-pages").textContent).toBe("420");
+  expect(screen.getByTestId("edit-isbn").textContent).toBe("9780552772549");
+  expect(screen.getByTestId("edit-description").textContent).toBe("Populated description");
+  expect(screen.getByTestId("edit-location").textContent).toBe("12");
+  expect(screen.getByTestId("edit-category").textContent).toBe("7");
+});
+
+it("uses the same hydration path for nested collection books and ignores stale book responses", async () => {
+  api.root.mockReset(); api.collection.mockReset();
+  const first = { id: 31, title: "First", author: "Author", cover_url: null, read: false };
+  const second = { id: 32, title: "Second", author: "Author", cover_url: null, read: false };
+  const firstRequest = deferred<any>();
+  const secondRequest = deferred<any>();
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "collection", collection: root }], collections: [], books: [], total: 1 });
+  api.collection.mockResolvedValue({ collection: root, collections: [], books: [first, second], total: 2 });
+  api.getBook.mockReturnValueOnce(firstRequest.promise).mockReturnValueOnce(secondRequest.promise);
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Root"));
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("First"));
+  fireEvent.click(screen.getByText("Second"));
+  expect(api.getBook).toHaveBeenNthCalledWith(1, 31);
+  expect(api.getBook).toHaveBeenNthCalledWith(2, 32);
+
+  await act(async () => secondRequest.resolve({ ...second, publisher: "Second publisher" }));
+  expect(screen.getByTestId("panel-title").textContent).toBe("Second");
+  await act(async () => firstRequest.resolve({ ...first, publisher: "First publisher" }));
+  expect(screen.getByTestId("panel-title").textContent).toBe("Second");
+});
+
+it("cancels a pending hydration when the open panel is closed", async () => {
+  api.root.mockReset(); api.collection.mockReset();
+  const alreadyOpen = { id: 40, title: "Already open", author: "Author", read: false };
+  const pendingTile = { id: 41, title: "Pending", author: "Author", read: false };
+  const pending = deferred<any>();
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "book", book: alreadyOpen }, { kind: "book", book: pendingTile }], collections: [], books: [], total: 2 });
+  api.getBook.mockResolvedValueOnce(alreadyOpen).mockReturnValueOnce(pending.promise);
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Already open"));
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Pending"));
+  fireEvent.click(screen.getByText("Close selected book"));
+  await act(async () => pending.resolve({ ...pendingTile, publisher: "Must not reopen" }));
+  expect(screen.queryByTestId("book-panel")).toBeNull();
+});
+
+it("does not open an unsafe partial panel when book hydration fails", async () => {
+  api.root.mockReset(); api.collection.mockReset();
+  const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const tile = { id: 50, title: "Unavailable", author: "Author", read: false };
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "book", book: tile }], collections: [], books: [], total: 1 });
+  api.getBook.mockRejectedValue(new Error("network"));
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Unavailable"));
+  await act(async () => undefined);
+  expect(screen.queryByTestId("book-panel")).toBeNull();
+  expect(error).toHaveBeenCalled();
+  error.mockRestore();
 });

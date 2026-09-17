@@ -5,9 +5,9 @@ import type { Series } from "../../../types/series";
 import { LibraryBig } from "lucide-react";
 
 type Props = {
-  books: Book[];
+  books: GridBook[];
 
-  onSelect: (book: Book) => void;
+  onSelect: (book: GridBook) => void;
   collections?: Series[];
   items?: GridItem[];
   onSelectCollection?: (collection: Series) => void;

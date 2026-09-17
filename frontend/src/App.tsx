@@ -116,6 +116,7 @@ export default function App() {
   const collectionBrowseKeyRef = useRef<string | null>(null);
   const collectionRequestGenerationRef = useRef(0);
   const collectionPageRequestGenerationRef = useRef(0);
+  const bookOpenRequestGenerationRef = useRef(0);
   const rootCollectionSnapshotRef = useRef<{ browse: CollectionBrowseResult; hasMore: boolean; key: string; scrollY: number } | null>(null);
   const pendingRootScrollRestoreRef = useRef<number | null>(null);
 
@@ -142,6 +143,27 @@ export default function App() {
       setEditing,
       editData,
     });
+
+  const cancelPendingBookOpen = useCallback(() => {
+    bookOpenRequestGenerationRef.current += 1;
+  }, []);
+
+  const openBook = useCallback(async (bookOrId: Pick<Book, "id"> | number) => {
+    const bookId = typeof bookOrId === "number" ? bookOrId : bookOrId.id;
+    const generation = ++bookOpenRequestGenerationRef.current;
+
+    try {
+      const book = await getBook(bookId);
+      if (generation !== bookOpenRequestGenerationRef.current) return;
+
+      setSelectedBook(book);
+      setEditing(false);
+    } catch (error) {
+      if (generation !== bookOpenRequestGenerationRef.current) return;
+      console.error("Book could not be opened", error);
+      toast.error("Book could not be opened");
+    }
+  }, []);
 
   async function handleAddAndReviewFlow(allowDuplicate = false) {
     const created = await handleAddAndReview(allowDuplicate);
@@ -488,6 +510,7 @@ export default function App() {
   // -------------------
 
   function handleLogout() {
+    cancelPendingBookOpen();
     logout();
 
     setSelectedBook(null);
@@ -496,6 +519,7 @@ export default function App() {
   }
 
   async function openMaintenanceReview(bookId: number, target: ReviewTarget, guided = false, followUp: ReviewTarget | null = null) {
+    cancelPendingBookOpen();
     try {
       const book = await getBook(bookId);
       setSelectedBook(null);
@@ -561,6 +585,7 @@ export default function App() {
     <div
       className="min-h-screen bg-canvas text-text-primary p-6"
       onClick={() => {
+        cancelPendingBookOpen();
         setSelectedBook(null);
 
         setEditing(false);
@@ -578,15 +603,8 @@ export default function App() {
           onClose={() => setShowSettings(false)}
           onReviewBook={openMaintenanceReview}
           onViewBook={async (bookId) => {
-            try {
-              const book = await getBook(bookId);
-              setShowSettings(false);
-              setSelectedBook(book);
-              setEditing(false);
-            } catch (err) {
-              console.error("Failed to open book", err);
-              toast.error("Book could not be opened");
-            }
+            setShowSettings(false);
+            await openBook(bookId);
           }}
           reviewSaved={reviewSaved}
           evidenceRefreshVersion={evidenceRefreshVersion}
@@ -669,9 +687,7 @@ export default function App() {
             items={!currentCollection ? collectionBrowse?.items : undefined}
             onSelectCollection={enterCollection}
             onSelect={(book) => {
-              setSelectedBook(book);
-
-              setEditing(false);
+              void openBook(book);
             }}
           />
         ) : (
@@ -681,9 +697,7 @@ export default function App() {
             categories={categories}
             showCovers={showCoversInList}
             onSelect={(book) => {
-              setSelectedBook(book);
-
-              setEditing(false);
+              void openBook(book);
             }}
           />
         )}
@@ -696,6 +710,7 @@ export default function App() {
             setEditing={setEditing}
             setEditData={(b) => setEditData(b)}
             onClose={() => {
+              cancelPendingBookOpen();
               setSelectedBook(null);
             }}
             onSave={handleSave}
@@ -722,8 +737,7 @@ export default function App() {
           onClose={() => setShowCheckLibrary(false)}
           onViewBook={(book) => {
             setShowCheckLibrary(false);
-            setSelectedBook(book);
-            setEditing(false);
+            void openBook(book);
           }}
           onAddBook={(draft) => {
             setShowCheckLibrary(false);
