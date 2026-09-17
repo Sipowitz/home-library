@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { ActionButton } from "../../ui/ActionButton";
 
@@ -8,6 +8,8 @@ export type SeriesDraft = {
   author: string;
   description: string;
   coverUrl: string;
+  coverFile: File | null;
+  coverCleared: boolean;
   parentId: number | null;
 };
 
@@ -31,6 +33,21 @@ export function SeriesForm({
   onSubmit,
 }: Props) {
   const prefix = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!draft.coverFile) {
+      setLocalPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(draft.coverFile);
+    setLocalPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [draft.coverFile]);
+
+  const previewUrl = localPreviewUrl ?? draft.coverUrl;
+  const hasCover = Boolean(previewUrl);
 
   return (
     <form
@@ -47,10 +64,34 @@ export function SeriesForm({
       )}
 
       <div>
-        <label htmlFor={`${prefix}-cover`} className="mb-1.5 block text-sm font-medium text-text-secondary">
-          Cover URL
-        </label>
-        <input id={`${prefix}-cover`} value={draft.coverUrl} onChange={(event) => onChange({ ...draft, coverUrl: event.target.value })} placeholder="Optional" className="form-control w-full px-3 py-2.5" />
+        <span className="mb-1.5 block text-sm font-medium text-text-secondary">Cover image</span>
+        {hasCover && (
+          <img src={previewUrl} alt="Collection cover preview" className="mb-3 h-36 w-24 rounded-lg border border-border object-cover" />
+        )}
+        <input
+          ref={fileInputRef}
+          id={`${prefix}-cover-file`}
+          aria-label="Cover image"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0] ?? null;
+            if (file) onChange({ ...draft, coverFile: file, coverCleared: false });
+            event.target.value = "";
+          }}
+        />
+        <div className="flex flex-wrap gap-2">
+          <ActionButton type="button" variant="tertiary" onClick={() => fileInputRef.current?.click()} disabled={saving}>
+            {hasCover ? "Replace cover" : "Choose cover"}
+          </ActionButton>
+          {hasCover && (
+            <ActionButton type="button" variant="tertiary" onClick={() => onChange({ ...draft, coverUrl: "", coverFile: null, coverCleared: true })} disabled={saving}>
+              Remove cover
+            </ActionButton>
+          )}
+        </div>
+        <p className="mt-1.5 text-xs text-text-muted">JPEG, PNG or WebP, up to 15 MB.</p>
       </div>
 
       <div>

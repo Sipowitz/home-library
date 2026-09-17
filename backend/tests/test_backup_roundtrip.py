@@ -158,7 +158,8 @@ def test_content_addressed_covers_round_trip_portably_with_deduplication_and_reu
     )
     second = models.Book(owner_id=user.id, title="Shared", author="Author", cover_url=shared_url)
     series_row = models.Series(name="Series", node_type="series", owner_id=user.id, cover_url=series_url)
-    db.add_all([first, second, series_row]); db.commit()
+    group_row = models.Series(name="Group", node_type="group", owner_id=user.id, cover_url=shared_url)
+    db.add_all([first, second, series_row, group_row]); db.commit()
     user_id, username = user.id, user.username
 
     archive, _ = create_backup(db, user_id, username)
@@ -192,7 +193,9 @@ def test_content_addressed_covers_round_trip_portably_with_deduplication_and_reu
         expected_series_url = f"/covers/objects/sha256/{series_digest[:2]}/{series_digest}.png"
         assert restored_by_title["Permanent"].cover_url == restored_by_title["Shared"].cover_url == expected_shared_url
         assert restored_by_title["Permanent"].uploaded_cover_candidates_json == [{"provider": "upload", "label": "Candidate", "url": expected_uploaded_url}]
-        assert db.query(models.Series).filter_by(owner_id=user_id).one().cover_url == expected_series_url
+        restored_collections = {row.name: row for row in db.query(models.Series).filter_by(owner_id=user_id).all()}
+        assert restored_collections["Series"].cover_url == expected_series_url
+        assert restored_collections["Group"].cover_url == expected_shared_url
         assert (destination_root / expected_shared_url.removeprefix("/covers/")).read_bytes() == shared
         assert (destination_root / expected_uploaded_url.removeprefix("/covers/")).read_bytes() == uploaded
         assert (destination_root / expected_series_url.removeprefix("/covers/")).read_bytes() == series

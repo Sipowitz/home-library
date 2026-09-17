@@ -10,6 +10,7 @@ import {
   fetchSeriesTree,
   seriesApiErrorMessage,
   updateSeries,
+  uploadSeriesCover,
 } from "../../../api/series";
 
 import type { EffectiveSeriesBook, SeriesTreeNode } from "../../../types/series";
@@ -36,6 +37,8 @@ const emptyDraft = (parentId: number | null = null): SeriesDraft => ({
   author: "",
   description: "",
   coverUrl: "",
+  coverFile: null,
+  coverCleared: false,
   parentId,
 });
 
@@ -229,9 +232,22 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
         node_type: createDraft.nodeType,
         author: createDraft.author.trim() || null,
         description: createDraft.description.trim() || null,
-        cover_url: createDraft.coverUrl.trim() || null,
+        cover_url: null,
         parent_id: createDraft.parentId,
       });
+      if (createDraft.coverFile) {
+        try {
+          await uploadSeriesCover(created.id, createDraft.coverFile);
+        } catch (error) {
+          onCollectionsChanged?.();
+          await reload(created.id);
+          setCreating(false);
+          setCreateDraft(emptyDraft());
+          const message = seriesApiErrorMessage(error, "Collection was created, but its cover upload failed. Edit it to retry.");
+          toast.error(`Collection was created, but its cover upload failed: ${message}`);
+          return;
+        }
+      }
       onCollectionsChanged?.();
       await reload(created.id);
       setCreating(false);
@@ -254,6 +270,8 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
       author: series.author ?? "",
       description: series.description ?? "",
       coverUrl: series.cover_url ?? "",
+      coverFile: null,
+      coverCleared: false,
       parentId: series.parent_id,
     });
     setEditError(null);
@@ -271,8 +289,9 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
         name: editDraft.name.trim(),
         author: editDraft.author.trim() || null,
         description: editDraft.description.trim() || null,
-        cover_url: editDraft.coverUrl.trim() || null,
+        ...(editDraft.coverCleared ? { cover_url: null } : {}),
       });
+      if (editDraft.coverFile) await uploadSeriesCover(selected.id, editDraft.coverFile);
       onCollectionsChanged?.();
       await reload(selected.id);
       setEditing(false);

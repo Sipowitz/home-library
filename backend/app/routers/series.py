@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status, Query
 from typing import Literal
 from sqlalchemy.orm import Session
 
@@ -6,6 +6,7 @@ from app import models, schemas
 from app.auth.dependencies import get_current_user
 from app.database import SessionLocal
 from app.services import series_service
+from app.services.cover_storage import CoverUploadError, store_uploaded_series_cover
 
 
 router = APIRouter(prefix="/series", tags=["Series"])
@@ -67,6 +68,34 @@ def get_series(series_id: int, db: Session = Depends(get_db), current_user: mode
     row = series_service.get_series(db, current_user.id, series_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Series not found")
+    return row
+
+
+@router.post("/{series_id}/cover", response_model=schemas.SeriesResponse)
+async def upload_series_cover(
+    series_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Publish a validated collection cover before changing its database reference."""
+    row = series_service.get_series(db, current_user.id, series_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Series not found")
+    try:
+        stored = await store_uploaded_series_cover(file)
+    except CoverUploadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    finally:
+        await file.close()
+
+    try:
+        row.cover_url = stored.url
+        db.commit()
+        db.refresh(row)
+    except Exception:
+        db.rollback()
+        raise
     return row
 
 
