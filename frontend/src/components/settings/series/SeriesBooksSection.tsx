@@ -68,7 +68,7 @@ export function SeriesBooksSection({ seriesId, seriesName, nodeType, isRoot, onM
   const load = useCallback(async () => {
     setLoading(true);
     try { const next = await fetchEffectiveSeriesBooks(seriesId); setBooks(next); setError(null); }
-    catch (requestError) { setError(seriesApiErrorMessage(requestError, "Unable to load Series books.")); }
+    catch (requestError) { setError(seriesApiErrorMessage(requestError, "Unable to load Collection books.")); }
     finally { setLoading(false); }
   }, [seriesId]);
   useEffect(() => { void load(); }, [load]);
@@ -128,7 +128,7 @@ export function SeriesBooksSection({ seriesId, seriesName, nodeType, isRoot, onM
       {!isRoot && <label className="flex items-center gap-2 text-sm text-text-secondary"><input type="checkbox" checked={showRootPositions} onChange={(event) => setShowRootPositions(event.target.checked)} /> Show root positions</label>}
     </div>
 
-    {books.length === 0 ? <p className="mt-5 text-sm text-text-muted">No books belong to this {nodeType === "group" ? "Group" : "Series"} yet.</p> : isRoot ? <>
+    {books.length === 0 ? <p className="mt-5 text-sm text-text-muted">No books belong to this Collection yet.</p> : isRoot ? <>
       <div className="mt-5 flex gap-2" role="tablist">{(["publication", "chronological"] as const).map((kind) => <ActionButton key={kind} variant={tab === kind ? "primary" : "secondary"} onClick={() => setTab(kind)}>{kind === "publication" ? "Publication" : "Chronological"}</ActionButton>)}</div>
       <OrderColumns ordered={ordered} unordered={unordered} setOrdered={setOrdered} onRemoveMembership={setRemoving} />
       <div className="mt-4 flex justify-end"><ActionButton variant="primary" onClick={() => void saveOrder()} disabled={saving}>{saving ? "Saving…" : "Save order"}</ActionButton></div>

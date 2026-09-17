@@ -32,7 +32,7 @@ const items: {
 
   {
     id: "series",
-    label: "Series",
+    label: "Collections",
   },
 
   {

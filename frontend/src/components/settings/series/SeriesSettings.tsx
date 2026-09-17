@@ -177,7 +177,7 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
         }
       } catch (error) {
         if (!cancelled) {
-          setLoadError(seriesApiErrorMessage(error, "Unable to load Series."));
+          setLoadError(seriesApiErrorMessage(error, "Unable to load Collections."));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -252,9 +252,9 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
       await reload(created.id);
       setCreating(false);
       setCreateDraft(emptyDraft());
-      toast.success("Series created");
+      toast.success("Collection created");
     } catch (error) {
-      const message = seriesApiErrorMessage(error, "Failed to create Series.");
+      const message = seriesApiErrorMessage(error, "Failed to create Collection.");
       setCreateError(message);
       toast.error(message);
     } finally {
@@ -295,9 +295,9 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
       onCollectionsChanged?.();
       await reload(selected.id);
       setEditing(false);
-      toast.success("Series updated");
+      toast.success("Collection updated");
     } catch (error) {
-      const message = seriesApiErrorMessage(error, "Failed to update Series.");
+      const message = seriesApiErrorMessage(error, "Failed to update Collection.");
       setEditError(message);
       toast.error(message);
     } finally {
@@ -317,9 +317,9 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
       await reload(fallbackSelection);
       setConfirmingDelete(false);
       setEditing(false);
-      toast.success("Series deleted");
+      toast.success("Collection deleted");
     } catch (error) {
-      const message = seriesApiErrorMessage(error, "Failed to delete Series.");
+      const message = seriesApiErrorMessage(error, "Failed to delete Collection.");
       setOperationError(message);
       setConfirmingDelete(false);
       toast.error(message);
@@ -352,7 +352,7 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
   if (loading) {
     return (
       <div className="flex min-h-72 items-center justify-center rounded-xl border border-border bg-surface-muted/30 text-sm text-text-muted">
-        Loading Series…
+        Loading Collections…
       </div>
     );
   }
@@ -369,7 +369,7 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
             try {
               await reload();
             } catch (error) {
-              setLoadError(seriesApiErrorMessage(error, "Unable to load Series."));
+              setLoadError(seriesApiErrorMessage(error, "Unable to load Collections."));
             } finally {
               setLoading(false);
             }
@@ -388,9 +388,9 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
           <div className="rounded-2xl border border-border bg-surface p-4 text-text-secondary">
             <GitBranch size={28} aria-hidden="true" />
           </div>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">No Series yet</h3>
+          <h3 className="mt-4 text-lg font-semibold text-text-primary">No Collections yet</h3>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-text-muted">
-            Create a Series to organise books into Series and subseries.
+            Create a Collection to organise books.
           </p>
           <ActionButton variant="addPrimary" className="mt-5" onClick={() => setChoosingRootType(true)}>
             <Plus size={17} aria-hidden="true" /> Create
@@ -415,7 +415,7 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
       <div className="rounded-xl border border-border bg-surface-muted/30">
         <div className="relative z-20 rounded-t-xl border-b border-border bg-surface/60 px-2.5 py-2 sm:px-3 lg:px-4">
           <div className="flex flex-col gap-2 lg:flex-row lg:flex-nowrap lg:items-center">
-            <h3 className="hidden shrink-0 text-lg font-semibold text-text-primary lg:block">Series</h3>
+            <h3 className="hidden shrink-0 text-lg font-semibold text-text-primary lg:block">Collections</h3>
             <div className="flex min-w-0 flex-wrap items-center gap-2 lg:flex-1 lg:flex-nowrap">
               <SeriesRootCombobox
                 roots={tree}
@@ -512,7 +512,7 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
                   </ActionButton>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto">
-            <section aria-label="Selected Series item management">
+            <section aria-label="Selected Collection item management">
               {operationError && (
                 <div role="alert" className="mx-4 mt-3 rounded-xl border border-danger/30 bg-danger-muted/35 px-3 py-2 text-sm text-danger sm:mx-5">
                   {operationError}
@@ -654,7 +654,7 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
       <ConfirmDeleteModal
         open={confirmingDelete}
         title={`Delete ${selected?.node_type === "group" ? "Group" : "Series"}?`}
-        message={`Delete “${selected?.name ?? "this Series"}”? This cannot be undone.`}
+        message={`Delete “${selected?.name ?? "this Collection"}”? This cannot be undone.`}
         confirmText={deleting ? "Deleting…" : `Delete ${selected?.node_type === "group" ? "Group" : "Series"}`}
         onConfirm={handleDelete}
         onCancel={() => !deleting && setConfirmingDelete(false)}
