@@ -2,7 +2,7 @@ import React from "react";
 
 import type { Book } from "../../../types/book";
 import type { Series } from "../../../types/series";
-import { FolderTree, GitBranch } from "lucide-react";
+import { LibraryBig } from "lucide-react";
 
 type Props = {
   books: Book[];
@@ -19,6 +19,7 @@ type GridItem =
   | { kind: "collection"; collection: Series };
 
 function BookGridViewComponent({ books, onSelect, collections = [], items, onSelectCollection }: Props) {
+  const [failedCollectionCovers, setFailedCollectionCovers] = React.useState<Set<number>>(() => new Set());
   const orderedItems: GridItem[] = items ?? [
     ...collections.map((collection) => ({ kind: "collection" as const, collection })),
     ...books.map((book) => ({ kind: "book" as const, book })),
@@ -41,14 +42,14 @@ function BookGridViewComponent({ books, onSelect, collections = [], items, onSel
           );
         }
         const collection = item.collection;
-        const isGroup = collection.node_type === "group";
-        return <button key={`collection-${collection.id}`} type="button" onClick={() => onSelectCollection?.(collection)} className="cursor-pointer group min-w-0 text-left">
+        const hasCover = Boolean(collection.cover_url?.trim()) && !failedCollectionCovers.has(collection.id);
+        return <button key={`collection-${collection.id}`} type="button" onClick={() => onSelectCollection?.(collection)} aria-label={`Open collection: ${collection.name}`} className="cursor-pointer group min-w-0 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
           <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-surface-muted shadow-md transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-[1.02] group-hover:shadow-2xl">
-            {collection.cover_url ? <img src={collection.cover_url} alt="" className="h-full w-full object-cover" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="flex h-full flex-col justify-between bg-gradient-to-br from-surface-raised to-surface-muted p-3 text-text-primary"><span className="line-clamp-4 text-[11px] font-semibold leading-tight">{collection.name}</span><span className="text-[10px] text-text-muted">{isGroup ? "Group" : "Series"}</span></div>}
+            {hasCover ? <img src={collection.cover_url ?? undefined} alt="" className="h-full w-full object-cover" onError={() => setFailedCollectionCovers((current) => new Set(current).add(collection.id))} /> : <div className="relative flex h-full flex-col justify-end bg-gradient-to-br from-surface-raised via-surface to-surface-muted p-3 text-text-primary"><span data-testid="collection-placeholder-artwork" className="absolute inset-x-0 top-[32%] flex justify-center text-text-secondary/45"><LibraryBig size={44} strokeWidth={1.5} aria-hidden="true" /></span><span className="min-w-0"><span className="line-clamp-4 block text-[11px] font-semibold leading-tight">{collection.name}</span>{collection.author && <span className="mt-1 block line-clamp-2 text-[10px] leading-tight text-text-muted">{collection.author}</span>}</span></div>}
             <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/20" />
-            <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-white/20 bg-black/55 px-1.5 py-1 text-[10px] text-white shadow" title={isGroup ? "Group" : "Series"}>{isGroup ? <FolderTree size={12} /> : <GitBranch size={12} />}{isGroup ? "Group" : "Series"}</span>
+            {hasCover && <span className="absolute right-2 top-2 inline-flex rounded-md border border-white/20 bg-black/55 p-1.5 text-white shadow" title="Collection" aria-label="Collection"><LibraryBig size={13} aria-hidden="true" /></span>}
           </div>
-          <div className="mt-2 px-1"><div className="truncate text-xs font-medium text-text-primary">{collection.name}</div><div className="truncate text-[10px] text-text-muted">{isGroup ? "Group" : "Series"}</div></div>
+          <div className="mt-2 px-1"><div className="truncate text-xs font-medium text-text-primary">{collection.name}</div>{collection.author && <div className="truncate text-[10px] text-text-muted">{collection.author}</div>}</div>
         </button>;
       })}
     </div>
