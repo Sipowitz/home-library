@@ -222,6 +222,63 @@ def get_book_relationships(db: Session, user_id: int, book_id: int):
     return result
 
 
+def get_book_collection_paths(db: Session, user_id: int, book_id: int):
+    """Return meaningful root-to-leaf Collection paths for an owned book.
+
+    Nested membership automatically persists a root membership for hierarchy
+    integrity.  That root is an ancestor of the selected leaf, so it is not a
+    separate Book View membership.
+    """
+    if _owned_book(db, user_id, book_id) is None:
+        return None
+
+    owned_nodes = db.query(models.Series.id, models.Series.name, models.Series.parent_id).filter_by(owner_id=user_id).all()
+    nodes = {node_id: {"id": node_id, "name": name, "parent_id": parent_id} for node_id, name, parent_id in owned_nodes}
+    membership_ids = {
+        series_id
+        for (series_id,) in db.query(models.BookSeriesMembership.series_id)
+        .join(models.Series, models.BookSeriesMembership.series_id == models.Series.id)
+        .filter(models.BookSeriesMembership.book_id == book_id, models.Series.owner_id == user_id)
+        .all()
+        if series_id in nodes
+    }
+
+    def is_ancestor(ancestor_id: int, node_id: int) -> bool:
+        current_id = nodes[node_id]["parent_id"]
+        seen = set()
+        while current_id is not None and current_id not in seen:
+            if current_id == ancestor_id:
+                return True
+            seen.add(current_id)
+            current = nodes.get(current_id)
+            if current is None:
+                return False
+            current_id = current["parent_id"]
+        return False
+
+    leaf_ids = [
+        node_id for node_id in membership_ids
+        if not any(other_id != node_id and is_ancestor(node_id, other_id) for other_id in membership_ids)
+    ]
+
+    def path_for(node_id: int):
+        path = []
+        current_id = node_id
+        seen = set()
+        while current_id is not None and current_id not in seen:
+            current = nodes.get(current_id)
+            if current is None:
+                break
+            seen.add(current_id)
+            path.append({"id": current["id"], "name": current["name"]})
+            current_id = current["parent_id"]
+        return list(reversed(path))
+
+    paths = [path_for(node_id) for node_id in leaf_ids]
+    paths.sort(key=lambda path: tuple((node["name"].casefold(), node["id"]) for node in path))
+    return [{"nodes": path} for path in paths]
+
+
 def get_effective_books(db: Session, user_id: int, series_id: int):
     node = _owned_series(db, user_id, series_id)
     if node is None: return None

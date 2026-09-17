@@ -352,6 +352,14 @@ class CollectionBrowseResponse(BaseModel):
 # 📚 BOOK SCHEMAS
 # -------------------
 
+class BookCollectionPathNode(BaseModel):
+    id: int
+    name: str
+
+
+class BookCollectionPath(BaseModel):
+    nodes: List[BookCollectionPathNode]
+
 class BookBase(BaseModel):
     title: str
 

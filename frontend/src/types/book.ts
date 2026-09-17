@@ -19,6 +19,15 @@ export type ReviewStatus = {
   last_refresh_at?: string | null;
 };
 
+export type BookCollectionPathNode = {
+  id: number;
+  name: string;
+};
+
+export type BookCollectionPath = {
+  nodes: BookCollectionPathNode[];
+};
+
 export type Book = {
   id: number;
 

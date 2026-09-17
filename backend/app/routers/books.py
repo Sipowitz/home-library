@@ -15,7 +15,7 @@ from ..auth.dependencies import (
 )
 from ..services.isbn_validation import normalize_isbn
 
-from ..services import book_service
+from ..services import book_service, series_service
 
 from ..services.providers.manager import (
     fetch_book_by_isbn,
@@ -159,6 +159,25 @@ def get_books(
 
         order=order,
     )
+
+
+# -------------------
+# 📚 COLLECTION PATHS
+# -------------------
+
+@router.get(
+    "/{book_id}/collections",
+    response_model=list[schemas.BookCollectionPath],
+)
+def get_book_collections(
+    book_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    paths = series_service.get_book_collection_paths(db, current_user.id, book_id)
+    if paths is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return paths
 
 
 # -------------------
