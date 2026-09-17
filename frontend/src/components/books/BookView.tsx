@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   Barcode,
@@ -9,6 +9,7 @@ import {
   Clock3,
   Folder,
   Languages,
+  LibraryBig,
   MapPin,
   UserRound,
   type LucideIcon,
@@ -18,8 +19,9 @@ import { usePreferences } from "../../hooks/usePreferences";
 import { formatDate, formatDateTime } from "../../utils/dateFormatters";
 import { buildTreeMap } from "../../utils/tree/buildTreeMap";
 import { getTreePath } from "../../utils/tree/getTreePath";
+import { getBookCollectionPaths } from "../../api/books";
 
-import type { Book } from "../../types/book";
+import type { Book, BookCollectionPath } from "../../types/book";
 import type { Location } from "../../types/location";
 import type { Category } from "../../types/category";
 
@@ -95,6 +97,27 @@ function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: Re
 export function BookView({ book, locations, categories }: Props) {
   const { preferences } = usePreferences();
   const [failedForegroundUrl, setFailedForegroundUrl] = useState<string | null>(null);
+  const [collectionPaths, setCollectionPaths] = useState<{ bookId: number; paths: BookCollectionPath[] } | null>(null);
+  const collectionRequestGeneration = useRef(0);
+
+  useEffect(() => {
+    const generation = ++collectionRequestGeneration.current;
+    let cancelled = false;
+
+    void getBookCollectionPaths(book.id)
+      .then((paths) => {
+        if (!cancelled && generation === collectionRequestGeneration.current) {
+          setCollectionPaths({ bookId: book.id, paths });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled && generation === collectionRequestGeneration.current) {
+          console.error("Failed to load book collections", error);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [book.id]);
 
   const locationMap = useMemo(() => buildTreeMap(locations), [locations]);
   const categoryMap = useMemo(() => buildTreeMap(categories), [categories]);
@@ -105,6 +128,7 @@ export function BookView({ book, locations, categories }: Props) {
   const categoryPath = book.category_id
     ? getTreePath(book.category_id, categoryMap, "")
     : "";
+  const displayedCollectionPaths = collectionPaths?.bookId === book.id ? collectionPaths.paths : null;
 
   const resolvedCoverUrl = resolveCoverUrl(book.cover_url);
   const foregroundUrl =
@@ -135,6 +159,21 @@ export function BookView({ book, locations, categories }: Props) {
   const libraryFacts = ([
     categoryPath ? { label: "Category", value: categoryPath, icon: Folder } : null,
     locationPath ? { label: "Location", value: locationPath, icon: MapPin } : null,
+    displayedCollectionPaths?.length ? {
+      label: "Collections",
+      icon: LibraryBig,
+      value: <ul className="space-y-1">
+        {displayedCollectionPaths.map((path) => {
+          const accessiblePath = path.nodes.map((node) => node.name).join(" then ");
+          return <li key={path.nodes.map((node) => node.id).join("-")} aria-label={accessiblePath}>
+            {path.nodes.map((node, index) => <Fragment key={node.id}>
+              {index > 0 && <span aria-hidden="true"> › </span>}
+              <span>{node.name}</span>
+            </Fragment>)}
+          </li>;
+        })}
+      </ul>,
+    } : null,
     {
       label: "Reading status",
       value: book.read ? "Read" : "Unread",

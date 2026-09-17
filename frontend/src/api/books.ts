@@ -1,6 +1,6 @@
 import client from "./client";
 
-import type { Book } from "../types/book";
+import type { Book, BookCollectionPath } from "../types/book";
 
 import type { ProviderResult } from "../types/provider";
 
@@ -149,6 +149,11 @@ export async function getBooks(
 export async function getBook(id: number): Promise<Book> {
   const res = await client.get(`/books/${id}`);
 
+  return res.data;
+}
+
+export async function getBookCollectionPaths(id: number): Promise<BookCollectionPath[]> {
+  const res = await client.get<BookCollectionPath[]>(`/books/${id}/collections`);
   return res.data;
 }
 
