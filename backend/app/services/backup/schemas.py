@@ -184,8 +184,8 @@ class LibraryData(StrictModel):
                 raise ValueError("series cannot parent itself")
             if series.parent_archive_id not in series_ids | {None}:
                 raise ValueError("invalid series parent reference")
-            if series.node_type == "group" and (series.parent_archive_id is not None or series.author is not None):
-                raise ValueError("Group must be a root and cannot have an author")
+            if series.node_type == "group" and series.parent_archive_id is not None:
+                raise ValueError("Group must be a root")
         for book in self.books:
             if book.category_archive_id not in category_ids | {None}:
                 raise ValueError("invalid book category reference")

@@ -10,15 +10,20 @@ export type CollectionBrowseBook = Pick<Book, "id" | "title" | "author" | "cover
 
 export type CollectionBrowseResult = {
   collection: Series | null;
+  items: CollectionBrowseItem[];
   collections: Series[];
   books: CollectionBrowseBook[];
   total: number;
 };
 
-type BrowseOptions = { search?: string; categoryId?: number | null; locationId?: number | null; read?: boolean | null; sort?: "reading" | "publication" | "chronological" | "alphabetical"; rootMode?: "collections_only" | "collections_and_books" };
+export type CollectionBrowseItem =
+  | { kind: "book"; book: CollectionBrowseBook }
+  | { kind: "collection"; collection: Series };
+
+export type BrowseOptions = { search?: string; categoryId?: number | null; locationId?: number | null; read?: boolean | null; sort?: "reading" | "publication" | "chronological" | "alphabetical"; rootMode?: "collections_only" | "collections_and_books"; skip?: number };
 
 function params(options: BrowseOptions) {
-  return { search: options.search || undefined, category_id: options.categoryId ?? undefined, location_id: options.locationId ?? undefined, read: options.read ?? undefined, sort: options.sort, root_mode: options.rootMode, limit: 100 };
+  return { search: options.search || undefined, category_id: options.categoryId ?? undefined, location_id: options.locationId ?? undefined, read: options.read ?? undefined, sort: options.sort, root_mode: options.rootMode, skip: options.skip, limit: 100 };
 }
 
 export async function browseRootCollections(options: BrowseOptions): Promise<CollectionBrowseResult> {

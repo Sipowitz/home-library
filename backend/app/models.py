@@ -727,7 +727,6 @@ class Series(Base):
         CheckConstraint("parent_id IS NULL OR parent_id <> id", name="ck_series_not_self_parent"),
         CheckConstraint("node_type IN ('group', 'series')", name="ck_series_node_type"),
         CheckConstraint("node_type <> 'group' OR parent_id IS NULL", name="ck_series_group_is_root"),
-        CheckConstraint("node_type <> 'group' OR author IS NULL", name="ck_series_group_has_no_author"),
         UniqueConstraint("id", "owner_id", name="uq_series_id_owner_id"),
         ForeignKeyConstraint(
             ["parent_id", "owner_id"], ["series.id", "series.owner_id"],

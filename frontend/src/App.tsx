@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRight, FolderTree, GitBranch } from "lucide-react";
 
 import { login as loginApi } from "./api/auth";
@@ -101,6 +101,8 @@ export default function App() {
   const [collectionPath, setCollectionPath] = useState<Series[]>([]);
   const [collectionBrowse, setCollectionBrowse] = useState<CollectionBrowseResult | null>(null);
   const [collectionLoading, setCollectionLoading] = useState(false);
+  const [collectionHasMore, setCollectionHasMore] = useState(false);
+  const [collectionRevision, setCollectionRevision] = useState(0);
   const [collectionSort, setCollectionSort] = useState<"reading" | "publication" | "chronological" | "alphabetical">("reading");
 
   const [isScrolling, setIsScrolling] = useState(false);
@@ -181,15 +183,32 @@ export default function App() {
   useEffect(() => {
     if (!showCollections || viewMode !== "grid") {
       setCollectionBrowse(null);
+      setCollectionHasMore(false);
       return;
     }
     let cancelled = false;
     setCollectionLoading(true);
     const options = { search: filters.search, categoryId: filters.categoryId, locationId: filters.locationId, read: filters.read, sort: currentCollection?.node_type === "series" ? collectionSort : "alphabetical" as const, rootMode: rootCollectionMode };
     const request = currentCollection ? browseCollection(currentCollection.id, options) : browseRootCollections(options);
-    void request.then((result) => { if (!cancelled) setCollectionBrowse(result); }).catch((error) => { if (!cancelled) { console.error("Failed to browse collections", error); setCollectionBrowse(null); } }).finally(() => { if (!cancelled) setCollectionLoading(false); });
+    void request.then((result) => {
+      if (cancelled) return;
+      setCollectionBrowse(result);
+      setCollectionHasMore(!currentCollection && result.items.length < result.total);
+    }).catch((error) => { if (!cancelled) { console.error("Failed to browse collections", error); setCollectionBrowse(null); setCollectionHasMore(false); } }).finally(() => { if (!cancelled) setCollectionLoading(false); });
     return () => { cancelled = true; };
-  }, [collectionSort, currentCollection?.id, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode, showCollections, viewMode]);
+  }, [collectionRevision, collectionSort, currentCollection?.id, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode, showCollections, viewMode]);
+
+  const loadMoreRootCollectionItems = useCallback(() => {
+    if (collectionLoading || !collectionHasMore || !collectionBrowse) return;
+    setCollectionLoading(true);
+    const options = { search: filters.search, categoryId: filters.categoryId, locationId: filters.locationId, read: filters.read, rootMode: rootCollectionMode, skip: collectionBrowse.items.length };
+    void browseRootCollections(options).then((result) => {
+      setCollectionBrowse((current) => current ? { ...result, items: [...current.items, ...result.items] } : result);
+      setCollectionHasMore(collectionBrowse.items.length + result.items.length < result.total);
+    }).catch((error) => {
+      console.error("Failed to load more root collection items", error);
+    }).finally(() => setCollectionLoading(false));
+  }, [collectionBrowse, collectionHasMore, collectionLoading, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode]);
 
   function enterCollection(collection: Series) {
     setCollectionPath((path) => [...path, collection]);
@@ -229,6 +248,12 @@ export default function App() {
 
   useEffect(() => {
     function handleScroll() {
+      if (showCollections && viewMode === "grid" && !currentCollection) {
+        if (!collectionHasMore || collectionLoading) return;
+        const bottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
+        if (bottom) loadMoreRootCollectionItems();
+        return;
+      }
       if (!hasMore || isLoading) return;
 
       const bottom =
@@ -242,7 +267,7 @@ export default function App() {
     window.addEventListener("scroll", handleScroll);
 
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [hasMore, isLoading, books]);
+  }, [books, collectionHasMore, collectionLoading, currentCollection, hasMore, isLoading, loadMoreRootCollectionItems, showCollections, viewMode]);
 
   useEffect(() => {
     function isPanelBottomAtThreshold() {
@@ -440,6 +465,11 @@ export default function App() {
           }}
           reviewSaved={reviewSaved}
           evidenceRefreshVersion={evidenceRefreshVersion}
+          onCollectionsChanged={() => {
+            if (showCollections && viewMode === "grid" && collectionPath.length === 0) {
+              setCollectionRevision((revision) => revision + 1);
+            }
+          }}
           onReviewSequenceComplete={() => {
             setSelectedBook(null);
             setEditing(false);
@@ -508,6 +538,7 @@ export default function App() {
           <BookGridView
             books={collectionBrowse ? collectionBrowse.books : books}
             collections={collectionBrowse?.collections}
+            items={!currentCollection ? collectionBrowse?.items : undefined}
             onSelectCollection={enterCollection}
             onSelect={(book) => {
               setSelectedBook(book);

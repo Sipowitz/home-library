@@ -48,9 +48,10 @@ function rootIdForSeries(tree: SeriesTreeNode[], seriesId: number): number | nul
 
 type Props = {
   onViewBook?: (bookId: number) => void;
+  onCollectionsChanged?: () => void;
 };
 
-export function SeriesSettings({ onViewBook }: Props) {
+export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
   const [tree, setTree] = useState<SeriesTreeNode[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -226,11 +227,12 @@ export function SeriesSettings({ onViewBook }: Props) {
       const created = await createSeries({
         name: createDraft.name.trim(),
         node_type: createDraft.nodeType,
-        author: createDraft.nodeType === "series" ? createDraft.author.trim() || null : null,
+        author: createDraft.author.trim() || null,
         description: createDraft.description.trim() || null,
         cover_url: createDraft.coverUrl.trim() || null,
         parent_id: createDraft.parentId,
       });
+      onCollectionsChanged?.();
       await reload(created.id);
       setCreating(false);
       setCreateDraft(emptyDraft());
@@ -267,10 +269,11 @@ export function SeriesSettings({ onViewBook }: Props) {
     try {
       await updateSeries(selected.id, {
         name: editDraft.name.trim(),
-        author: selected.node_type === "series" ? editDraft.author.trim() || null : null,
+        author: editDraft.author.trim() || null,
         description: editDraft.description.trim() || null,
         cover_url: editDraft.coverUrl.trim() || null,
       });
+      onCollectionsChanged?.();
       await reload(selected.id);
       setEditing(false);
       toast.success("Series updated");
@@ -291,6 +294,7 @@ export function SeriesSettings({ onViewBook }: Props) {
 
     try {
       await deleteSeries(selected.id);
+      onCollectionsChanged?.();
       await reload(fallbackSelection);
       setConfirmingDelete(false);
       setEditing(false);

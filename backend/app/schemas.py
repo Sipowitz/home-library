@@ -325,8 +325,24 @@ class CollectionBrowseBook(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CollectionBrowseBookItem(BaseModel):
+    kind: Literal["book"]
+    book: CollectionBrowseBook
+
+
+class CollectionBrowseCollectionItem(BaseModel):
+    kind: Literal["collection"]
+    collection: SeriesResponse
+
+
+CollectionBrowseItem = CollectionBrowseBookItem | CollectionBrowseCollectionItem
+
+
 class CollectionBrowseResponse(BaseModel):
     collection: Optional[SeriesResponse] = None
+    # Populated only by the root endpoint. Nested collection browsing retains
+    # its navigation-oriented collections/books shape.
+    items: List[CollectionBrowseItem] = Field(default_factory=list)
     collections: List[SeriesResponse] = Field(default_factory=list)
     books: List[CollectionBrowseBook] = Field(default_factory=list)
     total: int = 0
