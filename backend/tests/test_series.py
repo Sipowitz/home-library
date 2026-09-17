@@ -13,7 +13,7 @@ if TEST_DATABASE_URL:
     os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
 from app import models
-from app.services import series_service
+from app.services import book_service, series_service
 
 
 @pytest.fixture()
@@ -178,3 +178,39 @@ def test_collection_browse_filters_recursively_deduplicates_and_sorts_series(db,
 
     publication = series_service.browse_collection(db, owner.id, root.id, search="Author", sort="publication")
     assert [item["id"] for item in publication["books"]] == [gamma.id, alpha.id, beta.id]
+
+
+def test_root_collection_browse_preserves_canonical_library_book_order(db, library):
+    owner, _, _, _ = library
+    books = [
+        models.Book(title="Zebra Title", author="Aaron Alpha", owner_id=owner.id),
+        models.Book(title="Alpha Title", author="Zoe Zulu", owner_id=owner.id),
+        models.Book(title="Middle Title", author="Mia November", owner_id=owner.id),
+        models.Book(title="Nested Title", author="Nora Middle", owner_id=owner.id),
+    ]
+    db.add_all(books); db.commit()
+
+    group = node(db, owner, "A Group", "group")
+    root_series = node(db, owner, "B Series")
+    child_series = node(db, owner, "Nested Series", parent=root_series)
+    series_service.add_membership(db, owner.id, group.id, books[0].id)
+    series_service.add_membership(db, owner.id, child_series.id, books[3].id)
+
+    normal = book_service.get_books(db, owner.id, 0, 100, sort="author", order="asc")["items"]
+    target_ids = {book.id for book in books}
+    expected_all = [book.id for book in normal if book.id in target_ids]
+    expected_ungrouped = [book.id for book in normal if book.id in {books[1].id, books[2].id}]
+    title_order = [book.id for book in sorted(books, key=lambda book: (book.title, book.id))]
+    assert expected_all == [books[0].id, books[3].id, books[2].id, books[1].id]
+    assert expected_all != title_order
+
+    collections_only = series_service.browse_collection(db, owner.id, None, root_mode="collections_only")
+    collections_and_books = series_service.browse_collection(db, owner.id, None, root_mode="collections_and_books")
+
+    collections_only_ids = [book["id"] for book in collections_only["books"]]
+    collections_and_books_ids = [book["id"] for book in collections_and_books["books"]]
+    assert [book_id for book_id in collections_only_ids if book_id in target_ids] == expected_ungrouped
+    assert [book_id for book_id in collections_and_books_ids if book_id in target_ids] == expected_all
+    assert [item.name for item in collections_and_books["collections"]] == ["A Group", "B Series"]
+    assert all(item.name != "Nested Series" for item in collections_and_books["collections"])
+    assert len(set(collections_and_books_ids)) == len(collections_and_books_ids)
