@@ -13,10 +13,15 @@ from app.services.providers.evidence_service import (
 from app.models import Book
 
 
+def author_surname_expression(author_column):
+    """Return the canonical Library surname expression for an author column."""
+    return func.split_part(author_column, " ", -1)
+
+
 SORT_COLUMNS = {
     "id": Book.id,
     "title": Book.title,
-    "author": func.split_part(Book.author, " ", -1),
+    "author": author_surname_expression(Book.author),
     "publisher": Book.publisher,
     "language": Book.language,
     "page_count": Book.page_count,

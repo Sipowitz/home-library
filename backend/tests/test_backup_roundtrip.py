@@ -62,7 +62,8 @@ def populated(db):
     other_book = models.Book(owner_id=other.id, title="Untouched", author="Other")
     db.add_all([book, other_book]); db.flush()
     series_root = models.Series(name="Discworld", node_type="series", author="Terry Pratchett", description="Universe", cover_url="/covers/uploaded/one.png", owner_id=source.id)
-    db.add(series_root); db.flush()
+    authored_group = models.Series(name="Pratchett", node_type="group", author="Terry Pratchett", owner_id=source.id)
+    db.add_all([series_root, authored_group]); db.flush()
     series_child = models.Series(name="City Watch", node_type="series", parent_id=series_root.id, owner_id=source.id)
     db.add(series_child); db.flush()
     db.add(models.BookSeriesMembership(book_id=book.id, series_id=series_root.id))
@@ -121,8 +122,9 @@ def test_populated_round_trip_remaps_ids_preserves_data_and_other_user(db):
     assert restored.category.parent.name == "Parent" and restored.location.name == "Room"
     assert restored.metadata_snapshots[0].normalized_records[0].title == "Normalized"
     restored_series = db.query(models.Series).filter_by(owner_id=user_id).order_by(models.Series.id).all()
-    assert [(row.name, row.parent.name if row.parent else None) for row in restored_series] == [("Discworld", None), ("City Watch", "Discworld")]
+    assert [(row.name, row.parent.name if row.parent else None) for row in restored_series] == [("Discworld", None), ("Pratchett", None), ("City Watch", "Discworld")]
     assert restored_series[0].author == "Terry Pratchett" and restored_series[0].description == "Universe"
+    assert restored_series[1].node_type == "group" and restored_series[1].author == "Terry Pratchett"
     memberships = db.query(models.BookSeriesMembership).filter_by(book_id=restored.id).all()
     ordering = db.query(models.BookSeriesOrdering).filter_by(book_id=restored.id).one()
     assert len(memberships) == 2

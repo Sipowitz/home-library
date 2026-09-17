@@ -23,3 +23,16 @@ it("does not create nested collection tiles unless supplied by the browse API", 
   render(<BookGridView books={[]} collections={[group]} onSelect={vi.fn()} />);
   expect(screen.queryByText(nested.name)).toBeNull();
 });
+
+it("renders backend-supplied mixed root items without regrouping them", () => {
+  const firstBook = { ...book, id: 10, title: "Adams Book" };
+  const series = { ...group, id: 11, name: "Banks Series", node_type: "series" as const, author: "Iain Banks" };
+  const lastBook = { ...book, id: 12, title: "Tolkien Book" };
+  const { container } = render(<BookGridView books={[]} items={[
+    { kind: "book", book: firstBook },
+    { kind: "collection", collection: series },
+    { kind: "book", book: lastBook },
+  ]} onSelect={vi.fn()} onSelectCollection={vi.fn()} />);
+  const labels = [...container.querySelectorAll(".mt-2 > div:first-child")].map((element) => element.textContent);
+  expect(labels).toEqual(["Adams Book", "Banks Series", "Tolkien Book"]);
+});

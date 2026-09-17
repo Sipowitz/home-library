@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import asc, case, literal, or_
 from app import models
-from app.services.book_service import _owned_subtree_ids, apply_book_ordering
+from app.services.book_service import _owned_subtree_ids, apply_book_ordering, author_surname_expression
 
 
 class SeriesConflict(ValueError):
@@ -57,8 +57,6 @@ def _validate_node(node_type: str, parent, author):
     if node_type == "group":
         if parent is not None:
             raise ValueError("Group must be a root node")
-        if author not in (None, ""):
-            raise ValueError("Group cannot have an author")
     elif node_type != "series":
         raise ValueError("Node type must be group or series")
 
@@ -302,10 +300,59 @@ def browse_collection(
         query = query.filter(models.Book.read == read)
 
     total = query.count()
+    if collection_id is None:
+        # Root tiles and books are one pageable Library sequence.  Build the
+        # order in SQL so the collection surname key cannot drift from the
+        # canonical Book expression or database collation.
+        book_order = query.with_entities(
+            literal("book").label("kind"),
+            models.Book.id.label("entity_id"),
+            author_surname_expression(models.Book.author).label("surname"),
+            literal(0).label("authorless"),
+            literal("").label("fallback_name"),
+            literal(0).label("kind_rank"),
+        )
+        if active_filter:
+            ordering = book_order.subquery()
+        else:
+            collection_order = db.query(
+                literal("collection").label("kind"),
+                models.Series.id.label("entity_id"),
+                author_surname_expression(models.Series.author).label("surname"),
+                case((models.Series.author.is_(None), 1), else_=0).label("authorless"),
+                case((models.Series.author.is_(None), models.Series.name), else_="").label("fallback_name"),
+                case((models.Series.node_type == "group", 1), else_=2).label("kind_rank"),
+            ).filter(models.Series.owner_id == user_id, models.Series.parent_id.is_(None))
+            ordering = book_order.union_all(collection_order).subquery()
+        ordered_rows = db.query(ordering.c.kind, ordering.c.entity_id).order_by(
+            asc(ordering.c.authorless),
+            asc(ordering.c.surname),
+            asc(ordering.c.fallback_name),
+            asc(ordering.c.entity_id),
+            asc(ordering.c.kind_rank),
+        ).offset(skip).limit(limit).all()
+        page_book_ids = [row.entity_id for row in ordered_rows if row.kind == "book"]
+        page_collection_ids = [row.entity_id for row in ordered_rows if row.kind == "collection"]
+        page_books = {book.id: book for book in db.query(models.Book).filter(models.Book.id.in_(page_book_ids)).all()} if page_book_ids else {}
+        page_collections = {row.id: row for row in db.query(models.Series).filter(models.Series.id.in_(page_collection_ids)).all()} if page_collection_ids else {}
+        items = []
+        for row in ordered_rows:
+            if row.kind == "book":
+                book = page_books[row.entity_id]
+                items.append({"kind": "book", "book": {"id": book.id, "title": book.title, "author": book.author, "cover_url": book.cover_url, "read": book.read}})
+            else:
+                items.append({"kind": "collection", "collection": page_collections[row.entity_id]})
+        return {"collection": None, "items": items, "total": db.query(ordering).count()}
+
     # Root Library books must retain the same ordering as /books. Keep the
     # existing level-browse query ordering for Groups; Series ordering is
     # applied below only when browsing inside a Series.
-    if collection_id is None:
+    if collection.node_type == "group":
+        # The membership join can include the same book through several
+        # descendants. Deduplicate before applying PostgreSQL's surname
+        # expression, which cannot be used directly with SELECT DISTINCT.
+        distinct_ids = query.with_entities(models.Book.id).distinct().subquery()
+        query = db.query(models.Book).filter(models.Book.id.in_(db.query(distinct_ids.c.id)))
         query = apply_book_ordering(query)
     else:
         query = query.order_by(models.Book.title, models.Book.id)

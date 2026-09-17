@@ -41,19 +41,19 @@ def node(db, owner, name, node_type="series", parent=None, author=None):
 
 def test_group_and_root_series_creation_rules(db, library):
     owner, _, _, _ = library
-    group = node(db, owner, "Wilbur Smith", "group")
+    group = node(db, owner, "Wilbur Smith", "group", author="Wilbur Smith")
     root_series = node(db, owner, "Discworld", author="Terry Pratchett")
     child_group_series = node(db, owner, "Courtneys", parent=group)
     child_series = node(db, owner, "City Watch", parent=root_series)
     deep = node(db, owner, "Watch Stories", parent=child_series)
-    assert group.parent_id is None and group.author is None
+    assert group.parent_id is None and group.author == "Wilbur Smith"
     assert {child_group_series.parent_id, child_series.parent_id, deep.parent_id} == {group.id, root_series.id, child_series.id}
     with pytest.raises(ValueError, match="root"):
         node(db, owner, "Nested group", "group", group)
     with pytest.raises(ValueError, match="root"):
         node(db, owner, "Series group", "group", root_series)
-    with pytest.raises(ValueError, match="author"):
-        node(db, owner, "Authored group", "group", author="No")
+    updated = series_service.update_series(db, owner.id, group.id, {"author": "Edited Author"})
+    assert updated.author == "Edited Author"
 
 
 def test_child_add_ensures_root_and_supports_multiple_children(db, library):
@@ -142,11 +142,11 @@ def test_collection_browse_root_hiding_and_level_navigation(db, library):
     series_service.add_membership(db, owner.id, group.id, direct.id)
 
     root = series_service.browse_collection(db, owner.id, None, root_mode="collections_only")
-    assert [item.name for item in root["collections"]] == ["Discworld", "Naval"]
-    assert [item["id"] for item in root["books"]] == [ungrouped.id, other_ungrouped.id]
+    assert [item["kind"] for item in root["items"]] == ["book", "book", "collection", "collection"]
+    assert [item["book"]["id"] for item in root["items"] if item["kind"] == "book"] == [ungrouped.id, other_ungrouped.id]
 
     expanded = series_service.browse_collection(db, owner.id, None, root_mode="collections_and_books")
-    assert [item["id"] for item in expanded["books"]] == [grouped.id, direct.id, ungrouped.id, books[3].id]
+    assert [item["book"]["id"] for item in expanded["items"] if item["kind"] == "book"] == [grouped.id, direct.id, ungrouped.id, books[3].id]
 
     level = series_service.browse_collection(db, owner.id, group.id)
     assert [item.name for item in level["collections"]] == ["Royal Navy"]
@@ -180,37 +180,52 @@ def test_collection_browse_filters_recursively_deduplicates_and_sorts_series(db,
     assert [item["id"] for item in publication["books"]] == [gamma.id, alpha.id, beta.id]
 
 
-def test_root_collection_browse_preserves_canonical_library_book_order(db, library):
-    owner, _, _, _ = library
+def test_root_collection_browse_is_one_author_ordered_pageable_sequence(db, library):
+    owner, _, fixture_books, _ = library
+    for book in fixture_books:
+        db.delete(book)
+    db.commit()
     books = [
-        models.Book(title="Zebra Title", author="Aaron Alpha", owner_id=owner.id),
-        models.Book(title="Alpha Title", author="Zoe Zulu", owner_id=owner.id),
-        models.Book(title="Middle Title", author="Mia November", owner_id=owner.id),
-        models.Book(title="Nested Title", author="Nora Middle", owner_id=owner.id),
+        models.Book(title="Zebra Title", author="Alice Adams", owner_id=owner.id),
+        models.Book(title="Middle Title", author="Agatha Christie", owner_id=owner.id),
+        models.Book(title="Alpha Title", author="J. R. R. Tolkien", owner_id=owner.id),
+        models.Book(title="Same Surname", author="Ann Rankin", owner_id=owner.id),
     ]
     db.add_all(books); db.commit()
 
-    group = node(db, owner, "A Group", "group")
-    root_series = node(db, owner, "B Series")
+    group = node(db, owner, "A Group", "group", author="Terry Pratchett")
+    root_series = node(db, owner, "B Series", author="Iain Rankin")
     child_series = node(db, owner, "Nested Series", parent=root_series)
+    authorless = node(db, owner, "Zed Authorless", "group")
+    same_id_series = node(db, owner, "Rankin Series", author="Ian Rankin")
     series_service.add_membership(db, owner.id, group.id, books[0].id)
     series_service.add_membership(db, owner.id, child_series.id, books[3].id)
 
-    normal = book_service.get_books(db, owner.id, 0, 100, sort="author", order="asc")["items"]
-    target_ids = {book.id for book in books}
-    expected_all = [book.id for book in normal if book.id in target_ids]
-    expected_ungrouped = [book.id for book in normal if book.id in {books[1].id, books[2].id}]
-    title_order = [book.id for book in sorted(books, key=lambda book: (book.title, book.id))]
-    assert expected_all == [books[0].id, books[3].id, books[2].id, books[1].id]
-    assert expected_all != title_order
-
     collections_only = series_service.browse_collection(db, owner.id, None, root_mode="collections_only")
-    collections_and_books = series_service.browse_collection(db, owner.id, None, root_mode="collections_and_books")
+    expanded = series_service.browse_collection(db, owner.id, None, root_mode="collections_and_books")
+    def label(item):
+        return item["book"]["title"] if item["kind"] == "book" else item["collection"].name
 
-    collections_only_ids = [book["id"] for book in collections_only["books"]]
-    collections_and_books_ids = [book["id"] for book in collections_and_books["books"]]
-    assert [book_id for book_id in collections_only_ids if book_id in target_ids] == expected_ungrouped
-    assert [book_id for book_id in collections_and_books_ids if book_id in target_ids] == expected_all
-    assert [item.name for item in collections_and_books["collections"]] == ["A Group", "B Series"]
-    assert all(item.name != "Nested Series" for item in collections_and_books["collections"])
-    assert len(set(collections_and_books_ids)) == len(collections_and_books_ids)
+    assert [label(item) for item in expanded["items"]] == [
+        "Zebra Title", "Middle Title", "A Group", "B Series", "Rankin Series", "Same Surname", "Alpha Title", "Zed Authorless",
+    ]
+    assert [label(item) for item in collections_only["items"]] == [
+        "Middle Title", "A Group", "B Series", "Rankin Series", "Alpha Title", "Zed Authorless",
+    ]
+    assert expanded["total"] == 8 and collections_only["total"] == 6
+    expanded_book_ids = [item["book"]["id"] for item in expanded["items"] if item["kind"] == "book"]
+    assert len(expanded_book_ids) == len(set(expanded_book_ids))
+    first_page = series_service.browse_collection(db, owner.id, None, root_mode="collections_and_books", skip=2, limit=3)
+    assert [label(item) for item in first_page["items"]] == ["A Group", "B Series", "Rankin Series"]
+    assert first_page["total"] == 8
+
+
+def test_group_browse_uses_canonical_author_order(db, library):
+    owner, _, _, _ = library
+    books = [models.Book(title="Z", author="Zoe Adams", owner_id=owner.id), models.Book(title="A", author="Amy Zulu", owner_id=owner.id)]
+    db.add_all(books); db.commit()
+    group = node(db, owner, "Group", "group")
+    for book in books:
+        series_service.add_membership(db, owner.id, group.id, book.id)
+    result = series_service.browse_collection(db, owner.id, group.id)
+    assert [item["id"] for item in result["books"]] == [books[0].id, books[1].id]

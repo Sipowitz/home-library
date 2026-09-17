@@ -67,7 +67,7 @@ export function SeriesForm({
         />
       </div>
 
-      {draft.nodeType === "series" && <div>
+      <div>
         <label htmlFor={`${prefix}-author`} className="mb-1.5 block text-sm font-medium text-text-secondary">
           Author
         </label>
@@ -78,7 +78,7 @@ export function SeriesForm({
           placeholder="Optional"
           className="form-control w-full px-3 py-2.5"
         />
-      </div>}
+      </div>
 
       <div>
         <label htmlFor={`${prefix}-description`} className="mb-1.5 block text-sm font-medium text-text-secondary">

@@ -255,8 +255,8 @@ def _validate_domain_invariants(library: LibraryData) -> None:
         series_types = {item.archive_id: item.node_type for item in library.series}
         for series in library.series:
             required_text(series.name, "Series name")
-            if series.node_type == "group" and (series.parent_archive_id is not None or series.author is not None):
-                raise ValueError("Group must be a root and cannot have an author")
+            if series.node_type == "group" and series.parent_archive_id is not None:
+                raise ValueError("Group must be a root")
         memberships = defaultdict(set)
         for membership in library.series_memberships:
             memberships[membership.book_archive_id].add(membership.series_archive_id)

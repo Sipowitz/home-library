@@ -45,6 +45,7 @@ type Props = {
   onViewBook: (bookId: number) => void;
   reviewSaved?: { bookId: number; nonce: number; guided?: boolean } | null;
   evidenceRefreshVersion?: number;
+  onCollectionsChanged?: () => void;
 };
 
 type Section =
@@ -58,7 +59,7 @@ type Section =
   | "preferences"
   | "users";
 
-export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, onViewBook, reviewSaved, evidenceRefreshVersion }: Props) {
+export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, onViewBook, reviewSaved, evidenceRefreshVersion, onCollectionsChanged }: Props) {
   useOverlayScrollLock(isOpen);
   const { user } = useAuth();
   const { locations, deleteLocation } = useLocations();
@@ -329,7 +330,7 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
                     </p>
                   </div>
 
-                  <SeriesSettings onViewBook={onViewBook} />
+                  <SeriesSettings onViewBook={onViewBook} onCollectionsChanged={onCollectionsChanged} />
                 </div>
               </div>
             )}
