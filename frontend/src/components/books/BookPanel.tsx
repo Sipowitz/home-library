@@ -1,5 +1,5 @@
 import { Pencil, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useLocations } from "../../context/LocationContext";
 import { useCategories } from "../../context/CategoryContext";
@@ -10,11 +10,12 @@ import { DeleteModal } from "./DeleteModal";
 import { ActionButton } from "../ui/ActionButton";
 import { useOverlayScrollLock } from "../../hooks/useOverlayScrollLock";
 
-import type { Book } from "../../types/book";
+import type { Book, BookCollectionPath } from "../../types/book";
 import type { ReviewIntent } from "../../api/books";
 
 type Props = {
   book: Book | null;
+  openedInCollection: boolean;
   editing: boolean;
   editData: Book | null;
 
@@ -26,12 +27,13 @@ type Props = {
 
   onSave: (reviewIntent?: ReviewIntent) => void;
 
-  onDelete: (id: number) => void;
+  onDelete: (id: number) => Promise<void>;
 
 };
 
 export function BookPanel({
   book,
+  openedInCollection,
   editing,
   editData,
   setEditing,
@@ -46,6 +48,7 @@ export function BookPanel({
   const { categories } = useCategories();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [hasCollections, setHasCollections] = useState(false);
   const [metadataComparisonOpen, setMetadataComparisonOpen] = useState(false);
   const [failedBackdropUrl, setFailedBackdropUrl] = useState<string | null>(null);
 
@@ -54,6 +57,10 @@ export function BookPanel({
   useEffect(() => {
     setConfirmDelete(false);
   }, [book, editing]);
+
+  useEffect(() => {
+    setHasCollections(false);
+  }, [book?.id]);
 
   useEffect(() => {}, [book]);
 
@@ -80,6 +87,10 @@ export function BookPanel({
 
     setEditData(book);
   }
+
+  const handleCollectionPathsChange = useCallback((paths: BookCollectionPath[] | null) => {
+    setHasCollections(Boolean(paths?.length));
+  }, []);
 
   if (!book) return null;
 
@@ -195,6 +206,7 @@ export function BookPanel({
               book={book}
               locations={locations}
               categories={categories}
+              onCollectionPathsChange={handleCollectionPathsChange}
             />
           ) : (
             <BookEdit
@@ -217,6 +229,8 @@ export function BookPanel({
       <DeleteModal
         open={confirmDelete}
         book={book}
+        hasCollections={hasCollections}
+        openedInCollection={openedInCollection}
         onClose={() => setConfirmDelete(false)}
         onDelete={onDelete}
       />

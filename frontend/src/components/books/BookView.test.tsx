@@ -59,6 +59,15 @@ it("renders root and nested Collection paths without structural terminology", as
   expect(screen.queryByText("Series")).toBeNull();
 });
 
+it("reports the already-loaded read-only Collection paths to its parent", async () => {
+  const paths = [{ nodes: [{ id: 1, name: "Collection" }] }];
+  const onCollectionPathsChange = vi.fn();
+  api.getCollectionPaths.mockResolvedValue(paths);
+  render(<BookView book={book} locations={[]} categories={[]} onCollectionPathsChange={onCollectionPathsChange} />);
+
+  await waitFor(() => expect(onCollectionPathsChange).toHaveBeenLastCalledWith(paths));
+});
+
 it("renders each long, deep Collection path as a separate readable list item", async () => {
   api.getCollectionPaths.mockResolvedValue([
     { nodes: [{ id: 1, name: "A very long root Collection name" }, { id: 2, name: "A deeply nested Collection" }, { id: 3, name: "The final Collection" }] },
