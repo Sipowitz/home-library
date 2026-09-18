@@ -10,7 +10,7 @@ vi.mock("./context/CategoryContext", () => ({ useCategories: () => ({ categories
 vi.mock("./context/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: true, login: vi.fn(), logout: vi.fn() }) }));
 vi.mock("./hooks/usePreferences", () => ({ usePreferences: () => ({ preferences: { library_name: "Library", library_view_mode: "grid", show_collections_in_library: true, root_collection_display_mode: "collections_only" }, updatePreferences: vi.fn() }) }));
 vi.mock("./hooks/useSearch", () => ({ useSearch: () => ({ searchInput: "", setSearchInput: vi.fn() }) }));
-vi.mock("./hooks/useBookActions", () => ({ useBookActions: () => ({ isFetching: false, handleSearch: vi.fn(), handleAddBook: vi.fn(), handleQuickAdd: vi.fn(), handleAddAndReview: vi.fn(), handleDelete: vi.fn(), handleSave: vi.fn(), resetAddBook: vi.fn(), handleAddBookISBNChange: vi.fn() }) }));
+vi.mock("./hooks/useBookActions", () => ({ useBookActions: (params: any) => ({ isFetching: false, handleSearch: vi.fn(), handleAddBook: vi.fn(), handleQuickAdd: vi.fn(), handleAddAndReview: vi.fn(), handleDelete: async (id: number) => { await params.removeBook(id); params.reconcileDeletedBook(id); params.setSelectedBook(null); }, handleSave: vi.fn(), resetAddBook: vi.fn(), handleAddBookISBNChange: vi.fn() }) }));
 vi.mock("./api/books", () => ({ getBook: api.getBook }));
 vi.mock("./api/auth", () => ({ login: vi.fn() }));
 vi.mock("./components/books/views/BookGridView", () => ({ BookGridView: ({ items, collections, books, onSelectCollection, onSelect }: any) => <div data-testid="grid">{(items ?? [
@@ -24,7 +24,7 @@ vi.mock("./components/layout/TopPanels", () => ({ TopPanels: () => null }));
 vi.mock("./components/search/SearchBar", () => ({ SearchBar: () => null }));
 vi.mock("./components/books/views/ViewModeSwitcher", () => ({ ViewModeSwitcher: () => null }));
 vi.mock("./components/settings/SettingsModal", () => ({ SettingsModal: () => null }));
-vi.mock("./components/books/BookPanel", () => ({ BookPanel: ({ book, editing, editData, setEditing, setEditData, onClose }: any) => <section data-testid="book-panel"><span data-testid="panel-title">{book.title}</span><span data-testid="panel-publisher">{book.publisher}</span><span data-testid="panel-location">{book.location_id}</span><span data-testid="panel-category">{book.category_id}</span><button onClick={() => { setEditData(book); setEditing(true); }}>Edit selected book</button><button onClick={onClose}>Close selected book</button>{editing && <><span data-testid="edit-publisher">{editData?.publisher}</span><span data-testid="edit-year">{editData?.year}</span><span data-testid="edit-language">{editData?.language}</span><span data-testid="edit-pages">{editData?.page_count}</span><span data-testid="edit-isbn">{editData?.isbn}</span><span data-testid="edit-description">{editData?.description}</span><span data-testid="edit-location">{editData?.location_id}</span><span data-testid="edit-category">{editData?.category_id}</span></>}</section> }));
+vi.mock("./components/books/BookPanel", () => ({ BookPanel: ({ book, openedInCollection, editing, editData, setEditing, setEditData, onClose, onDelete }: any) => <section data-testid="book-panel"><span data-testid="panel-title">{book.title}</span><span data-testid="opened-in-collection">{String(openedInCollection)}</span><span data-testid="panel-publisher">{book.publisher}</span><span data-testid="panel-location">{book.location_id}</span><span data-testid="panel-category">{book.category_id}</span><button onClick={() => { setEditData(book); setEditing(true); }}>Edit selected book</button><button onClick={onClose}>Close selected book</button><button onClick={() => void onDelete(book.id)}>Delete selected book</button>{editing && <><span data-testid="edit-publisher">{editData?.publisher}</span><span data-testid="edit-year">{editData?.year}</span><span data-testid="edit-language">{editData?.language}</span><span data-testid="edit-pages">{editData?.page_count}</span><span data-testid="edit-isbn">{editData?.isbn}</span><span data-testid="edit-description">{editData?.description}</span><span data-testid="edit-location">{editData?.location_id}</span><span data-testid="edit-category">{editData?.category_id}</span></>}</section> }));
 vi.mock("./components/settings/maintenance/MaintenanceReviewSession", () => ({ MaintenanceReviewSession: () => null }));
 vi.mock("./components/books/AddBookDialog", () => ({ AddBookDialog: () => null }));
 vi.mock("./components/books/CheckLibraryDialog", () => ({ CheckLibraryDialog: () => null }));
@@ -122,6 +122,7 @@ it("hydrates a lightweight root browse book before opening the panel and supplie
 
   await act(async () => request.resolve(fullBook));
   expect(screen.getByTestId("panel-publisher").textContent).toBe("Random House");
+  expect(screen.getByTestId("opened-in-collection").textContent).toBe("false");
   expect(screen.getByTestId("panel-location").textContent).toBe("12");
   expect(screen.getByTestId("panel-category").textContent).toBe("7");
 
@@ -156,6 +157,7 @@ it("uses the same hydration path for nested collection books and ignores stale b
 
   await act(async () => secondRequest.resolve({ ...second, publisher: "Second publisher" }));
   expect(screen.getByTestId("panel-title").textContent).toBe("Second");
+  expect(screen.getByTestId("opened-in-collection").textContent).toBe("true");
   await act(async () => firstRequest.resolve({ ...first, publisher: "First publisher" }));
   expect(screen.getByTestId("panel-title").textContent).toBe("Second");
 });
@@ -190,4 +192,48 @@ it("does not open an unsafe partial panel when book hydration fails", async () =
   expect(screen.queryByTestId("book-panel")).toBeNull();
   expect(error).toHaveBeenCalled();
   error.mockRestore();
+});
+
+it("reconciles nested browse and the saved root snapshot after deletion", async () => {
+  api.root.mockReset(); api.collection.mockReset(); api.getBook.mockReset();
+  const deleted = { id: 61, title: "Delete me", author: "Author", read: false };
+  const keepRoot = { id: 62, title: "Keep root", author: "Author", read: false };
+  const keepNested = { id: 63, title: "Keep nested", author: "Author", read: false };
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "collection", collection: root }, { kind: "book", book: deleted }, { kind: "book", book: keepRoot }], collections: [], books: [], total: 3 });
+  api.collection.mockResolvedValue({ collection: root, collections: [], books: [deleted, keepNested], total: 2 });
+  api.getBook.mockResolvedValue(deleted);
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Root"));
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Delete me"));
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Delete selected book"));
+  await act(async () => undefined);
+  expect(screen.queryByText("Delete me")).toBeNull();
+  expect(screen.getByText("Keep nested")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "Library" }));
+  expect(screen.queryByText("Delete me")).toBeNull();
+  expect(screen.getByText("Keep root")).toBeTruthy();
+  expect(screen.getByText("Root")).toBeTruthy();
+  expect(api.root).toHaveBeenCalledTimes(1);
+});
+
+it("removes a successfully deleted book from the current heterogeneous root browse", async () => {
+  api.root.mockReset(); api.collection.mockReset(); api.getBook.mockReset();
+  const deleted = { id: 71, title: "Delete root", author: "Author", read: false };
+  const kept = { id: 72, title: "Keep root tile", author: "Author", read: false };
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "collection", collection: root }, { kind: "book", book: deleted }, { kind: "book", book: kept }], collections: [], books: [], total: 3 });
+  api.getBook.mockResolvedValue(deleted);
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Delete root"));
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Delete selected book"));
+  await act(async () => undefined);
+
+  expect(screen.queryByText("Delete root")).toBeNull();
+  expect(screen.getByText("Keep root tile")).toBeTruthy();
+  expect(screen.getByText("Root")).toBeTruthy();
 });

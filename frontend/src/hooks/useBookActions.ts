@@ -41,6 +41,8 @@ type Params = {
   setEditing: (v: boolean) => void;
 
   editData: Book | null;
+
+  reconcileDeletedBook?: (id: number) => void;
 };
 
 export function useBookActions({
@@ -54,6 +56,7 @@ export function useBookActions({
   setEditData,
   setEditing,
   editData,
+  reconcileDeletedBook,
 }: Params) {
   const [isFetching, setIsFetching] = useState(false);
 
@@ -262,13 +265,19 @@ export function useBookActions({
   // -------------------
 
   async function handleDelete(id: number) {
-    await removeBook(id);
+    try {
+      await removeBook(id);
+      reconcileDeletedBook?.(id);
 
-    await Promise.all([reloadCategories(), reloadLocations()]);
+      await Promise.all([reloadCategories(), reloadLocations()]);
 
-    setSelectedBook(null);
+      setSelectedBook(null);
 
-    toast.success("Book deleted");
+      toast.success("Book deleted");
+    } catch (err) {
+      console.error("DELETE ERROR:", err);
+      toast.error("Book could not be deleted.");
+    }
   }
 
   // -------------------

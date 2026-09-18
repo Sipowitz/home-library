@@ -80,6 +80,7 @@ export default function App() {
   const [newBook, setNewBook] = useState<BookDraft>({});
 
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [selectedBookOpenedInCollection, setSelectedBookOpenedInCollection] = useState(false);
 
   const [editing, setEditing] = useState(false);
 
@@ -120,6 +121,24 @@ export default function App() {
   const rootCollectionSnapshotRef = useRef<{ browse: CollectionBrowseResult; hasMore: boolean; key: string; scrollY: number } | null>(null);
   const pendingRootScrollRestoreRef = useRef<number | null>(null);
 
+  const reconcileDeletedBook = useCallback((bookId: number) => {
+    const withoutBook = (browse: CollectionBrowseResult): CollectionBrowseResult => ({
+      ...browse,
+      items: (browse.items ?? []).filter((item) => item.kind !== "book" || item.book.id !== bookId),
+      books: (browse.books ?? []).filter((book) => book.id !== bookId),
+    });
+
+    setCollectionBrowse((current) => current ? withoutBook(current) : current);
+
+    const snapshot = rootCollectionSnapshotRef.current;
+    if (snapshot) {
+      rootCollectionSnapshotRef.current = {
+        ...snapshot,
+        browse: withoutBook(snapshot.browse),
+      };
+    }
+  }, []);
+
   const {
     isFetching,
     handleSearch,
@@ -142,13 +161,14 @@ export default function App() {
       setEditData,
       setEditing,
       editData,
+      reconcileDeletedBook,
     });
 
   const cancelPendingBookOpen = useCallback(() => {
     bookOpenRequestGenerationRef.current += 1;
   }, []);
 
-  const openBook = useCallback(async (bookOrId: Pick<Book, "id"> | number) => {
+  const openBook = useCallback(async (bookOrId: Pick<Book, "id"> | number, openedInCollection = false) => {
     const bookId = typeof bookOrId === "number" ? bookOrId : bookOrId.id;
     const generation = ++bookOpenRequestGenerationRef.current;
 
@@ -157,6 +177,7 @@ export default function App() {
       if (generation !== bookOpenRequestGenerationRef.current) return;
 
       setSelectedBook(book);
+      setSelectedBookOpenedInCollection(openedInCollection);
       setEditing(false);
     } catch (error) {
       if (generation !== bookOpenRequestGenerationRef.current) return;
@@ -687,7 +708,7 @@ export default function App() {
             items={!currentCollection ? collectionBrowse?.items : undefined}
             onSelectCollection={enterCollection}
             onSelect={(book) => {
-              void openBook(book);
+              void openBook(book, Boolean(currentCollection));
             }}
           />
         ) : (
@@ -697,7 +718,7 @@ export default function App() {
             categories={categories}
             showCovers={showCoversInList}
             onSelect={(book) => {
-              void openBook(book);
+              void openBook(book, Boolean(currentCollection));
             }}
           />
         )}
@@ -705,6 +726,7 @@ export default function App() {
         {selectedBook && (
           <BookPanel
             book={selectedBook}
+            openedInCollection={selectedBookOpenedInCollection}
             editing={editing}
             editData={editData}
             setEditing={setEditing}
@@ -712,6 +734,7 @@ export default function App() {
             onClose={() => {
               cancelPendingBookOpen();
               setSelectedBook(null);
+              setSelectedBookOpenedInCollection(false);
             }}
             onSave={handleSave}
             onDelete={handleDelete}

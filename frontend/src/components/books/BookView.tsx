@@ -29,6 +29,7 @@ type Props = {
   book: Book;
   locations: Location[];
   categories: Category[];
+  onCollectionPathsChange?: (paths: BookCollectionPath[] | null) => void;
 };
 
 type HeroFact = {
@@ -94,7 +95,7 @@ function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: Re
   );
 }
 
-export function BookView({ book, locations, categories }: Props) {
+export function BookView({ book, locations, categories, onCollectionPathsChange }: Props) {
   const { preferences } = usePreferences();
   const [failedForegroundUrl, setFailedForegroundUrl] = useState<string | null>(null);
   const [collectionPaths, setCollectionPaths] = useState<{ bookId: number; paths: BookCollectionPath[] } | null>(null);
@@ -103,11 +104,13 @@ export function BookView({ book, locations, categories }: Props) {
   useEffect(() => {
     const generation = ++collectionRequestGeneration.current;
     let cancelled = false;
+    onCollectionPathsChange?.(null);
 
     void getBookCollectionPaths(book.id)
       .then((paths) => {
         if (!cancelled && generation === collectionRequestGeneration.current) {
           setCollectionPaths({ bookId: book.id, paths });
+          onCollectionPathsChange?.(paths);
         }
       })
       .catch((error) => {
@@ -117,7 +120,7 @@ export function BookView({ book, locations, categories }: Props) {
       });
 
     return () => { cancelled = true; };
-  }, [book.id]);
+  }, [book.id, onCollectionPathsChange]);
 
   const locationMap = useMemo(() => buildTreeMap(locations), [locations]);
   const categoryMap = useMemo(() => buildTreeMap(categories), [categories]);

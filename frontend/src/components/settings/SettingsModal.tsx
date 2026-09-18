@@ -323,10 +323,10 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
               <div className="max-w-full relative">
                 <div className="w-full rounded-lg border border-border bg-surface/60 p-2.5 sm:rounded-xl sm:p-3 lg:border-0 lg:bg-transparent lg:p-0">
                   <div className="mb-2 lg:hidden">
-                    <h2 className="text-lg font-semibold">Series</h2>
+                    <h2 className="text-lg font-semibold">Collections</h2>
 
                     <p className="mt-0.5 text-sm text-text-muted">
-                      Organize Series and subseries in your library.
+                      Organize Collections and their hierarchy in your library.
                     </p>
                   </div>
 

@@ -24,7 +24,7 @@ def _require_parent(db: Session, user_id: int, parent_id: int | None):
         return None
     parent = _owned_series(db, user_id, parent_id)
     if parent is None:
-        raise ValueError("Parent Series not found")
+        raise ValueError("Parent Collection not found")
     return parent
 
 
@@ -32,11 +32,11 @@ def _root(db: Session, node: models.Series):
     current, seen = node, set()
     while current.parent_id is not None:
         if current.id in seen:
-            raise SeriesConflict("Series hierarchy contains a cycle")
+            raise SeriesConflict("Collection hierarchy contains a cycle")
         seen.add(current.id)
         current = db.get(models.Series, current.parent_id)
         if current is None or current.owner_id != node.owner_id:
-            raise SeriesConflict("Series hierarchy has an invalid parent")
+            raise SeriesConflict("Collection hierarchy has an invalid parent")
     return current
 
 

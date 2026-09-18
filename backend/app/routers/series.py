@@ -54,7 +54,7 @@ def browse_collection(
 ):
     result = series_service.browse_collection(db, current_user.id, series_id, search=search, category_id=category_id, location_id=location_id, read=read, sort=sort, skip=skip, limit=limit)
     if result is None:
-        raise HTTPException(status_code=404, detail="Series not found")
+        raise HTTPException(status_code=404, detail="Collection not found")
     return result
 
 
@@ -67,7 +67,7 @@ def create_series(data: schemas.SeriesCreate, db: Session = Depends(get_db), cur
 def get_series(series_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     row = series_service.get_series(db, current_user.id, series_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="Series not found")
+        raise HTTPException(status_code=404, detail="Collection not found")
     return row
 
 
@@ -81,7 +81,7 @@ async def upload_series_cover(
     """Publish a validated collection cover before changing its database reference."""
     row = series_service.get_series(db, current_user.id, series_id)
     if row is None:
-        raise HTTPException(status_code=404, detail="Series not found")
+        raise HTTPException(status_code=404, detail="Collection not found")
     try:
         stored = await store_uploaded_series_cover(file)
     except CoverUploadError as exc:
@@ -103,7 +103,7 @@ async def upload_series_cover(
 def update_series(series_id: int, data: schemas.SeriesUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     row = _translate(lambda: series_service.update_series(db, current_user.id, series_id, data.model_dump(exclude_unset=True)))
     if row is None:
-        raise HTTPException(status_code=404, detail="Series not found")
+        raise HTTPException(status_code=404, detail="Collection not found")
     return row
 
 
@@ -111,7 +111,7 @@ def update_series(series_id: int, data: schemas.SeriesUpdate, db: Session = Depe
 def delete_series(series_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     deleted = _translate(lambda: series_service.delete_series(db, current_user.id, series_id))
     if not deleted:
-        raise HTTPException(status_code=404, detail="Series not found")
+        raise HTTPException(status_code=404, detail="Collection not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -119,7 +119,7 @@ def delete_series(series_id: int, db: Session = Depends(get_db), current_user: m
 def effective_books(series_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     rows = series_service.get_effective_books(db, current_user.id, series_id)
     if rows is None:
-        raise HTTPException(status_code=404, detail="Series not found")
+        raise HTTPException(status_code=404, detail="Collection not found")
     return rows
 
 
@@ -127,7 +127,7 @@ def effective_books(series_id: int, db: Session = Depends(get_db), current_user:
 def add_book(series_id: int, data: schemas.SeriesMembershipCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     row = _translate(lambda: series_service.add_membership(db, current_user.id, series_id, data.book_id))
     if row is None:
-        raise HTTPException(status_code=404, detail="Series not found")
+        raise HTTPException(status_code=404, detail="Collection not found")
     return row
 
 
@@ -135,7 +135,7 @@ def add_book(series_id: int, data: schemas.SeriesMembershipCreate, db: Session =
 def remove_book(series_id: int, book_id: int, cascade: bool = False, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     removed = _translate(lambda: series_service.remove_membership(db, current_user.id, series_id, book_id, cascade))
     if not removed:
-        raise HTTPException(status_code=404, detail="Series membership not found")
+        raise HTTPException(status_code=404, detail="Collection membership not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -143,28 +143,28 @@ def remove_book(series_id: int, book_id: int, cascade: bool = False, db: Session
 def removal_impact(series_id: int, book_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     result = series_service.root_removal_impact(db, current_user.id, series_id, book_id)
     if result is None:
-        raise HTTPException(status_code=404, detail="Series not found")
+        raise HTTPException(status_code=404, detail="Collection not found")
     return result
 
 
 @router.put("/{series_id}/orders/{kind}", response_model=list[schemas.EffectiveSeriesBook])
 def replace_root_order(series_id: int, kind: str, data: schemas.SeriesOrderReplace, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     rows = _translate(lambda: series_service.replace_root_order(db, current_user.id, series_id, kind, data.ordered_book_ids))
-    if rows is None: raise HTTPException(status_code=404, detail="Series not found")
+    if rows is None: raise HTTPException(status_code=404, detail="Collection not found")
     return rows
 
 
 @router.put("/{series_id}/reading-order", response_model=list[schemas.EffectiveSeriesBook])
 def replace_reading_order(series_id: int, data: schemas.SeriesOrderReplace, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     rows = _translate(lambda: series_service.replace_reading_order(db, current_user.id, series_id, data.ordered_book_ids))
-    if rows is None: raise HTTPException(status_code=404, detail="Series not found")
+    if rows is None: raise HTTPException(status_code=404, detail="Collection not found")
     return rows
 
 
 @router.delete("/{series_id}/reading-order", status_code=status.HTTP_204_NO_CONTENT)
 def reset_reading_order(series_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     if not _translate(lambda: series_service.reset_reading_order(db, current_user.id, series_id)):
-        raise HTTPException(status_code=404, detail="Series not found")
+        raise HTTPException(status_code=404, detail="Collection not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
