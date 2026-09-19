@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { Book } from "../../../types/book";
 import type { Location } from "../../../types/location";
 import type { Category } from "../../../types/category";
+import type { SuggestedLocation } from "../../../api/books";
 
 type Props = {
   books: Book[];
@@ -16,6 +17,8 @@ type Props = {
   onSelect: (book: Book) => void;
 
   suggestedBookIds?: ReadonlySet<number>;
+  suggestedLocationsByBookId?: ReadonlyMap<number, SuggestedLocation>;
+  onSuggestedSelect?: (book: Book, location: SuggestedLocation) => void;
 };
 
 // ====================
@@ -105,6 +108,8 @@ export function BookListView({
   showCovers,
   onSelect,
   suggestedBookIds,
+  suggestedLocationsByBookId,
+  onSuggestedSelect,
 }: Props) {
   const locationMap = useMemo(() => {
     const flat = flattenLocations(locations);
@@ -165,6 +170,7 @@ export function BookListView({
       <div>
         {books.map((book) => {
           const isSuggested = suggestedBookIds?.has(book.id) ?? false;
+          const suggestedLocation = suggestedLocationsByBookId?.get(book.id);
           const locationPath = getLocationPath(book.location_id, locationMap);
 
           const categoryPath = getCategoryPath(book.category_id, categoryMap);
@@ -173,19 +179,20 @@ export function BookListView({
             <button
               key={book.id}
               type="button"
-              disabled={isSuggested}
-              onClick={() => { if (!isSuggested) onSelect(book); }}
+              disabled={isSuggested && !suggestedLocation}
+              onClick={() => { if (isSuggested) { if (suggestedLocation) onSuggestedSelect?.(book, suggestedLocation); } else onSelect(book); }}
               aria-disabled={isSuggested || undefined}
               data-suggested-book={isSuggested || undefined}
-              className="
+              className={`
                 w-full
                 text-left
                 border-b border-border
                 text-text-primary
                 hover:bg-control/40
                 transition
-                disabled:cursor-default disabled:opacity-60
-              "
+                ${isSuggested ? "opacity-60" : ""}
+                disabled:cursor-default
+              `}
             >
               {/* DESKTOP */}
               <div

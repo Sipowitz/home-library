@@ -3,10 +3,10 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, expect, it, vi } from "vitest";
 
 vi.mock("./BookGridView", () => ({
-  BookGridView: ({ books, onSelect, suggestedBookIds }: any) => <div data-testid="grid-books">{books.map((book: any) => <button data-testid={`grid-book-${book.id}`} data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (!suggestedBookIds?.has(book.id)) onSelect(book); }}>{book.title}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
+  BookGridView: ({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect }: any) => <div data-testid="grid-books">{books.map((book: any) => <button data-testid={`grid-book-${book.id}`} data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (suggestedBookIds?.has(book.id)) onSuggestedSelect?.(book, suggestedLocationsByBookId?.get(book.id)); else onSelect(book); }}>{book.title}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
 }));
 vi.mock("./BookListView", () => ({
-  BookListView: ({ books, onSelect, suggestedBookIds }: any) => <div data-testid="list-books">{books.map((book: any) => <button data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (!suggestedBookIds?.has(book.id)) onSelect(book); }}>{book.title}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
+  BookListView: ({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect }: any) => <div data-testid="list-books">{books.map((book: any) => <button data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (suggestedBookIds?.has(book.id)) onSuggestedSelect?.(book, suggestedLocationsByBookId?.get(book.id)); else onSelect(book); }}>{book.title}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
 }));
 
 import { GroupedLocationBooks } from "./GroupedLocationBooks";
@@ -67,6 +67,19 @@ it("derives inert, alphabetically interleaved copies by Location id while retain
   expect(onSelect).not.toHaveBeenCalled();
   fireEvent.click(within(document.querySelector('[data-location-group="no-location"]') as HTMLElement).getByText("Suggested A"));
   expect(onSelect).toHaveBeenCalledWith(suggestedOne);
+});
+
+it("passes the exact suggested Location to provisional Grid and List clicks", () => {
+  const onSuggestedSelect = vi.fn();
+  const location = { id: 7, name: "Shelf", path: [{ id: 1, name: "Room" }, { id: 7, name: "Shelf" }] };
+  const data = { locations: [{ id: 7, name: "Shelf", books: [], children: [] }], no_location: { name: "No Location" as const, books: [{ ...book(10, "Suggested"), suggested_locations: [location] }] } };
+  const { rerender } = render(<GroupedLocationBooks data={data} viewMode="grid" locations={[]} categories={[]} showCovers onSelect={vi.fn()} onSuggestedSelect={onSuggestedSelect} />);
+  fireEvent.click(document.querySelector('[data-location-group="7"] button') as HTMLElement);
+  expect(onSuggestedSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 10 }), location);
+
+  rerender(<GroupedLocationBooks data={data} viewMode="list" locations={[]} categories={[]} showCovers onSelect={vi.fn()} onSuggestedSelect={onSuggestedSelect} />);
+  fireEvent.click(document.querySelector('[data-location-group="7"] button') as HTMLElement);
+  expect(onSuggestedSelect).toHaveBeenLastCalledWith(expect.objectContaining({ id: 10 }), location);
 });
 
 it("passes suggested state to the list renderer but keeps No Location copies normal", () => {

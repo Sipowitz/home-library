@@ -30,8 +30,9 @@ import toast from "react-hot-toast";
 import type { Book, BookDraft } from "./types/book";
 import type { LibraryViewMode } from "./types/preferences";
 import { getBook } from "./api/books";
-import { getGroupedBooks, type GroupedBooksResponse } from "./api/books";
+import { getGroupedBooks, type GroupedBooksResponse, type SuggestedLocation } from "./api/books";
 import { GroupedLocationBooks } from "./components/books/views/GroupedLocationBooks";
+import { SuggestedLocationAssignmentDialog } from "./components/books/SuggestedLocationAssignmentDialog";
 import type { ReviewTarget } from "./components/settings/maintenance/MaintenanceSettings";
 import type { ReviewIntent } from "./api/books";
 import { browseCollection, browseRootCollections, type CollectionBrowseResult } from "./api/collections";
@@ -112,6 +113,8 @@ export default function App() {
   const [groupedLoading, setGroupedLoading] = useState(false);
   const [groupedError, setGroupedError] = useState<string | null>(null);
   const [groupedRevision, setGroupedRevision] = useState(0);
+  const [suggestedAssignment, setSuggestedAssignment] = useState<{ book: Book; location: SuggestedLocation } | null>(null);
+  const [assigningSuggestedLocation, setAssigningSuggestedLocation] = useState(false);
 
   const [isScrolling, setIsScrolling] = useState(false);
   const [isSearchPanelPastThreshold, setIsSearchPanelPastThreshold] =
@@ -198,6 +201,22 @@ export default function App() {
       toast.error("Book could not be opened");
     }
   }, []);
+
+  const confirmSuggestedLocationAssignment = useCallback(async () => {
+    if (!suggestedAssignment || assigningSuggestedLocation) return;
+    setAssigningSuggestedLocation(true);
+    try {
+      await saveBook({ ...suggestedAssignment.book, location_id: suggestedAssignment.location.id });
+      setSuggestedAssignment(null);
+      refreshGroupedBooks();
+      toast.success(`Assigned to ${suggestedAssignment.location.name}`);
+    } catch (error) {
+      console.error("Failed to assign suggested Location", error);
+      toast.error(`Could not assign to ${suggestedAssignment.location.name}`);
+    } finally {
+      setAssigningSuggestedLocation(false);
+    }
+  }, [assigningSuggestedLocation, refreshGroupedBooks, saveBook, suggestedAssignment]);
 
   async function handleAddAndReviewFlow(allowDuplicate = false) {
     const created = await handleAddAndReview(allowDuplicate);
@@ -748,7 +767,7 @@ export default function App() {
         {groupByLocation ? groupedLoading ? null : groupedError ? null : groupedBooks && groupedBooks.locations.length === 0 && !groupedBooks.no_location ? (
           <p className="px-1 py-6 text-sm text-text-muted">{filters.search?.trim() || filters.categoryId != null || filters.locationId != null || filters.read != null ? "No matching books." : "Your library is empty."}</p>
         ) : groupedBooks ? (
-          <GroupedLocationBooks data={groupedBooks} viewMode={viewMode} locations={locations} categories={categories} showCovers={showCoversInList} onSelect={(book) => { void openBook(book, false); }} />
+          <GroupedLocationBooks data={groupedBooks} viewMode={viewMode} locations={locations} categories={categories} showCovers={showCoversInList} onSelect={(book) => { void openBook(book, false); }} onSuggestedSelect={(book, location) => setSuggestedAssignment({ book, location })} />
         ) : null : collectionEmpty ? (
           <p className="px-1 py-6 text-sm text-text-muted">{hasActiveCollectionFilter ? "No matching books in this collection." : "This collection is empty."}</p>
         ) : viewMode === "grid" ? (
@@ -790,6 +809,13 @@ export default function App() {
             onDelete={handleDelete}
           />
         )}
+
+        <SuggestedLocationAssignmentDialog
+          assignment={suggestedAssignment}
+          assigning={assigningSuggestedLocation}
+          onClose={() => setSuggestedAssignment(null)}
+          onConfirm={() => void confirmSuggestedLocationAssignment()}
+        />
 
         <AddBookDialog
           open={showAddBook}

@@ -2,9 +2,10 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const api = vi.hoisted(() => ({ root: vi.fn(), collection: vi.fn(), grouped: vi.fn(), getBook: vi.fn() }));
+const api = vi.hoisted(() => ({ root: vi.fn(), collection: vi.fn(), grouped: vi.fn(), getBook: vi.fn(), saveBook: vi.fn() }));
+const feedback = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("./api/collections", () => ({ browseRootCollections: api.root, browseCollection: api.collection }));
-vi.mock("./hooks/useBooks", () => ({ useBooks: () => ({ books: [], loadMoreBooks: vi.fn(), hasMore: false, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: vi.fn(), updateFilters: vi.fn(), isLoading: false, loadError: null, filters: {} }) }));
+vi.mock("./hooks/useBooks", () => ({ useBooks: () => ({ books: [], loadMoreBooks: vi.fn(), hasMore: false, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: api.saveBook, updateFilters: vi.fn(), isLoading: false, loadError: null, filters: {} }) }));
 vi.mock("./context/LocationContext", () => ({ useLocations: () => ({ locations: [] }) }));
 vi.mock("./context/CategoryContext", () => ({ useCategories: () => ({ categories: [] }) }));
 vi.mock("./context/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: true, login: vi.fn(), logout: vi.fn() }) }));
@@ -13,12 +14,13 @@ vi.mock("./hooks/useSearch", () => ({ useSearch: () => ({ searchInput: "", setSe
 vi.mock("./hooks/useBookActions", () => ({ useBookActions: (params: any) => ({ isFetching: false, handleSearch: vi.fn(), handleAddBook: vi.fn(), handleQuickAdd: vi.fn(), handleAddAndReview: vi.fn(), handleDelete: async (id: number) => { await params.removeBook(id); params.reconcileDeletedBook(id); params.setSelectedBook(null); }, handleSave: vi.fn(), resetAddBook: vi.fn(), handleAddBookISBNChange: vi.fn() }) }));
 vi.mock("./api/books", () => ({ getBook: api.getBook, getGroupedBooks: api.grouped }));
 vi.mock("./api/auth", () => ({ login: vi.fn() }));
-vi.mock("./components/books/views/BookGridView", () => ({ BookGridView: ({ items, collections, books, onSelectCollection, onSelect }: any) => <div data-testid="grid">{(items ?? [
+vi.mock("react-hot-toast", () => ({ default: feedback }));
+vi.mock("./components/books/views/BookGridView", () => ({ BookGridView: ({ items, collections, books, onSelectCollection, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect }: any) => <div data-testid="grid">{(items ?? [
   ...(collections ?? []).map((collection: any) => ({ kind: "collection", collection })),
   ...(books ?? []).map((book: any) => ({ kind: "book", book })),
 ]).map((item: any) => item.kind === "collection"
   ? <button key={`collection-${item.collection.id}`} onClick={() => onSelectCollection?.(item.collection)}>{item.collection.name}</button>
-  : <button key={`book-${item.book.id}`} onClick={() => onSelect?.(item.book)}>{item.book.title}</button>)}</div> }));
+  : <button key={`book-${item.book.id}`} onClick={() => suggestedBookIds?.has(item.book.id) ? onSuggestedSelect?.(item.book, suggestedLocationsByBookId?.get(item.book.id)) : onSelect?.(item.book)}>{item.book.title}</button>)}</div> }));
 vi.mock("./components/layout/Header", () => ({ Header: () => null }));
 vi.mock("./components/layout/TopPanels", () => ({ TopPanels: () => null }));
 vi.mock("./components/search/SearchBar", () => ({ SearchBar: () => null }));
@@ -37,6 +39,9 @@ const nested = { ...root, id: 2, name: "Nested", parent_id: 1 };
 
 beforeEach(() => {
   api.getBook.mockReset();
+  api.saveBook.mockReset();
+  feedback.success.mockReset();
+  feedback.error.mockReset();
 });
 
 afterEach(() => {
@@ -259,4 +264,55 @@ it("uses grouped books instead of root collection tiles and hydrates grouped ope
 
   fireEvent.click(screen.getByLabelText("Group by Location"));
   expect(screen.getByText("Root")).toBeTruthy();
+});
+
+it("confirms and authoritatively assigns a suggested book to its exact Location", async () => {
+  api.root.mockReset(); api.collection.mockReset(); api.grouped.mockReset();
+  const suggestion = { id: 9, name: "Shelf G", path: [{ id: 1, name: "House" }, { id: 5, name: "Main Bookcase" }, { id: 9, name: "Shelf G" }] };
+  const book = { id: 91, title: "The Shining", author: "Stephen King", publisher: "Doubleday", read: false, category_id: 4, location_id: null };
+  api.root.mockResolvedValue({ collection: null, items: [], collections: [], books: [], total: 0 });
+  api.grouped.mockResolvedValueOnce({ locations: [{ id: 9, name: "Shelf G", books: [], children: [] }], no_location: { name: "No Location", books: [{ ...book, suggested_locations: [suggestion] }] } }).mockResolvedValueOnce({ locations: [{ id: 9, name: "Shelf G", books: [{ ...book, location_id: 9 }], children: [] }], no_location: null });
+  api.saveBook.mockResolvedValue({ ...book, location_id: 9 });
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByLabelText("Group by Location"));
+  await act(async () => undefined);
+
+  fireEvent.click(screen.getAllByText("The Shining").at(0)!);
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Assign to Shelf G?" })).toBeTruthy();
+  expect(screen.getByRole("dialog").textContent).toContain("The Shining");
+  expect(screen.getByText("House → Main Bookcase → Shelf G")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(api.saveBook).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getAllByText("The Shining").at(0)!);
+  fireEvent.click(screen.getByRole("button", { name: "Assign to Shelf G" }));
+  await act(async () => undefined);
+  expect(api.saveBook).toHaveBeenCalledWith(expect.objectContaining({ id: 91, title: "The Shining", publisher: "Doubleday", category_id: 4, location_id: 9 }));
+  expect(feedback.success).toHaveBeenCalledWith("Assigned to Shelf G");
+  expect(api.grouped).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getAllByText("The Shining")).toHaveLength(1);
+});
+
+it("keeps the assignment confirmation open and reports an error when assignment fails", async () => {
+  api.root.mockReset(); api.collection.mockReset(); api.grouped.mockReset();
+  const suggestion = { id: 9, name: "Shelf G", path: [{ id: 9, name: "Shelf G" }] };
+  const book = { id: 92, title: "Failure", author: "Author", read: false, location_id: null };
+  api.root.mockResolvedValue({ collection: null, items: [], collections: [], books: [], total: 0 });
+  api.grouped.mockResolvedValue({ locations: [{ id: 9, name: "Shelf G", books: [], children: [] }], no_location: { name: "No Location", books: [{ ...book, suggested_locations: [suggestion] }] } });
+  api.saveBook.mockRejectedValue(new Error("network"));
+  const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByLabelText("Group by Location"));
+  await act(async () => undefined);
+  fireEvent.click(screen.getAllByText("Failure").at(0)!);
+  fireEvent.click(screen.getByRole("button", { name: "Assign to Shelf G" }));
+  await act(async () => undefined);
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(feedback.success).not.toHaveBeenCalled();
+  expect(feedback.error).toHaveBeenCalledWith("Could not assign to Shelf G");
+  error.mockRestore();
 });
