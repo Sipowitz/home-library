@@ -665,9 +665,24 @@ class LocationBookGroup(BaseModel):
         from_attributes = True
 
 
+class SuggestedLocationPathNode(BaseModel):
+    id: int
+    name: str
+
+
+class SuggestedLocation(BaseModel):
+    id: int
+    name: str
+    path: List[SuggestedLocationPathNode] = Field(default_factory=list)
+
+
+class SuggestedBookResponse(BookResponse):
+    suggested_locations: List[SuggestedLocation] = Field(default_factory=list)
+
+
 class NoLocationBookGroup(BaseModel):
     name: str = "No Location"
-    books: List[BookResponse] = Field(default_factory=list)
+    books: List[SuggestedBookResponse] = Field(default_factory=list)
 
 
 class GroupedBooksResponse(BaseModel):

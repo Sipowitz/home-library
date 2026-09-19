@@ -192,6 +192,90 @@ def get_grouped_books(
         else:
             books_by_location.setdefault(book.location_id, []).append(book)
 
+    # Suggestions are derived from the complete permanently assigned library,
+    # never from the filtered result above. This deliberately keeps search and
+    # other Library filters from changing physical placement inference.
+    assigned_books = (
+        apply_book_ordering(
+            db.query(Book)
+            .filter(Book.owner_id == user_id)
+            .filter(Book.location_id.isnot(None)),
+            "author",
+            "asc",
+        )
+        .all()
+    )
+    assigned_by_location: dict[int, list[Book]] = {}
+    for book in assigned_books:
+        assigned_by_location.setdefault(book.location_id, []).append(book)
+
+    locations = get_ordered_locations(db, user_id)
+    locations_by_id = {location.id: location for location in locations}
+
+    def book_order_key(book: Book):
+        # This mirrors apply_book_ordering's canonical author surname and its
+        # Book.id tie-breaker for stable same-author placement.
+        return (book.author.rsplit(" ", 1)[-1], book.id)
+
+    def author_order_key(book: Book):
+        # Run boundaries are author-only. Adjacent Locations may legitimately
+        # meet on the same author, regardless of individual Book.id ordering.
+        return book.author.rsplit(" ", 1)[-1]
+
+    populated_locations = [
+        (location, assigned_by_location[location.id])
+        for location in locations
+        if assigned_by_location.get(location.id)
+    ]
+    location_runs: list[list[tuple[models.Location, list[Book]]]] = []
+    for location, direct_books in populated_locations:
+        if (
+            not location_runs
+            or author_order_key(direct_books[0])
+            < author_order_key(location_runs[-1][-1][1][-1])
+        ):
+            location_runs.append([])
+        location_runs[-1].append((location, direct_books))
+
+    def location_path(location: models.Location):
+        path = []
+        current = location
+        seen = set()
+        while current and current.id not in seen:
+            seen.add(current.id)
+            path.append({"id": current.id, "name": current.name})
+            current = locations_by_id.get(current.parent_id)
+        return list(reversed(path))
+
+    def suggested_locations(book: Book):
+        if not isinstance(book.author, str) or not book.author.strip():
+            return []
+        key = book_order_key(book)
+        suggestions = []
+        for run in location_runs:
+            selected_location = run[0][0]
+            for index, (location, direct_books) in enumerate(run):
+                first_key = book_order_key(direct_books[0])
+                last_key = book_order_key(direct_books[-1])
+                if key < first_key:
+                    # Between Locations belongs with the preceding Location;
+                    # before the first belongs with that first Location.
+                    selected_location = run[index - 1][0] if index else location
+                    break
+                selected_location = location
+                if key <= last_key:
+                    break
+            suggestions.append({
+                "id": selected_location.id,
+                "name": selected_location.name,
+                "path": location_path(selected_location),
+            })
+        return suggestions
+
+    for book in no_location_books:
+        # Transient response-only data: this does not assign or dirty Book.
+        book.suggested_locations = suggested_locations(book)
+
     if location_id == -1:
         return {
             "locations": [],
@@ -201,7 +285,6 @@ def get_grouped_books(
             ),
         }
 
-    locations = get_ordered_locations(db, user_id)
     allowed_ids = {location.id for location in locations}
     if location_id is not None:
         allowed_ids = set(_owned_subtree_ids(db, models.Location, user_id, location_id))
