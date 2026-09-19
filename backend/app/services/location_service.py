@@ -89,6 +89,7 @@ def get_locations(db: Session, user_id: int):
     locations = (
         db.query(Location)
         .filter(Location.owner_id == user_id)
+        .order_by(func.lower(Location.name).desc(), Location.id.asc())
         .all()
     )
 
