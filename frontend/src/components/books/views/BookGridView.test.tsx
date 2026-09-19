@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { BookGridView } from "./BookGridView";
 
@@ -63,4 +63,18 @@ it("renders backend-supplied mixed root items without regrouping them", () => {
   ]} onSelect={vi.fn()} onSelectCollection={vi.fn()} />);
   const labels = [...container.querySelectorAll(".mt-2 > div:first-child")].map((element) => element.textContent);
   expect(labels).toEqual(["Adams Book", "Banks Series", "Tolkien Book"]);
+});
+
+it("dims suggested cards, labels them, and keeps them inert", () => {
+  const onSelect = vi.fn();
+  const suggested = { ...book, id: 20, title: "Suggested book" };
+  const normal = { ...book, id: 21, title: "Normal book" };
+  render(<BookGridView books={[suggested, normal]} suggestedBookIds={new Set([suggested.id])} onSelect={onSelect} />);
+  const suggestedCard = screen.getAllByText("Suggested book").at(-1)!.closest("[data-suggested-book]") as HTMLElement;
+  expect(suggestedCard.className).toContain("opacity-60");
+  expect(within(suggestedCard).getByText("Suggested")).toBeTruthy();
+  fireEvent.click(screen.getAllByText("Suggested book").at(-1)!);
+  expect(onSelect).not.toHaveBeenCalled();
+  fireEvent.click(screen.getAllByText("Normal book").at(-1)!);
+  expect(onSelect).toHaveBeenCalledWith(normal);
 });

@@ -8,6 +8,7 @@ type Props = {
   books: GridBook[];
 
   onSelect: (book: GridBook) => void;
+  suggestedBookIds?: ReadonlySet<number>;
   collections?: Series[];
   items?: GridItem[];
   onSelectCollection?: (collection: Series) => void;
@@ -18,7 +19,7 @@ type GridItem =
   | { kind: "book"; book: GridBook }
   | { kind: "collection"; collection: Series };
 
-function BookGridViewComponent({ books, onSelect, collections = [], items, onSelectCollection }: Props) {
+function BookGridViewComponent({ books, onSelect, suggestedBookIds, collections = [], items, onSelectCollection }: Props) {
   const [failedCollectionCovers, setFailedCollectionCovers] = React.useState<Set<number>>(() => new Set());
   const orderedItems: GridItem[] = items ?? [
     ...collections.map((collection) => ({ kind: "collection" as const, collection })),
@@ -29,13 +30,15 @@ function BookGridViewComponent({ books, onSelect, collections = [], items, onSel
       {orderedItems.map((item) => {
         if (item.kind === "book") {
           const book = item.book;
+          const isSuggested = suggestedBookIds?.has(book.id) ?? false;
           const hasCover = book.cover_url && book.cover_url.trim() !== "";
           return (
-            <div key={`book-${book.id}`} onClick={(e) => { e.stopPropagation(); onSelect(book); }} className="cursor-pointer group">
+            <div key={`book-${book.id}`} onClick={(e) => { e.stopPropagation(); if (!isSuggested) onSelect(book); }} aria-disabled={isSuggested || undefined} data-suggested-book={isSuggested || undefined} className={`${isSuggested ? "cursor-default opacity-60" : "cursor-pointer"} group`}>
               <div className="relative aspect-[2/3] bg-gray-900 rounded-xl overflow-hidden shadow-md transition-all duration-300 group-hover:shadow-2xl group-hover:-translate-y-1 group-hover:scale-[1.02]">
                 {hasCover ? <img src={book.cover_url} onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col justify-between p-3 bg-gradient-to-br from-gray-800 to-gray-950 text-white"><div className="text-[11px] font-semibold leading-tight line-clamp-4">{book.title}</div><div className="text-[10px] text-gray-400 line-clamp-2">{book.author}</div></div>}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
                 {book.read && <div className="absolute top-2 right-2 bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow">Read</div>}
+                {isSuggested && <div className="absolute bottom-2 left-2 rounded-md border border-white/20 bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white shadow">Suggested</div>}
               </div>
               <div className="mt-2 px-1"><div className="text-xs font-medium truncate">{book.title}</div><div className="truncate text-[10px] text-text-muted">{book.author}</div></div>
             </div>

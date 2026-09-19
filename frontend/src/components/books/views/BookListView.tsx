@@ -14,6 +14,8 @@ type Props = {
   showCovers: boolean;
 
   onSelect: (book: Book) => void;
+
+  suggestedBookIds?: ReadonlySet<number>;
 };
 
 // ====================
@@ -102,6 +104,7 @@ export function BookListView({
   categories,
   showCovers,
   onSelect,
+  suggestedBookIds,
 }: Props) {
   const locationMap = useMemo(() => {
     const flat = flattenLocations(locations);
@@ -161,6 +164,7 @@ export function BookListView({
       {/* ROWS */}
       <div>
         {books.map((book) => {
+          const isSuggested = suggestedBookIds?.has(book.id) ?? false;
           const locationPath = getLocationPath(book.location_id, locationMap);
 
           const categoryPath = getCategoryPath(book.category_id, categoryMap);
@@ -169,7 +173,10 @@ export function BookListView({
             <button
               key={book.id}
               type="button"
-              onClick={() => onSelect(book)}
+              disabled={isSuggested}
+              onClick={() => { if (!isSuggested) onSelect(book); }}
+              aria-disabled={isSuggested || undefined}
+              data-suggested-book={isSuggested || undefined}
               className="
                 w-full
                 text-left
@@ -177,6 +184,7 @@ export function BookListView({
                 text-text-primary
                 hover:bg-control/40
                 transition
+                disabled:cursor-default disabled:opacity-60
               "
             >
               {/* DESKTOP */}
@@ -231,8 +239,9 @@ export function BookListView({
 
                 {/* TITLE */}
                 <div className="min-w-0">
-                  <div className="truncate font-medium text-text-primary">
-                    {book.title}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="truncate font-medium text-text-primary">{book.title}</div>
+                    {isSuggested && <span className="shrink-0 rounded border border-border-strong bg-control px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">Suggested</span>}
                   </div>
 
                   {book.isbn && (
@@ -311,7 +320,7 @@ export function BookListView({
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-text-primary">{book.title}</div>
+                    <div className="flex items-center gap-2"><div className="font-medium text-text-primary">{book.title}</div>{isSuggested && <span className="rounded border border-border-strong bg-control px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">Suggested</span>}</div>
 
                     <div className="mt-1 text-sm text-text-secondary">
                       {book.author}

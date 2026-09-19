@@ -16,9 +16,19 @@ export type LocationBookGroup = {
   children: LocationBookGroup[];
 };
 
+export type SuggestedLocation = {
+  id: number;
+  name: string;
+  path: Array<{ id: number; name: string }>;
+};
+
+export type SuggestedBook = Book & {
+  suggested_locations?: SuggestedLocation[];
+};
+
 export type GroupedBooksResponse = {
   locations: LocationBookGroup[];
-  no_location: { name: "No Location"; books: Book[] } | null;
+  no_location: { name: "No Location"; books: SuggestedBook[] } | null;
 };
 
 type BookCreateInput = {
