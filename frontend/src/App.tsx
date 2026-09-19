@@ -30,6 +30,8 @@ import toast from "react-hot-toast";
 import type { Book, BookDraft } from "./types/book";
 import type { LibraryViewMode } from "./types/preferences";
 import { getBook } from "./api/books";
+import { getGroupedBooks, type GroupedBooksResponse } from "./api/books";
+import { GroupedLocationBooks } from "./components/books/views/GroupedLocationBooks";
 import type { ReviewTarget } from "./components/settings/maintenance/MaintenanceSettings";
 import type { ReviewIntent } from "./api/books";
 import { browseCollection, browseRootCollections, type CollectionBrowseResult } from "./api/collections";
@@ -105,6 +107,11 @@ export default function App() {
   const [collectionHasMore, setCollectionHasMore] = useState(false);
   const [collectionRevision, setCollectionRevision] = useState(0);
   const [collectionSort, setCollectionSort] = useState<"reading" | "publication" | "chronological" | "alphabetical">("reading");
+  const [groupByLocation, setGroupByLocation] = useState(false);
+  const [groupedBooks, setGroupedBooks] = useState<GroupedBooksResponse | null>(null);
+  const [groupedLoading, setGroupedLoading] = useState(false);
+  const [groupedError, setGroupedError] = useState<string | null>(null);
+  const [groupedRevision, setGroupedRevision] = useState(0);
 
   const [isScrolling, setIsScrolling] = useState(false);
   const [isSearchPanelPastThreshold, setIsSearchPanelPastThreshold] =
@@ -120,6 +127,11 @@ export default function App() {
   const bookOpenRequestGenerationRef = useRef(0);
   const rootCollectionSnapshotRef = useRef<{ browse: CollectionBrowseResult; hasMore: boolean; key: string; scrollY: number } | null>(null);
   const pendingRootScrollRestoreRef = useRef<number | null>(null);
+  const groupedRequestGenerationRef = useRef(0);
+
+  const refreshGroupedBooks = useCallback(() => {
+    setGroupedRevision((revision) => revision + 1);
+  }, []);
 
   const reconcileDeletedBook = useCallback((bookId: number) => {
     const withoutBook = (browse: CollectionBrowseResult): CollectionBrowseResult => ({
@@ -162,6 +174,7 @@ export default function App() {
       setEditing,
       editData,
       reconcileDeletedBook,
+      reconcileGroupedBooks: refreshGroupedBooks,
     });
 
   const cancelPendingBookOpen = useCallback(() => {
@@ -228,6 +241,36 @@ export default function App() {
   const rootCollectionMode = preferences?.root_collection_display_mode ?? "collections_only";
   const currentCollection = collectionPath.at(-1) ?? null;
 
+  useEffect(() => {
+    if (!groupByLocation) {
+      groupedRequestGenerationRef.current += 1;
+      setGroupedLoading(false);
+      setGroupedError(null);
+      return;
+    }
+    const generation = ++groupedRequestGenerationRef.current;
+    let cancelled = false;
+    setGroupedLoading(true);
+    setGroupedError(null);
+    void getGroupedBooks({
+      search: filters.search,
+      categoryId: filters.categoryId,
+      locationId: filters.locationId,
+      read: filters.read,
+    }).then((result) => {
+      if (cancelled || generation !== groupedRequestGenerationRef.current) return;
+      setGroupedBooks(result);
+    }).catch((error) => {
+      if (cancelled || generation !== groupedRequestGenerationRef.current) return;
+      console.error("Failed to load grouped books", error);
+      setGroupedBooks(null);
+      setGroupedError("Books could not be loaded");
+    }).finally(() => {
+      if (!cancelled && generation === groupedRequestGenerationRef.current) setGroupedLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [filters.categoryId, filters.locationId, filters.read, filters.search, groupByLocation, groupedRevision]);
+
   function collectionOptions(path: Series[]) {
     const current = path.at(-1) ?? null;
     return {
@@ -264,6 +307,7 @@ export default function App() {
   }, [collectionBrowse, collectionPath.length]);
 
   useEffect(() => {
+    if (groupByLocation) return;
     if ((!showCollections || viewMode !== "grid") && !currentCollection) {
       collectionRequestGenerationRef.current += 1;
       collectionPageRequestGenerationRef.current += 1;
@@ -291,7 +335,7 @@ export default function App() {
       setCollectionHasMore(loadedCount < result.total);
     }).catch((error) => { if (!cancelled && generation === collectionRequestGenerationRef.current) { console.error("Failed to browse collections", error); setCollectionBrowse(null); setCollectionHasMore(false); } }).finally(() => { if (!cancelled && generation === collectionRequestGenerationRef.current) setCollectionLoading(false); });
     return () => { cancelled = true; };
-  }, [collectionRevision, collectionSort, currentCollection?.id, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode, showCollections, viewMode]);
+  }, [collectionRevision, collectionSort, currentCollection?.id, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode, showCollections, viewMode, groupByLocation]);
 
   const loadMoreRootCollectionItems = useCallback(() => {
     if (collectionLoading || !collectionHasMore || !collectionBrowse) return;
@@ -413,6 +457,7 @@ export default function App() {
 
   useEffect(() => {
     function handleScroll() {
+      if (groupByLocation) return;
       if (showCollections && (viewMode === "grid" || currentCollection)) {
         if (!collectionHasMore || collectionLoading || collectionPageLoading) return;
         const bottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
@@ -435,7 +480,7 @@ export default function App() {
     window.addEventListener("scroll", handleScroll);
 
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [books, collectionHasMore, collectionLoading, collectionPageLoading, currentCollection, hasMore, isLoading, loadMoreCollectionBooks, loadMoreRootCollectionItems, showCollections, viewMode]);
+  }, [books, collectionHasMore, collectionLoading, collectionPageLoading, currentCollection, hasMore, isLoading, loadMoreCollectionBooks, loadMoreRootCollectionItems, showCollections, viewMode, groupByLocation]);
 
   useEffect(() => {
     function isPanelBottomAtThreshold() {
@@ -672,7 +717,7 @@ export default function App() {
           </div>
         </div>
 
-        {showCollections && currentCollection && (
+        {!groupByLocation && showCollections && currentCollection && (
           <nav className="mb-2 mt-3 px-1 text-sm text-text-secondary" aria-label="Breadcrumb">
             <ol className="flex flex-wrap items-center gap-x-1 gap-y-1">
               <li><button type="button" onClick={() => goToCollection(0)} className="rounded px-1 py-1 hover:bg-surface-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">Library</button></li>
@@ -681,25 +726,30 @@ export default function App() {
           </nav>
         )}
 
-        <div className={"mb-3 flex min-h-12 items-center justify-between gap-3 px-1 " + (currentCollection ? "mt-0" : "mt-3")}>
+        <div className={"mb-3 flex min-h-12 items-center justify-between gap-3 px-1 " + (!groupByLocation && currentCollection ? "mt-0" : "mt-3")}>
           <div className="min-w-0">
-            {isLoading || collectionLoading ? (
+            {groupedLoading || isLoading || (!groupByLocation && collectionLoading) ? (
               <div className="text-sm text-text-muted">Searching...</div>
-            ) : loadError ? (
-              <div className="text-sm text-danger">{loadError}</div>
+            ) : groupedError || loadError ? (
+              <div className="text-sm text-danger">{groupedError || loadError}</div>
             ) : (
-              <h2 className={currentCollection ? "text-base font-semibold text-text-primary" : "text-sm font-medium text-text-secondary"}>{currentCollection ? currentCollection.name : "Books"}</h2>
+              <h2 className={!groupByLocation && currentCollection ? "text-base font-semibold text-text-primary" : "text-sm font-medium text-text-secondary"}>{!groupByLocation && currentCollection ? currentCollection.name : "Books"}</h2>
             )}
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {currentCollection?.node_type === "series" && <label className="flex items-center gap-2 text-xs"><span className="sr-only">Collection sort</span><select value={collectionSort} onChange={(event) => setCollectionSort(event.target.value as typeof collectionSort)} className="form-control max-w-44 py-1.5 text-xs"><option value="reading">Reading order</option><option value="publication">Publication order</option><option value="chronological">Chronological order</option><option value="alphabetical">Alphabetical</option></select></label>}
+            {!groupByLocation && currentCollection?.node_type === "series" && <label className="flex items-center gap-2 text-xs"><span className="sr-only">Collection sort</span><select value={collectionSort} onChange={(event) => setCollectionSort(event.target.value as typeof collectionSort)} className="form-control max-w-44 py-1.5 text-xs"><option value="reading">Reading order</option><option value="publication">Publication order</option><option value="chronological">Chronological order</option><option value="alphabetical">Alphabetical</option></select></label>}
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary"><input type="checkbox" checked={groupByLocation} onChange={(event) => setGroupByLocation(event.target.checked)} className="accent-blue-600" />Group by Location</label>
             <ViewModeSwitcher value={viewMode} onChange={handleViewModeChange} />
           </div>
         </div>
 
         {/* BOOK VIEWS */}
-        {collectionEmpty ? (
+        {groupByLocation ? groupedLoading ? null : groupedError ? null : groupedBooks && groupedBooks.locations.length === 0 && !groupedBooks.no_location ? (
+          <p className="px-1 py-6 text-sm text-text-muted">{filters.search?.trim() || filters.categoryId != null || filters.locationId != null || filters.read != null ? "No matching books." : "Your library is empty."}</p>
+        ) : groupedBooks ? (
+          <GroupedLocationBooks data={groupedBooks} viewMode={viewMode} locations={locations} categories={categories} showCovers={showCoversInList} onSelect={(book) => { void openBook(book, false); }} />
+        ) : null : collectionEmpty ? (
           <p className="px-1 py-6 text-sm text-text-muted">{hasActiveCollectionFilter ? "No matching books in this collection." : "This collection is empty."}</p>
         ) : viewMode === "grid" ? (
           <BookGridView

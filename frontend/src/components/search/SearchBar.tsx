@@ -107,6 +107,7 @@ export function SearchBar({
                   selectedLocationId={selectedLocation}
                   onSelect={onLocationChange}
                   semanticTheme
+                  libraryFilter
                 />
               </div>
 

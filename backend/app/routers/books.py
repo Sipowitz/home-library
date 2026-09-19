@@ -162,6 +162,32 @@ def get_books(
 
 
 # -------------------
+# 📍 GROUPED LIBRARY BROWSE
+# -------------------
+
+@router.get(
+    "/grouped-by-location",
+    response_model=schemas.GroupedBooksResponse,
+)
+def get_grouped_books(
+    search: str | None = Query(None, max_length=500),
+    category_id: int | None = Query(None, ge=-1),
+    location_id: int | None = Query(None, ge=-1),
+    read: bool | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return book_service.get_grouped_books(
+        db=db,
+        user_id=current_user.id,
+        search=search,
+        category_id=category_id,
+        location_id=location_id,
+        read=read,
+    )
+
+
+# -------------------
 # 📚 COLLECTION PATHS
 # -------------------
 

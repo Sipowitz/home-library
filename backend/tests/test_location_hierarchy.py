@@ -81,6 +81,49 @@ def test_create_root_owned_child_and_reject_unavailable_parents(db, users):
     assert db.query(models.Location).filter_by(owner_id=owner.id).count() == 2
 
 
+def test_location_tree_orders_each_level_reverse_alphabetically_case_insensitively(db, users):
+    owner, other = users
+
+    # Create roots in deliberately unrelated insertion order.  The two names
+    # that compare equally after lower-casing are inserted directly because
+    # the service correctly rejects case-insensitive duplicate siblings.
+    alpha_first = models.Location(name="alpha", owner_id=owner.id)
+    alpha_second = models.Location(name="Alpha", owner_id=owner.id)
+    db.add_all([
+        create(db, owner.id, "Bravo"),
+        create(db, owner.id, "zulu"),
+        alpha_first,
+        alpha_second,
+    ])
+    db.commit()
+
+    root = create(db, owner.id, "Main Bookcase")
+    db.add_all([
+        models.Location(name="Shelf a", owner_id=owner.id, parent_id=root.id),
+        models.Location(name="shelf C", owner_id=owner.id, parent_id=root.id),
+        models.Location(name="Shelf B", owner_id=owner.id, parent_id=root.id),
+        models.Location(name="SHELF C", owner_id=owner.id, parent_id=root.id),
+        models.Location(name="Foreign child", owner_id=other.id, parent_id=root.id),
+    ])
+    db.commit()
+
+    tree = location_service.get_locations(db, owner.id)
+
+    assert [node["name"] for node in tree] == [
+        "zulu", "Main Bookcase", "Bravo", "alpha", "Alpha",
+    ]
+    assert [node["id"] for node in tree[-2:]] == [alpha_first.id, alpha_second.id]
+
+    main_bookcase = next(node for node in tree if node["id"] == root.id)
+    assert [node["name"] for node in main_bookcase["children"]] == [
+        "shelf C", "SHELF C", "Shelf B", "Shelf a",
+    ]
+    assert [node["id"] for node in main_bookcase["children"][:2]] == sorted(
+        node["id"] for node in main_bookcase["children"][:2]
+    )
+    assert all(node["name"] != "Foreign child" for node in main_bookcase["children"])
+
+
 def test_move_to_owned_parent_root_and_rename_at_once(db, users):
     owner, _ = users
     first = create(db, owner.id, "First")

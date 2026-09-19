@@ -43,6 +43,8 @@ type Params = {
   editData: Book | null;
 
   reconcileDeletedBook?: (id: number) => void;
+
+  reconcileGroupedBooks?: () => void;
 };
 
 export function useBookActions({
@@ -57,6 +59,7 @@ export function useBookActions({
   setEditing,
   editData,
   reconcileDeletedBook,
+  reconcileGroupedBooks,
 }: Params) {
   const [isFetching, setIsFetching] = useState(false);
 
@@ -268,6 +271,7 @@ export function useBookActions({
     try {
       await removeBook(id);
       reconcileDeletedBook?.(id);
+      reconcileGroupedBooks?.();
 
       await Promise.all([reloadCategories(), reloadLocations()]);
 
@@ -326,6 +330,8 @@ export function useBookActions({
 
         setEditing(false);
 
+        reconcileGroupedBooks?.();
+
         // -------------------
         // 🧹 RESET EVIDENCE
         // -------------------
@@ -355,6 +361,8 @@ export function useBookActions({
     setEditData(updated);
 
     setEditing(false);
+
+    reconcileGroupedBooks?.();
 
     toast.success("Book updated");
     return updated;

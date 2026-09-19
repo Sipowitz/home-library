@@ -21,6 +21,8 @@ type Props<T extends TreeNode<T>> = {
 
   clearLabel?: string;
 
+  specialOptions?: Array<{ id: number; label: string }>;
+
   onSelected?: () => void;
 
   semanticTheme?: boolean;
@@ -33,6 +35,7 @@ export function TreeSelector<T extends TreeNode<T>>({
   emptyLabel,
   selectable,
   clearLabel,
+  specialOptions = [],
   onSelected,
   semanticTheme = false,
 }: Props<T>) {
@@ -104,6 +107,21 @@ export function TreeSelector<T extends TreeNode<T>>({
           {clearLabel}
         </button>
       )}
+
+      {specialOptions.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          onClick={() => handleSelect(option.id)}
+          className={`w-full text-left px-2 py-1.5 rounded text-sm mb-2 ${
+            selectedId === option.id
+              ? "bg-blue-600/20 border border-blue-500/40"
+              : semanticTheme ? "hover:bg-control" : "hover:bg-gray-800"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
 
       {/* TREE */}
       <div className="space-y-1 max-h-80 overflow-y-auto pr-1">

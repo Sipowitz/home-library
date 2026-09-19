@@ -655,6 +655,29 @@ class BookListResponse(BaseModel):
         from_attributes = True
 
 
+class LocationBookGroup(BaseModel):
+    id: int
+    name: str
+    books: List[BookResponse] = Field(default_factory=list)
+    children: List["LocationBookGroup"] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class NoLocationBookGroup(BaseModel):
+    name: str = "No Location"
+    books: List[BookResponse] = Field(default_factory=list)
+
+
+class GroupedBooksResponse(BaseModel):
+    locations: List[LocationBookGroup] = Field(default_factory=list)
+    no_location: Optional[NoLocationBookGroup] = None
+
+
+LocationBookGroup.model_rebuild()
+
+
 class LibraryCheckMatch(BaseModel):
     classification: Literal["exact", "likely", "possible"]
     score: float
