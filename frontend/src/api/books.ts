@@ -9,6 +9,18 @@ type PaginatedBooksResponse = {
   total: number;
 };
 
+export type LocationBookGroup = {
+  id: number;
+  name: string;
+  books: Book[];
+  children: LocationBookGroup[];
+};
+
+export type GroupedBooksResponse = {
+  locations: LocationBookGroup[];
+  no_location: { name: "No Location"; books: Book[] } | null;
+};
+
 type BookCreateInput = {
   title: string;
 
@@ -143,6 +155,23 @@ export async function getBooks(
 
   const res = await client.get(`/books/?${params.toString()}`);
 
+  return res.data;
+}
+
+export async function getGroupedBooks(params: {
+  search?: string;
+  locationId?: number | null;
+  categoryId?: number | null;
+  read?: boolean | null;
+}): Promise<GroupedBooksResponse> {
+  const res = await client.get("/books/grouped-by-location", {
+    params: {
+      search: params.search || undefined,
+      location_id: params.locationId ?? undefined,
+      category_id: params.categoryId ?? undefined,
+      read: params.read ?? undefined,
+    },
+  });
   return res.data;
 }
 

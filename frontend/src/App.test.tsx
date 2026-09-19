@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const api = vi.hoisted(() => ({ root: vi.fn(), collection: vi.fn(), getBook: vi.fn() }));
+const api = vi.hoisted(() => ({ root: vi.fn(), collection: vi.fn(), grouped: vi.fn(), getBook: vi.fn() }));
 vi.mock("./api/collections", () => ({ browseRootCollections: api.root, browseCollection: api.collection }));
 vi.mock("./hooks/useBooks", () => ({ useBooks: () => ({ books: [], loadMoreBooks: vi.fn(), hasMore: false, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: vi.fn(), updateFilters: vi.fn(), isLoading: false, loadError: null, filters: {} }) }));
 vi.mock("./context/LocationContext", () => ({ useLocations: () => ({ locations: [] }) }));
@@ -11,7 +11,7 @@ vi.mock("./context/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: tru
 vi.mock("./hooks/usePreferences", () => ({ usePreferences: () => ({ preferences: { library_name: "Library", library_view_mode: "grid", show_collections_in_library: true, root_collection_display_mode: "collections_only" }, updatePreferences: vi.fn() }) }));
 vi.mock("./hooks/useSearch", () => ({ useSearch: () => ({ searchInput: "", setSearchInput: vi.fn() }) }));
 vi.mock("./hooks/useBookActions", () => ({ useBookActions: (params: any) => ({ isFetching: false, handleSearch: vi.fn(), handleAddBook: vi.fn(), handleQuickAdd: vi.fn(), handleAddAndReview: vi.fn(), handleDelete: async (id: number) => { await params.removeBook(id); params.reconcileDeletedBook(id); params.setSelectedBook(null); }, handleSave: vi.fn(), resetAddBook: vi.fn(), handleAddBookISBNChange: vi.fn() }) }));
-vi.mock("./api/books", () => ({ getBook: api.getBook }));
+vi.mock("./api/books", () => ({ getBook: api.getBook, getGroupedBooks: api.grouped }));
 vi.mock("./api/auth", () => ({ login: vi.fn() }));
 vi.mock("./components/books/views/BookGridView", () => ({ BookGridView: ({ items, collections, books, onSelectCollection, onSelect }: any) => <div data-testid="grid">{(items ?? [
   ...(collections ?? []).map((collection: any) => ({ kind: "collection", collection })),
@@ -235,5 +235,28 @@ it("removes a successfully deleted book from the current heterogeneous root brow
 
   expect(screen.queryByText("Delete root")).toBeNull();
   expect(screen.getByText("Keep root tile")).toBeTruthy();
+  expect(screen.getByText("Root")).toBeTruthy();
+});
+
+it("uses grouped books instead of root collection tiles and hydrates grouped opens outside Collection context", async () => {
+  api.root.mockReset(); api.collection.mockReset(); api.grouped.mockReset(); api.getBook.mockReset();
+  const groupedBook = { id: 81, title: "On the shelf", author: "Author", read: false, location_id: 9 };
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "collection", collection: root }], collections: [], books: [], total: 1 });
+  api.grouped.mockResolvedValue({ locations: [{ id: 9, name: "Shelf", books: [groupedBook], children: [] }], no_location: null });
+  api.getBook.mockResolvedValue({ ...groupedBook, publisher: "Full record" });
+  render(<App />);
+  await act(async () => undefined);
+
+  fireEvent.click(screen.getByLabelText("Group by Location"));
+  await act(async () => undefined);
+  expect(api.grouped).toHaveBeenCalledWith({ search: undefined, categoryId: undefined, locationId: undefined, read: undefined });
+  expect(screen.queryByText("Root")).toBeNull();
+  expect(screen.getByText("Shelf")).toBeTruthy();
+  fireEvent.click(screen.getByText("On the shelf"));
+  await act(async () => undefined);
+  expect(api.getBook).toHaveBeenCalledWith(81);
+  expect(screen.getByTestId("opened-in-collection").textContent).toBe("false");
+
+  fireEvent.click(screen.getByLabelText("Group by Location"));
   expect(screen.getByText("Root")).toBeTruthy();
 });

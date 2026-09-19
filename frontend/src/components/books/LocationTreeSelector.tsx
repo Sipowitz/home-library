@@ -16,6 +16,8 @@ type Props = {
   floating?: boolean;
 
   semanticTheme?: boolean;
+
+  libraryFilter?: boolean;
 };
 
 export function LocationTreeSelector({
@@ -24,10 +26,13 @@ export function LocationTreeSelector({
   onSelect,
   floating = false,
   semanticTheme = false,
+  libraryFilter = false,
 }: Props) {
   const map = buildTreeMap(locations);
 
-  const value = getTreePath(selectedLocationId, map, "All locations");
+  const value = selectedLocationId === -1
+    ? "No location"
+    : getTreePath(selectedLocationId, map, "All locations");
 
   return (
     <TreeSelectorField label="Location" value={value} floating={floating} semanticTheme={semanticTheme}>
@@ -36,7 +41,8 @@ export function LocationTreeSelector({
         selectedId={selectedLocationId}
         onSelect={onSelect}
         emptyLabel="All locations"
-        clearLabel="No location"
+        clearLabel={libraryFilter ? "All locations" : "No location"}
+        specialOptions={libraryFilter ? [{ id: -1, label: "No location" }] : []}
         semanticTheme={semanticTheme}
       />
     </TreeSelectorField>
