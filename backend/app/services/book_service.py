@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 
 from app import models
+from app.services.location_service import get_ordered_locations
 from app.services.providers.evidence_service import (
     update_metadata_evidence_signature, update_cover_evidence_signature,
 )
@@ -93,17 +94,13 @@ def _apply_read_transition(book: Book, data: dict) -> None:
     book.read = will_be_read
 
 
-def get_books(
+def _filtered_books_query(
     db: Session,
     user_id: int,
-    skip: int,
-    limit: int,
     search: str | None = None,
     category_id: int | None = None,
     location_id: int | None = None,
     read: bool | None = None,
-    sort: str = "date_added",
-    order: str = "desc",
 ):
     query = db.query(Book).filter(Book.owner_id == user_id)
 
@@ -132,6 +129,25 @@ def get_books(
     if read is not None:
         query = query.filter(Book.read == read)
 
+    return query
+
+
+def get_books(
+    db: Session,
+    user_id: int,
+    skip: int,
+    limit: int,
+    search: str | None = None,
+    category_id: int | None = None,
+    location_id: int | None = None,
+    read: bool | None = None,
+    sort: str = "date_added",
+    order: str = "desc",
+):
+    query = _filtered_books_query(
+        db, user_id, search, category_id, location_id, read
+    )
+
     total = query.count()
 
     query = apply_book_ordering(query, sort, order)
@@ -148,6 +164,87 @@ def get_books(
     )
 
     return {"items": items, "total": total}
+
+
+def get_grouped_books(
+    db: Session,
+    user_id: int,
+    search: str | None = None,
+    category_id: int | None = None,
+    location_id: int | None = None,
+    read: bool | None = None,
+):
+    """Return the complete filtered Library hierarchy, grouped by direct Location."""
+    query = _filtered_books_query(
+        db, user_id, search, category_id, location_id, read
+    )
+    books = (
+        apply_book_ordering(query, "author", "asc")
+        .options(joinedload(Book.category), joinedload(Book.location))
+        .all()
+    )
+
+    books_by_location: dict[int, list[Book]] = {}
+    no_location_books: list[Book] = []
+    for book in books:
+        if book.location_id is None:
+            no_location_books.append(book)
+        else:
+            books_by_location.setdefault(book.location_id, []).append(book)
+
+    if location_id == -1:
+        return {
+            "locations": [],
+            "no_location": (
+                {"name": "No Location", "books": no_location_books}
+                if no_location_books else None
+            ),
+        }
+
+    locations = get_ordered_locations(db, user_id)
+    allowed_ids = {location.id for location in locations}
+    if location_id is not None:
+        allowed_ids = set(_owned_subtree_ids(db, models.Location, user_id, location_id))
+
+    children_by_parent: dict[int | None, list[models.Location]] = {}
+    for location in locations:
+        if location.id in allowed_ids:
+            children_by_parent.setdefault(location.parent_id, []).append(location)
+
+    def build_group(location: models.Location):
+        children = [
+            group
+            for child in children_by_parent.get(location.id, [])
+            if (group := build_group(child)) is not None
+        ]
+        direct_books = books_by_location.get(location.id, [])
+        if not direct_books and not children:
+            return None
+        return {
+            "id": location.id,
+            "name": location.name,
+            "books": direct_books,
+            "children": children,
+        }
+
+    roots = [
+        group
+        for location in children_by_parent.get(None, [])
+        if (group := build_group(location)) is not None
+    ]
+
+    # A selected descendant becomes the root of this filtered response.
+    if location_id is not None and location_id in allowed_ids:
+        selected = next((location for location in locations if location.id == location_id), None)
+        roots = [group for group in [build_group(selected)] if group is not None] if selected else []
+
+    return {
+        "locations": roots,
+        "no_location": (
+            {"name": "No Location", "books": no_location_books}
+            if no_location_books else None
+        ),
+    }
 
 
 def get_book(db: Session, user_id: int, book_id: int):

@@ -9,6 +9,16 @@ from app.models import Location, Book
 PARENT_NOT_FOUND = "Parent location not found"
 
 
+def get_ordered_locations(db: Session, user_id: int):
+    """Return a user's locations in the canonical physical display order."""
+    return (
+        db.query(Location)
+        .filter(Location.owner_id == user_id)
+        .order_by(func.lower(Location.name).desc(), Location.id.asc())
+        .all()
+    )
+
+
 def _require_owned_parent(db: Session, user_id: int, parent_id: int | None):
     if parent_id is None:
         return None
@@ -86,12 +96,7 @@ def build_tree(locations, direct_book_counts=None):
 
 
 def get_locations(db: Session, user_id: int):
-    locations = (
-        db.query(Location)
-        .filter(Location.owner_id == user_id)
-        .order_by(func.lower(Location.name).desc(), Location.id.asc())
-        .all()
-    )
+    locations = get_ordered_locations(db, user_id)
 
     direct_book_counts = dict(
         db.query(Book.location_id, func.count(Book.id))
