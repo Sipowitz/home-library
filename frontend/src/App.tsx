@@ -764,7 +764,7 @@ export default function App() {
         </div>
 
         {/* BOOK VIEWS */}
-        {groupByLocation ? groupedLoading ? null : groupedError ? null : groupedBooks && groupedBooks.locations.length === 0 && !groupedBooks.no_location ? (
+        {groupByLocation ? groupedError ? null : groupedBooks && groupedBooks.locations.length === 0 && !groupedBooks.no_location ? (
           <p className="px-1 py-6 text-sm text-text-muted">{filters.search?.trim() || filters.categoryId != null || filters.locationId != null || filters.read != null ? "No matching books." : "Your library is empty."}</p>
         ) : groupedBooks ? (
           <GroupedLocationBooks data={groupedBooks} viewMode={viewMode} locations={locations} categories={categories} showCovers={showCoversInList} onSelect={(book) => { void openBook(book, false); }} onSuggestedSelect={(book, location) => setSuggestedAssignment({ book, location })} />

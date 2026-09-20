@@ -296,6 +296,32 @@ it("confirms and authoritatively assigns a suggested book to its exact Location"
   expect(screen.getAllByText("The Shining")).toHaveLength(1);
 });
 
+it("keeps the grouped result rendered while assignment waits for its authoritative refresh", async () => {
+  api.root.mockReset(); api.collection.mockReset(); api.grouped.mockReset();
+  const suggestion = { id: 9, name: "Shelf G", path: [{ id: 9, name: "Shelf G" }] };
+  const book = { id: 93, title: "Stay visible", author: "Author", read: false, location_id: null };
+  const refreshed = deferred<any>();
+  api.root.mockResolvedValue({ collection: null, items: [], collections: [], books: [], total: 0 });
+  api.grouped
+    .mockResolvedValueOnce({ locations: [{ id: 9, name: "Shelf G", books: [], children: [] }], no_location: { name: "No Location", books: [{ ...book, suggested_locations: [suggestion] }] } })
+    .mockReturnValueOnce(refreshed.promise);
+  api.saveBook.mockResolvedValue({ ...book, location_id: 9 });
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByLabelText("Group by Location"));
+  await act(async () => undefined);
+
+  fireEvent.click(screen.getAllByText("Stay visible").at(0)!);
+  fireEvent.click(screen.getByRole("button", { name: "Assign to Shelf G" }));
+  await act(async () => undefined);
+
+  expect(api.grouped).toHaveBeenCalledTimes(2);
+  expect(screen.getAllByText("Stay visible").length).toBeGreaterThan(0);
+
+  await act(async () => refreshed.resolve({ locations: [{ id: 9, name: "Shelf G", books: [{ ...book, location_id: 9 }], children: [] }], no_location: null }));
+  expect(screen.getByText("Stay visible")).toBeTruthy();
+});
+
 it("keeps the assignment confirmation open and reports an error when assignment fails", async () => {
   api.root.mockReset(); api.collection.mockReset(); api.grouped.mockReset();
   const suggestion = { id: 9, name: "Shelf G", path: [{ id: 9, name: "Shelf G" }] };
