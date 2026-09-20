@@ -156,7 +156,9 @@ export default function App() {
 
   const {
     isFetching,
+    draftOrigin,
     handleSearch,
+    handleCatalogCandidateSelected,
     handleAddBook,
     handleQuickAdd,
     handleAddAndReview,
@@ -238,7 +240,7 @@ export default function App() {
   }
 
   async function handlePrimaryAdd(allowDuplicate = false) {
-    if (newBook.isbn?.trim()) {
+    if (newBook.isbn?.trim() && draftOrigin !== "catalog-search") {
       await handleQuickAdd(allowDuplicate);
     } else {
       await handleAddBook();
@@ -825,9 +827,10 @@ export default function App() {
           onSearch={handleSearch}
           onAdd={handlePrimaryAdd}
           onAddReview={handleAddAndReviewFlow}
-          canAddReview={Boolean(newBook.isbn?.trim() && newBook.title && newBook.author)}
+          canAddReview={Boolean(draftOrigin !== "catalog-search" && newBook.isbn?.trim() && newBook.title && newBook.author)}
           onReset={resetAddBook}
           onISBNChange={handleAddBookISBNChange}
+          onCatalogCandidateSelected={handleCatalogCandidateSelected}
           isFetching={isFetching}
         />
 

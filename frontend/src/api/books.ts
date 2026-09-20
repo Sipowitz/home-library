@@ -31,6 +31,22 @@ export type GroupedBooksResponse = {
   no_location: { name: "No Location"; books: SuggestedBook[] } | null;
 };
 
+export type CatalogSearchCandidate = {
+  candidate_key: string;
+  title: string;
+  subtitle: string | null;
+  author: string | null;
+  publisher: string | null;
+  year: number | null;
+  isbn: string | null;
+  cover_url: string | null;
+  sources: string[];
+};
+
+export type CatalogSearchResponse = {
+  items: CatalogSearchCandidate[];
+};
+
 type BookCreateInput = {
   title: string;
 
@@ -219,6 +235,17 @@ export async function previewBookByISBN(isbn: string): Promise<Partial<Book>> {
   const res = await client.get(`/books/preview-isbn/${isbn}`);
 
   return res.data;
+}
+
+export async function searchCatalogBooks(
+  title: string,
+  author?: string,
+): Promise<CatalogSearchCandidate[]> {
+  const res = await client.post<CatalogSearchResponse>("/books/catalog-search", {
+    title,
+    author: author?.trim() || undefined,
+  });
+  return res.data.items;
 }
 
 export async function refreshMetadata(

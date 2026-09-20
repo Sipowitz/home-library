@@ -1,14 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Existing workflow accepts API error and updater shapes from legacy callers. */
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Loader2, Search } from "lucide-react";
 
 import { ISBNScannerModal } from "./ISBNScannerModal";
 import { ISBNInputRow } from "./ISBNInputRow";
 import { BookPreview } from "./BookPreview";
 import { BookFields } from "./BookFields";
+import { BookSearchResults } from "./BookSearchResults";
 
 import { useISBNScanner } from "../../hooks/useISBNScanner";
 
 import type { BookDraft } from "../../types/book";
+import { searchCatalogBooks, type CatalogSearchCandidate } from "../../api/books";
 import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
@@ -20,6 +23,7 @@ type Props = {
   canAddReview: boolean;
   onReset: () => void;
   onISBNChange: (value: string) => void;
+  onCatalogCandidateSelected?: (candidate: BookDraft) => void;
   isFetching: boolean;
   embedded?: boolean;
 };
@@ -33,13 +37,89 @@ export function AddBookForm({
   canAddReview,
   onReset,
   onISBNChange,
+  onCatalogCandidateSelected,
   isFetching,
   embedded = false,
 }: Props) {
   const [warning, setWarning] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<{ title?: string; author?: string; isbn?: string; action: "add" | "review" } | null>(null);
+  const [catalogItems, setCatalogItems] = useState<CatalogSearchCandidate[] | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogSearching, setCatalogSearching] = useState(false);
+  const [visibleCatalogItems, setVisibleCatalogItems] = useState(10);
+  const [catalogSelected, setCatalogSelected] = useState(false);
+  const catalogRequestRef = useRef(0);
 
   const scannerRegionId = "isbn-scanner";
+  const isbnMode = Boolean(newBook.isbn?.trim());
+  const canSearch = isbnMode || Boolean(newBook.title?.trim());
+
+  function clearCatalogSearch() {
+    catalogRequestRef.current += 1;
+    setCatalogItems(null);
+    setCatalogError(null);
+    setCatalogSearching(false);
+    setVisibleCatalogItems(10);
+    setCatalogSelected(false);
+  }
+
+  function handleISBNChange(value: string) {
+    clearCatalogSearch();
+    onISBNChange(value);
+    if (value.trim()) setNewBook({ isbn: value });
+  }
+
+  function handleCatalogFieldChange(field: "title" | "author", value: string) {
+    clearCatalogSearch();
+    onISBNChange("");
+    setNewBook((previous: BookDraft) => ({
+      ...previous,
+      isbn: "",
+      [field]: value,
+    }));
+  }
+
+  async function handleSearch() {
+    if (isbnMode) {
+      clearCatalogSearch();
+      onSearch();
+      return;
+    }
+    const title = newBook.title?.trim();
+    if (!title) return;
+
+    const requestId = ++catalogRequestRef.current;
+    setCatalogItems(null);
+    setCatalogError(null);
+    setCatalogSelected(false);
+    setVisibleCatalogItems(10);
+    setCatalogSearching(true);
+    try {
+      const items = await searchCatalogBooks(title, newBook.author?.trim());
+      if (requestId !== catalogRequestRef.current) return;
+      setCatalogItems(items);
+    } catch (error) {
+      if (requestId !== catalogRequestRef.current) return;
+      console.error("Catalog search failed", error);
+      setCatalogError("Catalog search could not be completed. Please try again.");
+    } finally {
+      if (requestId === catalogRequestRef.current) setCatalogSearching(false);
+    }
+  }
+
+  function handleCatalogSelection(candidate: CatalogSearchCandidate) {
+    clearCatalogSearch();
+    setCatalogSelected(true);
+    onCatalogCandidateSelected?.({
+      title: candidate.title,
+      author: candidate.author ?? "",
+      subtitle: candidate.subtitle ?? undefined,
+      publisher: candidate.publisher ?? undefined,
+      year: candidate.year ?? undefined,
+      isbn: candidate.isbn ?? "",
+      cover_url: candidate.cover_url ?? "",
+    });
+  }
 
   function errorMessage(err: any) {
     const response = err?.response?.data;
@@ -76,6 +156,7 @@ export function AddBookForm({
 
     onScan: (isbn) => {
       setWarning(null);
+      clearCatalogSearch();
       onSearch(isbn);
     },
 
@@ -148,9 +229,7 @@ export function AddBookForm({
 
         <ISBNInputRow
           isbn={newBook.isbn || ""}
-          isFetching={isFetching}
-          onChange={onISBNChange}
-          onSearch={() => onSearch()}
+          onChange={handleISBNChange}
           onOpenScanner={() => setScannerOpen(true)}
         />
 
@@ -166,19 +245,33 @@ export function AddBookForm({
         <BookFields
           title={newBook.title || ""}
           author={newBook.author || ""}
-          onTitleChange={(value) =>
-            setNewBook({
-              ...newBook,
-              title: value,
-            })
-          }
-          onAuthorChange={(value) =>
-            setNewBook({
-              ...newBook,
-              author: value,
-            })
-          }
+          onTitleChange={(value) => handleCatalogFieldChange("title", value)}
+          onAuthorChange={(value) => handleCatalogFieldChange("author", value)}
+          disabled={isbnMode}
         />
+
+        <ActionButton
+          type="button"
+          variant="primary"
+          onClick={() => void handleSearch()}
+          disabled={!canSearch || isFetching || catalogSearching}
+          className="mt-3 w-full"
+        >
+          {isFetching || catalogSearching ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />}
+          Search
+        </ActionButton>
+
+        {catalogError && <p className="mt-3 text-sm text-warning">{catalogError}</p>}
+        {catalogItems?.length === 0 && <p className="mt-3 text-sm text-text-muted">No catalog results found.</p>}
+        {catalogItems && catalogItems.length > 0 && (
+          <BookSearchResults
+            items={catalogItems}
+            visibleCount={visibleCatalogItems}
+            onSelect={handleCatalogSelection}
+            onShowMore={() => setVisibleCatalogItems((count) => Math.min(count + 10, catalogItems.length))}
+          />
+        )}
+        {catalogSelected && <p className="mt-3 text-sm text-text-muted">Catalog result selected. Review the details, then add it to your library.</p>}
 
         {/* ACTIONS */}
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">

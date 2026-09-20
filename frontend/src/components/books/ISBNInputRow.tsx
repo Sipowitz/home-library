@@ -1,20 +1,18 @@
-import { Loader2, Search, Camera } from "lucide-react";
+import { Camera } from "lucide-react";
 import { ActionButton } from "../ui/ActionButton";
 
 type Props = {
   isbn: string;
-  isFetching: boolean;
   onChange: (value: string) => void;
-  onSearch: () => void;
   onOpenScanner: () => void;
+  disabled?: boolean;
 };
 
 export function ISBNInputRow({
   isbn,
-  isFetching,
   onChange,
-  onSearch,
   onOpenScanner,
+  disabled = false,
 }: Props) {
   return (
     <div className="mb-4">
@@ -25,6 +23,7 @@ export function ISBNInputRow({
           placeholder="Scan or enter ISBN..."
           className="form-control min-w-0 flex-1 rounded-lg p-2"
           value={isbn}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
         />
 
@@ -36,25 +35,12 @@ export function ISBNInputRow({
               variant="icon"
               size="icon"
               onClick={onOpenScanner}
+              disabled={disabled}
               aria-label="Scan ISBN with camera"
             >
               <Camera size={16} />
             </ActionButton>
           )}
-
-        {/* 🔍 SEARCH */}
-        <ActionButton
-          variant="primary"
-          size="icon"
-          onClick={onSearch}
-          aria-label="Look up ISBN"
-        >
-          {isFetching ? (
-            <Loader2 className="animate-spin" size={16} />
-          ) : (
-            <Search size={16} />
-          )}
-        </ActionButton>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ type Props = {
   author: string;
   onTitleChange: (value: string) => void;
   onAuthorChange: (value: string) => void;
+  disabled?: boolean;
 };
 
 export function BookFields({
@@ -10,6 +11,7 @@ export function BookFields({
   author,
   onTitleChange,
   onAuthorChange,
+  disabled = false,
 }: Props) {
   return (
     <div className="space-y-3">
@@ -17,6 +19,7 @@ export function BookFields({
         placeholder="Title"
         className="form-control w-full rounded-lg p-2"
         value={title}
+        disabled={disabled}
         onChange={(e) => onTitleChange(e.target.value)}
       />
 
@@ -24,6 +27,7 @@ export function BookFields({
         placeholder="Author"
         className="form-control w-full rounded-lg p-2"
         value={author}
+        disabled={disabled}
         onChange={(e) => onAuthorChange(e.target.value)}
       />
     </div>

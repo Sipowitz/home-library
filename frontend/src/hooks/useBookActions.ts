@@ -11,7 +11,7 @@ import { useCategories } from "../context/CategoryContext";
 
 import { useLocations } from "../context/LocationContext";
 
-import type { Book, BookDraft } from "../types/book";
+import type { Book, BookDraft, BookDraftOrigin } from "../types/book";
 
 import type { ProviderResult } from "../types/provider";
 
@@ -62,6 +62,7 @@ export function useBookActions({
   reconcileGroupedBooks,
 }: Params) {
   const [isFetching, setIsFetching] = useState(false);
+  const [draftOrigin, setDraftOrigin] = useState<BookDraftOrigin>("manual");
 
   // -------------------
   // 📦 TRANSIENT PROVIDER EVIDENCE
@@ -92,11 +93,13 @@ export function useBookActions({
 
     setIsFetching(false);
     setProviderResults([]);
+    setDraftOrigin("manual");
     setNewBook(isbn ? { isbn } : {});
   }
 
   function handleAddBookISBNChange(value: string) {
     const isbn = value.trim();
+    setDraftOrigin("manual");
 
     if (
       activeLookupISBNRef.current !== null &&
@@ -128,6 +131,7 @@ export function useBookActions({
 
     activeLookupISBNRef.current = isbn;
     inFlightISBNRef.current = isbn;
+    setDraftOrigin("isbn-lookup");
 
     const requestId = ++lookupRequestIdRef.current;
 
@@ -177,6 +181,26 @@ export function useBookActions({
         setIsFetching(false);
       }
     }
+  }
+
+  function handleCatalogCandidateSelected(candidate: BookDraft) {
+    lookupRequestIdRef.current += 1;
+    activeLookupISBNRef.current = null;
+    inFlightISBNRef.current = null;
+    setIsFetching(false);
+    setProviderResults([]);
+    setDraftOrigin("catalog-search");
+    setNewBook({
+      title: candidate.title ?? "",
+      author: candidate.author ?? "",
+      subtitle: candidate.subtitle ?? undefined,
+      publisher: candidate.publisher ?? undefined,
+      year: candidate.year ?? undefined,
+      isbn: candidate.isbn ?? "",
+      cover_url: candidate.cover_url ?? "",
+      read: false,
+      date_added: new Date().toISOString(),
+    });
   }
 
   // -------------------
@@ -308,7 +332,7 @@ export function useBookActions({
         delete (payload as any).last_metadata_refresh_at;
         delete (payload as any).category;
 
-        const created = payload.isbn
+        const created = payload.isbn && draftOrigin !== "catalog-search"
           ? await addBookFromISBN({
               book: payload,
 
@@ -337,6 +361,7 @@ export function useBookActions({
         // -------------------
 
         setProviderResults([]);
+        setDraftOrigin("manual");
 
         return created;
       } catch (err) {
@@ -370,9 +395,11 @@ export function useBookActions({
 
   return {
     isFetching,
+    draftOrigin,
     resetAddBook,
     handleAddBookISBNChange,
     handleSearch,
+    handleCatalogCandidateSelected,
     handleAddBook,
     handleQuickAdd,
     handleAddAndReview,

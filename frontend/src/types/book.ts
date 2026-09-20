@@ -81,3 +81,5 @@ export type Book = {
 };
 
 export type BookDraft = Partial<Book>;
+
+export type BookDraftOrigin = "isbn-lookup" | "catalog-search" | "manual";
