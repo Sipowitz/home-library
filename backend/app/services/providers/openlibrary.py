@@ -157,3 +157,53 @@ class OpenLibraryProvider(BookProvider):
 
             "provider": self.provider_name,
         }
+
+    async def search_catalog(
+        self,
+        title: str,
+        author: str | None,
+        *,
+        limit: int = 50,
+    ) -> list[dict]:
+        params = {"title": title, "limit": min(limit, 50)}
+        if author:
+            params["author"] = author
+        data = await self.request_json(OPENLIBRARY_SEARCH_URL, params=params)
+        if data is None:
+            return []
+        docs = data.get("docs", [])
+        if not isinstance(docs, list):
+            self.last_error = "Malformed Open Library catalog response"
+            return []
+        results = []
+        for position, book in enumerate(docs[: min(limit, 50)]):
+            if not isinstance(book, dict) or not isinstance(book.get("title"), str) or not book["title"].strip():
+                continue
+            raw_isbns = book.get("isbn")
+            raw_isbns = raw_isbns if isinstance(raw_isbns, list) else []
+            isbns = [clean_isbn(value) for value in raw_isbns if isinstance(value, str)]
+            isbns = [value for value in isbns if value]
+            preferred = next((value for value in isbns if len(value) == 13), None) or (isbns[0] if isbns else None)
+            cover_id = valid_cover_id(book.get("cover_i"))
+            publishers = book.get("publisher")
+            publisher = publishers[0] if isinstance(publishers, list) and publishers else None
+            year = book.get("first_publish_year")
+            year = year if isinstance(year, int) and not isinstance(year, bool) else None
+            authors = book.get("author_name")
+            author_value = ", ".join(value for value in authors if isinstance(value, str)) if isinstance(authors, list) else None
+            results.append(
+                {
+                    "title": book["title"].strip(),
+                    "subtitle": book.get("subtitle") if isinstance(book.get("subtitle"), str) else None,
+                    "author": author_value or None,
+                    "publisher": publisher if isinstance(publisher, str) else None,
+                    "year": year,
+                    "isbn": preferred,
+                    "isbns": isbns,
+                    "cover_url": f"{OPENLIBRARY_COVER_URL}/{cover_id}-L.jpg" if cover_id else None,
+                    "provider": self.provider_name,
+                    "provider_book_id": book.get("key"),
+                    "position": position,
+                }
+            )
+        return results

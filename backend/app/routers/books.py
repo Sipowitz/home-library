@@ -20,6 +20,7 @@ from ..services import book_service, series_service
 from ..services.providers.manager import (
     fetch_book_by_isbn,
     fetch_all_provider_results,
+    search_catalog,
 )
 
 from ..services.providers.types import (
@@ -209,6 +210,14 @@ def get_book_collections(
 # -------------------
 # 🔎 ISBN PREVIEW
 # -------------------
+
+@router.post("/catalog-search", response_model=schemas.CatalogSearchResponse)
+async def catalog_search(
+    payload: schemas.CatalogSearchRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return {"items": await search_catalog(db, payload.title, payload.author)}
 
 @router.get("/preview-isbn/{isbn}")
 async def preview_book_by_isbn(

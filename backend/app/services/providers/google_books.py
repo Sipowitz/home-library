@@ -100,6 +100,82 @@ class GoogleBooksProvider(BookProvider):
             params=params,
         )
 
+    async def search_catalog(
+        self,
+        title: str,
+        author: str | None,
+        *,
+        limit: int = 50,
+    ) -> list[dict]:
+        query = f'intitle:"{title}"'
+        if author:
+            query += f' inauthor:"{author}"'
+        params = {"q": query, "maxResults": min(limit, 50)}
+        if self.settings and self.settings.api_key:
+            params["key"] = self.settings.api_key
+        data = await self.request_json(GOOGLE_BOOKS_URL, params=params)
+        if data is None:
+            return []
+        items = data.get("items", [])
+        if not isinstance(items, list):
+            self.last_error = "Malformed Google Books catalog response"
+            return []
+        results = []
+        for position, item in enumerate(items[: min(limit, 50)]):
+            if not isinstance(item, dict):
+                continue
+            info = item.get("volumeInfo") or {}
+            title_value = info.get("title")
+            if not isinstance(title_value, str) or not title_value.strip():
+                continue
+            identifiers = info.get("industryIdentifiers")
+            identifiers = identifiers if isinstance(identifiers, list) else []
+            isbns = [
+                clean_isbn(value.get("identifier", ""))
+                for value in identifiers
+                if isinstance(value, dict)
+            ]
+            isbns = [value for value in isbns if value]
+            preferred = next(
+                (
+                    clean_isbn(value.get("identifier", ""))
+                    for value in identifiers
+                    if isinstance(value, dict) and value.get("type") == "ISBN_13"
+                ),
+                None,
+            ) or (isbns[0] if isbns else None)
+            image_links = info.get("imageLinks")
+            image_links = image_links if isinstance(image_links, dict) else {}
+            cover = next(
+                (
+                    normalized
+                    for size in ["extraLarge", "large", "medium", "small", "thumbnail"]
+                    if (normalized := normalize_cover_url(image_links.get(size)))
+                ),
+                None,
+            )
+            year = None
+            if isinstance(info.get("publishedDate"), str) and info["publishedDate"][:4].isdigit():
+                year = int(info["publishedDate"][:4])
+            authors = info.get("authors")
+            author_value = ", ".join(value for value in authors if isinstance(value, str)) if isinstance(authors, list) else None
+            results.append(
+                {
+                    "title": title_value.strip(),
+                    "subtitle": info.get("subtitle") if isinstance(info.get("subtitle"), str) else None,
+                    "author": author_value or None,
+                    "publisher": info.get("publisher") if isinstance(info.get("publisher"), str) else None,
+                    "year": year,
+                    "isbn": preferred,
+                    "isbns": isbns,
+                    "cover_url": cover,
+                    "provider": self.provider_name,
+                    "provider_book_id": item.get("id"),
+                    "position": position,
+                }
+            )
+        return results
+
     async def fetch_book_by_isbn(
         self,
         raw_isbn: str,

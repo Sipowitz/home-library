@@ -352,6 +352,39 @@ class CollectionBrowseResponse(BaseModel):
 # 📚 BOOK SCHEMAS
 # -------------------
 
+class CatalogSearchRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    author: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def validate_title(cls, value):
+        try:
+            return required_text(value, "Title")
+        except ValueError as exc:
+            raise PydanticCustomError("required_catalog_title", "Title must not be blank") from exc
+
+    @field_validator("author", mode="before")
+    @classmethod
+    def blank_author_is_none(cls, value):
+        return value.strip() or None if isinstance(value, str) else value
+
+
+class CatalogSearchCandidate(BaseModel):
+    candidate_key: str
+    title: str
+    subtitle: Optional[str] = None
+    author: Optional[str] = None
+    publisher: Optional[str] = None
+    year: Optional[int] = None
+    isbn: Optional[str] = None
+    cover_url: Optional[str] = None
+    sources: List[str] = Field(default_factory=list)
+
+
+class CatalogSearchResponse(BaseModel):
+    items: List[CatalogSearchCandidate] = Field(default_factory=list, max_length=50)
+
 class BookCollectionPathNode(BaseModel):
     id: int
     name: str

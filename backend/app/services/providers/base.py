@@ -53,6 +53,17 @@ class BookProvider(ABC):
     ) -> dict | None:
         pass
 
+    @abstractmethod
+    async def search_catalog(
+        self,
+        title: str,
+        author: str | None,
+        *,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Return bounded, provider-normalized catalog candidates."""
+        pass
+
     async def refresh_metadata(self, isbn: str) -> dict | None:
         data = await self.fetch_book_by_isbn(isbn, force_refresh=True)
         if data is None:

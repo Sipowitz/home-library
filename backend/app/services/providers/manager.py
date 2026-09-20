@@ -182,3 +182,17 @@ async def fetch_all_cover_results(db: Session, isbn: str) -> list[ProviderResult
     for setting, provider in _get_enabled_providers(db):
         results.append(await _fetch_provider_result(setting, provider, isbn, evidence_kind="covers"))
     return results
+
+
+async def search_catalog(db: Session, title: str, author: str | None) -> list[dict]:
+    candidates = []
+    for setting, provider in _get_enabled_providers(db):
+        try:
+            results = await provider.search_catalog(title, author, limit=50)
+            candidates.extend({**candidate, "priority": setting.priority} for candidate in results)
+        except Exception:
+            logger.exception("Catalog search provider %s raised", provider.provider_name)
+
+    from app.services.providers.catalog_search_service import merge_and_rank_catalog_candidates
+
+    return merge_and_rank_catalog_candidates(candidates, title, author)
