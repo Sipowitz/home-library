@@ -48,12 +48,12 @@ function BookGridViewComponent({ books, onSelect, suggestedBookIds, suggestedLoc
             : null;
           const hasCover = book.cover_url && book.cover_url.trim() !== "";
           return (
-            <div key={`book-${book.id}`} onClick={(e) => { e.stopPropagation(); if (isSuggested) { if (suggestedLocation) onSuggestedSelect?.(book, suggestedLocation); } else onSelect(book); }} aria-disabled={isSuggested || undefined} data-suggested-book={isSuggested || undefined} className={`${isSuggested ? `${suggestedLocation ? "cursor-pointer" : "cursor-default"} opacity-60` : "cursor-pointer"} group`}>
-              <div className="relative aspect-[2/3] bg-gray-900 rounded-xl overflow-hidden shadow-md transition-all duration-300 group-hover:shadow-2xl group-hover:-translate-y-1 group-hover:scale-[1.02]">
+            <div key={`book-${book.id}`} onClick={(e) => { e.stopPropagation(); if (isSuggested) { if (suggestedLocation) onSuggestedSelect?.(book, suggestedLocation); } else onSelect(book); }} aria-disabled={isSuggested || undefined} data-suggested-book={isSuggested || undefined} className={`${isSuggested ? (suggestedLocation ? "cursor-pointer" : "cursor-default") : "cursor-pointer"} group`}>
+              <div className={`relative aspect-[2/3] rounded-xl overflow-hidden bg-gray-900 shadow-md transition-all duration-300 group-hover:shadow-2xl group-hover:-translate-y-1 group-hover:scale-[1.02] ${isSuggested ? "border-2 border-blue-500 dark:border-blue-400" : ""}`}>
                 {hasCover ? <img src={book.cover_url} onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col justify-between p-3 bg-gradient-to-br from-gray-800 to-gray-950 text-white"><div className="text-[11px] font-semibold leading-tight line-clamp-4">{book.title}</div><div className="text-[10px] text-gray-400 line-clamp-2">{book.author}</div></div>}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition" />
                 {book.read && <div className="absolute top-2 right-2 bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow">Read</div>}
-                {isSuggested && <div className="absolute bottom-2 left-2 rounded-md border border-white/20 bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white shadow">Suggested</div>}
+                {isSuggested && <div className="absolute bottom-2 left-2 rounded-md border border-blue-200/70 bg-blue-600/90 px-2 py-0.5 text-[10px] font-medium text-white shadow">Suggested</div>}
               </div>
               <div className="mt-2 px-1"><div className="flex items-center gap-1.5"><div className="min-w-0 flex-1 truncate text-xs font-medium">{book.title}</div>{locationPosition !== null && <span data-location-position className="shrink-0 text-[10px] text-text-muted">#{locationPosition}</span>}</div><div className="truncate text-[10px] text-text-muted">{book.author}</div></div>
             </div>

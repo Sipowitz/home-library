@@ -198,11 +198,10 @@ export function BookListView({
               className={`
                 w-full
                 text-left
-                border-b border-border
                 text-text-primary
                 hover:bg-control/40
                 transition
-                ${isSuggested ? "opacity-60" : ""}
+                ${isSuggested ? "rounded-xl border-2 border-blue-500 bg-blue-50/30 dark:border-blue-400 dark:bg-blue-950/20" : "border-b border-border"}
                 disabled:cursor-default
               `}
             >
@@ -261,7 +260,7 @@ export function BookListView({
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="truncate font-medium text-text-primary">{book.title}</div>
                     {locationPosition !== null && <span data-location-position className="shrink-0 text-xs text-text-muted">#{locationPosition}</span>}
-                    {isSuggested && <span className="shrink-0 rounded border border-border-strong bg-control px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">Suggested</span>}
+                    {isSuggested && <span className="shrink-0 rounded border border-blue-200/70 bg-blue-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white">Suggested</span>}
                   </div>
 
                   {book.isbn && (
@@ -340,7 +339,7 @@ export function BookListView({
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2"><div className="font-medium text-text-primary">{book.title}</div>{locationPosition !== null && <span data-location-position className="shrink-0 text-xs text-text-muted">#{locationPosition}</span>}{isSuggested && <span className="rounded border border-border-strong bg-control px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">Suggested</span>}</div>
+                    <div className="flex items-center gap-2"><div className="font-medium text-text-primary">{book.title}</div>{locationPosition !== null && <span data-location-position className="shrink-0 text-xs text-text-muted">#{locationPosition}</span>}{isSuggested && <span className="rounded border border-blue-200/70 bg-blue-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white">Suggested</span>}</div>
 
                     <div className="mt-1 text-sm text-text-secondary">
                       {book.author}

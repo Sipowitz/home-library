@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { BookListView } from "./BookListView";
 
-it("dims, labels, and disables suggested rows without changing normal rows", () => {
+it("accents suggested rows and labels without dimming normal or No Location rows", () => {
   const onSelect = vi.fn();
   const suggested = { id: 1, title: "Suggested book", author: "Author", read: false, location_id: null };
   const normal = { id: 2, title: "Normal book", author: "Author", read: false, location_id: null };
@@ -11,8 +11,12 @@ it("dims, labels, and disables suggested rows without changing normal rows", () 
 
   const suggestedRow = screen.getByRole("button", { name: /suggested book/i });
   expect((suggestedRow as HTMLButtonElement).disabled).toBe(true);
-  expect(suggestedRow.className).toContain("opacity-60");
-  expect(within(suggestedRow).getAllByText("Suggested")).toHaveLength(2);
+  expect(suggestedRow.className).not.toContain("opacity-60");
+  expect(suggestedRow.className).toContain("border-2");
+  expect(suggestedRow.className).toContain("border-blue-500");
+  expect(within(suggestedRow).getAllByText("Suggested").every((badge) => badge.className.includes("bg-blue-600/90"))).toBe(true);
+  expect(screen.getByRole("button", { name: /normal book/i }).className).toContain("border-b border-border");
+  expect(screen.getByRole("button", { name: /normal book/i }).className).not.toContain("border-blue-500");
   fireEvent.click(suggestedRow);
   expect(onSelect).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: /normal book/i }));
