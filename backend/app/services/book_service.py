@@ -47,6 +47,53 @@ def apply_book_ordering(query, sort: str = "author", order: str = "asc"):
     return query.order_by(desc(sort_column), desc(Book.id))
 
 
+def _set_location_position(book: Book, position: int | None, total: int | None) -> None:
+    """Attach transient physical-location data for response serialization."""
+    book.location_position = position
+    book.location_total = total
+
+
+def _annotate_location_positions(books: list[Book]) -> None:
+    """Annotate a canonically ordered, assigned-book corpus by exact Location."""
+    books_by_location: dict[int, list[Book]] = {}
+    for book in books:
+        # Callers provide assigned books, but retaining this guard makes the
+        # transient response fields safe if that contract changes.
+        if book.location_id is not None:
+            books_by_location.setdefault(book.location_id, []).append(book)
+
+    for direct_books in books_by_location.values():
+        total = len(direct_books)
+        for position, book in enumerate(direct_books, start=1):
+            _set_location_position(book, position, total)
+
+
+def _annotate_single_book_location_position(db: Session, user_id: int, book: Book) -> None:
+    """Calculate one book's position with one window-function query."""
+    if book.location_id is None:
+        _set_location_position(book, None, None)
+        return
+
+    surname = author_surname_expression(Book.author)
+    ranked = (
+        db.query(
+            Book.id.label("book_id"),
+            func.row_number().over(
+                order_by=(asc(surname), asc(Book.id)),
+            ).label("location_position"),
+            func.count(Book.id).over().label("location_total"),
+        )
+        .filter(Book.owner_id == user_id, Book.location_id == book.location_id)
+        .subquery()
+    )
+    position, total = (
+        db.query(ranked.c.location_position, ranked.c.location_total)
+        .filter(ranked.c.book_id == book.id)
+        .one()
+    )
+    _set_location_position(book, int(position), int(total))
+
+
 def _validate_required_fields(data: dict, partial: bool = False) -> None:
     for field in ("title", "author"):
         if partial and field not in data:
@@ -208,6 +255,13 @@ def get_grouped_books(
     assigned_by_location: dict[int, list[Book]] = {}
     for book in assigned_books:
         assigned_by_location.setdefault(book.location_id, []).append(book)
+    _annotate_location_positions(assigned_books)
+
+    # Unassigned books can be returned as provisional Suggested copies. They
+    # never have a real physical position, including when this Session has
+    # previously returned the same object while it was assigned.
+    for book in no_location_books:
+        _set_location_position(book, None, None)
 
     locations = get_ordered_locations(db, user_id)
     locations_by_id = {location.id: location for location in locations}
@@ -331,7 +385,7 @@ def get_grouped_books(
 
 
 def get_book(db: Session, user_id: int, book_id: int):
-    return (
+    book = (
         db.query(Book)
         .options(
             joinedload(Book.category),
@@ -341,6 +395,9 @@ def get_book(db: Session, user_id: int, book_id: int):
         .filter(Book.owner_id == user_id)
         .first()
     )
+    if book is not None:
+        _annotate_single_book_location_position(db, user_id, book)
+    return book
 
 
 def _identity_text(value: str | None) -> str:

@@ -546,6 +546,12 @@ class CoverRefreshResponse(CoverCandidatesResponse):
 class BookResponse(BookBase):
     id: int
 
+    # Derived from the complete set of books directly assigned to location_id.
+    # These are deliberately not persisted: a book's physical position changes
+    # whenever a peer is added, moved, or removed.
+    location_position: Optional[int] = None
+    location_total: Optional[int] = None
+
     last_cover_refresh_at: Optional[datetime] = None
     metadata_evidence_changed_at: Optional[datetime] = None
     metadata_reviewed_at: Optional[datetime] = None
