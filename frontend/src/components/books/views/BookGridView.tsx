@@ -12,17 +12,18 @@ type Props = {
   suggestedBookIds?: ReadonlySet<number>;
   suggestedLocationsByBookId?: ReadonlyMap<number, SuggestedLocation>;
   onSuggestedSelect?: (book: GridBook, location: SuggestedLocation) => void;
+  showLocationPositions?: boolean;
   collections?: Series[];
   items?: GridItem[];
   onSelectCollection?: (collection: Series) => void;
 };
 
-type GridBook = Pick<Book, "id" | "title" | "author" | "cover_url" | "read">;
+type GridBook = Pick<Book, "id" | "title" | "author" | "cover_url" | "read" | "location_id" | "location_position" | "location_total">;
 type GridItem =
   | { kind: "book"; book: GridBook }
   | { kind: "collection"; collection: Series };
 
-function BookGridViewComponent({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect, collections = [], items, onSelectCollection }: Props) {
+function BookGridViewComponent({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect, showLocationPositions = false, collections = [], items, onSelectCollection }: Props) {
   const [failedCollectionCovers, setFailedCollectionCovers] = React.useState<Set<number>>(() => new Set());
   const orderedItems: GridItem[] = items ?? [
     ...collections.map((collection) => ({ kind: "collection" as const, collection })),
@@ -35,6 +36,16 @@ function BookGridViewComponent({ books, onSelect, suggestedBookIds, suggestedLoc
           const book = item.book;
           const isSuggested = suggestedBookIds?.has(book.id) ?? false;
           const suggestedLocation = suggestedLocationsByBookId?.get(book.id);
+          const locationPosition = showLocationPositions
+            && !isSuggested
+            && book.location_id !== null
+            && book.location_id !== undefined
+            && Number.isInteger(book.location_position)
+            && Number.isInteger(book.location_total)
+            && (book.location_position ?? 0) > 0
+            && (book.location_total ?? 0) >= (book.location_position ?? 0)
+            ? book.location_position
+            : null;
           const hasCover = book.cover_url && book.cover_url.trim() !== "";
           return (
             <div key={`book-${book.id}`} onClick={(e) => { e.stopPropagation(); if (isSuggested) { if (suggestedLocation) onSuggestedSelect?.(book, suggestedLocation); } else onSelect(book); }} aria-disabled={isSuggested || undefined} data-suggested-book={isSuggested || undefined} className={`${isSuggested ? `${suggestedLocation ? "cursor-pointer" : "cursor-default"} opacity-60` : "cursor-pointer"} group`}>
@@ -44,7 +55,7 @@ function BookGridViewComponent({ books, onSelect, suggestedBookIds, suggestedLoc
                 {book.read && <div className="absolute top-2 right-2 bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-md shadow">Read</div>}
                 {isSuggested && <div className="absolute bottom-2 left-2 rounded-md border border-white/20 bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white shadow">Suggested</div>}
               </div>
-              <div className="mt-2 px-1"><div className="text-xs font-medium truncate">{book.title}</div><div className="truncate text-[10px] text-text-muted">{book.author}</div></div>
+              <div className="mt-2 px-1"><div className="flex items-center gap-1.5"><div className="min-w-0 flex-1 truncate text-xs font-medium">{book.title}</div>{locationPosition !== null && <span data-location-position className="shrink-0 text-[10px] text-text-muted">#{locationPosition}</span>}</div><div className="truncate text-[10px] text-text-muted">{book.author}</div></div>
             </div>
           );
         }

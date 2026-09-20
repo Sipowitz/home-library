@@ -19,6 +19,7 @@ type Props = {
   suggestedBookIds?: ReadonlySet<number>;
   suggestedLocationsByBookId?: ReadonlyMap<number, SuggestedLocation>;
   onSuggestedSelect?: (book: Book, location: SuggestedLocation) => void;
+  showLocationPositions?: boolean;
 };
 
 // ====================
@@ -110,6 +111,7 @@ export function BookListView({
   suggestedBookIds,
   suggestedLocationsByBookId,
   onSuggestedSelect,
+  showLocationPositions = false,
 }: Props) {
   const locationMap = useMemo(() => {
     const flat = flattenLocations(locations);
@@ -171,6 +173,16 @@ export function BookListView({
         {books.map((book) => {
           const isSuggested = suggestedBookIds?.has(book.id) ?? false;
           const suggestedLocation = suggestedLocationsByBookId?.get(book.id);
+          const locationPosition = showLocationPositions
+            && !isSuggested
+            && book.location_id !== null
+            && book.location_id !== undefined
+            && Number.isInteger(book.location_position)
+            && Number.isInteger(book.location_total)
+            && (book.location_position ?? 0) > 0
+            && (book.location_total ?? 0) >= (book.location_position ?? 0)
+            ? book.location_position
+            : null;
           const locationPath = getLocationPath(book.location_id, locationMap);
 
           const categoryPath = getCategoryPath(book.category_id, categoryMap);
@@ -248,6 +260,7 @@ export function BookListView({
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="truncate font-medium text-text-primary">{book.title}</div>
+                    {locationPosition !== null && <span data-location-position className="shrink-0 text-xs text-text-muted">#{locationPosition}</span>}
                     {isSuggested && <span className="shrink-0 rounded border border-border-strong bg-control px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">Suggested</span>}
                   </div>
 
@@ -327,7 +340,7 @@ export function BookListView({
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2"><div className="font-medium text-text-primary">{book.title}</div>{isSuggested && <span className="rounded border border-border-strong bg-control px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">Suggested</span>}</div>
+                    <div className="flex items-center gap-2"><div className="font-medium text-text-primary">{book.title}</div>{locationPosition !== null && <span data-location-position className="shrink-0 text-xs text-text-muted">#{locationPosition}</span>}{isSuggested && <span className="rounded border border-border-strong bg-control px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">Suggested</span>}</div>
 
                     <div className="mt-1 text-sm text-text-secondary">
                       {book.author}

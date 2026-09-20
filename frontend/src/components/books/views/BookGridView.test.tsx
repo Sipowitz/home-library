@@ -78,3 +78,17 @@ it("dims suggested cards, labels them, and keeps them inert", () => {
   fireEvent.click(screen.getAllByText("Normal book").at(-1)!);
   expect(onSelect).toHaveBeenCalledWith(normal);
 });
+
+it("renders literal backend positions only in grouped display and never for Suggested or unassigned books", () => {
+  const assigned = { ...book, id: 30, title: "Assigned", location_id: 7, location_position: 23, location_total: 27 };
+  const suggested = { ...book, id: 31, title: "Suggested", location_id: 7, location_position: 12, location_total: 27 };
+  const unassigned = { ...book, id: 32, title: "Unassigned", location_id: null, location_position: 4, location_total: 27 };
+  const grouped = render(<BookGridView books={[assigned, suggested, unassigned]} suggestedBookIds={new Set([suggested.id])} showLocationPositions onSelect={vi.fn()} />);
+
+  expect(within(screen.getAllByText("Assigned").at(-1)!.closest("[data-suggested-book], .group") as HTMLElement).getByText("#23")).toBeTruthy();
+  expect(grouped.container.textContent).not.toContain("#12");
+  expect(grouped.container.textContent).not.toContain("#4");
+
+  grouped.rerender(<BookGridView books={[assigned]} onSelect={vi.fn()} />);
+  expect(grouped.container.textContent).not.toContain("#23");
+});

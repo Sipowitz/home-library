@@ -3,10 +3,10 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, expect, it, vi } from "vitest";
 
 vi.mock("./BookGridView", () => ({
-  BookGridView: ({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect }: any) => <div data-testid="grid-books">{books.map((book: any) => <button data-testid={`grid-book-${book.id}`} data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (suggestedBookIds?.has(book.id)) onSuggestedSelect?.(book, suggestedLocationsByBookId?.get(book.id)); else onSelect(book); }}>{book.title}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
+  BookGridView: ({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect, showLocationPositions }: any) => <div data-testid="grid-books">{books.map((book: any) => <button data-testid={`grid-book-${book.id}`} data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (suggestedBookIds?.has(book.id)) onSuggestedSelect?.(book, suggestedLocationsByBookId?.get(book.id)); else onSelect(book); }}>{book.title}{showLocationPositions && !suggestedBookIds?.has(book.id) && book.location_position != null && ` #${book.location_position}`}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
 }));
 vi.mock("./BookListView", () => ({
-  BookListView: ({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect }: any) => <div data-testid="list-books">{books.map((book: any) => <button data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (suggestedBookIds?.has(book.id)) onSuggestedSelect?.(book, suggestedLocationsByBookId?.get(book.id)); else onSelect(book); }}>{book.title}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
+  BookListView: ({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect, showLocationPositions }: any) => <div data-testid="list-books">{books.map((book: any) => <button data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (suggestedBookIds?.has(book.id)) onSuggestedSelect?.(book, suggestedLocationsByBookId?.get(book.id)); else onSelect(book); }}>{book.title}{showLocationPositions && !suggestedBookIds?.has(book.id) && book.location_position != null && ` #${book.location_position}`}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
 }));
 
 import { GroupedLocationBooks } from "./GroupedLocationBooks";
@@ -88,4 +88,13 @@ it("passes suggested state to the list renderer but keeps No Location copies nor
   render(<GroupedLocationBooks data={data} viewMode="list" locations={[]} categories={[]} showCovers onSelect={vi.fn()} />);
   expect(document.querySelector('[data-location-group="1"] [data-suggested-book="true"]')).toBeTruthy();
   expect(document.querySelector('[data-location-group="no-location"] [data-suggested-book="true"]')).toBeNull();
+});
+
+it("enables compact backend positions for assigned books in both grouped renderers", () => {
+  const data = { locations: [{ id: 1, name: "Shelf", books: [{ ...book(4, "Assigned"), location_id: 1, location_position: 23, location_total: 27 }], children: [] }], no_location: null };
+  const { rerender } = render(<GroupedLocationBooks data={data} viewMode="grid" locations={[]} categories={[]} showCovers onSelect={vi.fn()} />);
+  expect(screen.getByText("Assigned #23")).toBeTruthy();
+
+  rerender(<GroupedLocationBooks data={data} viewMode="list" locations={[]} categories={[]} showCovers onSelect={vi.fn()} />);
+  expect(screen.getByText("Assigned #23")).toBeTruthy();
 });

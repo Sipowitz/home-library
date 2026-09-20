@@ -128,6 +128,12 @@ export function BookView({ book, locations, categories, onCollectionPathsChange 
   const locationPath = book.location_id
     ? getTreePath(book.location_id, locationMap, "")
     : "";
+  const hasLocationPosition = book.location_id !== null
+    && book.location_id !== undefined
+    && Number.isInteger(book.location_position)
+    && Number.isInteger(book.location_total)
+    && (book.location_position ?? 0) > 0
+    && (book.location_total ?? 0) >= (book.location_position ?? 0);
   const categoryPath = book.category_id
     ? getTreePath(book.category_id, categoryMap, "")
     : "";
@@ -161,7 +167,11 @@ export function BookView({ book, locations, categories, onCollectionPathsChange 
 
   const libraryFacts = ([
     categoryPath ? { label: "Category", value: categoryPath, icon: Folder } : null,
-    locationPath ? { label: "Location", value: locationPath, icon: MapPin } : null,
+    locationPath ? {
+      label: "Location",
+      value: <>{locationPath}{hasLocationPosition && <span className="text-text-secondary"> · #{book.location_position} of {book.location_total}</span>}</>,
+      icon: MapPin,
+    } : null,
     displayedCollectionPaths?.length ? {
       label: "Collections",
       icon: LibraryBig,

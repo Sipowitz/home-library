@@ -55,6 +55,10 @@ export type Book = {
 
   location_id?: number | null;
 
+  location_position?: number | null;
+
+  location_total?: number | null;
+
   cover_url?: string;
 
   uploaded_cover_candidates_json?: CoverCandidate[];

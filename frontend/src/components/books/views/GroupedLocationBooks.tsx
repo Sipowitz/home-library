@@ -35,8 +35,8 @@ function Books({ books, viewMode, locations, categories, showCovers, onSelect, o
   const suggestedLocationsByBookId = new Map(books.flatMap(({ book, suggestedLocation }) => suggestedLocation ? [[book.id, suggestedLocation] as const] : []));
   const renderedBooks = books.map(({ book }) => book);
   return viewMode === "grid"
-    ? <BookGridView books={renderedBooks} suggestedBookIds={suggestedBookIds} suggestedLocationsByBookId={suggestedLocationsByBookId} onSuggestedSelect={onSuggestedSelect} onSelect={onSelect} />
-    : <BookListView books={renderedBooks} suggestedBookIds={suggestedBookIds} suggestedLocationsByBookId={suggestedLocationsByBookId} onSuggestedSelect={onSuggestedSelect} locations={locations} categories={categories} showCovers={showCovers} onSelect={onSelect} />;
+    ? <BookGridView books={renderedBooks} suggestedBookIds={suggestedBookIds} suggestedLocationsByBookId={suggestedLocationsByBookId} onSuggestedSelect={onSuggestedSelect} showLocationPositions onSelect={onSelect} />
+    : <BookListView books={renderedBooks} suggestedBookIds={suggestedBookIds} suggestedLocationsByBookId={suggestedLocationsByBookId} onSuggestedSelect={onSuggestedSelect} showLocationPositions locations={locations} categories={categories} showCovers={showCovers} onSelect={onSelect} />;
 }
 
 function LocationBranch({ group, depth, suggestionsByLocation, ...props }: Omit<Props, "data"> & { group: LocationBookGroup; depth: number; suggestionsByLocation: Map<number, SuggestedPlacement[]> }) {

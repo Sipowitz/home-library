@@ -18,3 +18,18 @@ it("dims, labels, and disables suggested rows without changing normal rows", () 
   fireEvent.click(screen.getByRole("button", { name: /normal book/i }));
   expect(onSelect).toHaveBeenCalledWith(normal);
 });
+
+it("renders literal backend positions in grouped rows only, including non-consecutive filtered values", () => {
+  const first = { id: 4, title: "First visible", author: "Author", read: false, location_id: 7, location_position: 4, location_total: 27 };
+  const last = { id: 23, title: "Last visible", author: "Author", read: false, location_id: 7, location_position: 23, location_total: 27 };
+  const suggested = { id: 12, title: "Suggested", author: "Author", read: false, location_id: 7, location_position: 12, location_total: 27 };
+  const view = render(<BookListView books={[first, suggested, last]} locations={[]} categories={[]} showCovers={false} suggestedBookIds={new Set([suggested.id])} showLocationPositions onSelect={vi.fn()} />);
+
+  expect(view.container.textContent).toContain("#4");
+  expect(view.container.textContent).toContain("#23");
+  expect(view.container.textContent).not.toContain("#12");
+
+  view.rerender(<BookListView books={[first, last]} locations={[]} categories={[]} showCovers={false} onSelect={vi.fn()} />);
+  expect(view.container.textContent).not.toContain("#4");
+  expect(view.container.textContent).not.toContain("#23");
+});

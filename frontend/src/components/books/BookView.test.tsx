@@ -26,6 +26,7 @@ import { BookEdit } from "./BookEdit";
 
 const book = { id: 1, title: "Book One", author: "Author One", read: false };
 const otherBook = { id: 2, title: "Book Two", author: "Author Two", read: false };
+const locations = [{ id: 3, name: "Shelf G", parent_id: null, child_count: 0, stats: { total_books: 0 }, children: [] }];
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -107,7 +108,7 @@ it("keeps Book View available when Collection-path loading fails", async () => {
 it("does not add Collection membership controls to Book Edit", () => {
   const { container } = render(
     <BookEdit
-      editData={book}
+      editData={{ ...book, location_position: 12, location_total: 27 }}
       setEditData={vi.fn()}
       categories={[]}
       locations={[]}
@@ -119,4 +120,20 @@ it("does not add Collection membership controls to Book Edit", () => {
 
   expect(Array.from(container.querySelectorAll("label")).some((element) => /collection/i.test(element.textContent ?? ""))).toBe(false);
   expect(container.querySelector('[aria-label*="collection" i]')).toBeNull();
+  expect(container.textContent).not.toMatch(/location position|#\d+ of \d+/i);
+});
+
+it("renders the backend physical position as part of the Location detail", () => {
+  api.getCollectionPaths.mockResolvedValue([]);
+  render(<BookView book={{ ...book, location_id: 3, location_position: 12, location_total: 27 }} locations={locations} categories={[]} />);
+
+  expect(screen.getByText(/Shelf G/).textContent).toContain("#12 of 27");
+});
+
+it("omits physical position when the backend values are null", () => {
+  api.getCollectionPaths.mockResolvedValue([]);
+  const { container } = render(<BookView book={{ ...book, location_id: 3, location_position: null, location_total: null }} locations={locations} categories={[]} />);
+
+  expect(container.textContent).not.toContain("#12 of 27");
+  expect(container.textContent).not.toMatch(/#\d+ of \d+/);
 });
