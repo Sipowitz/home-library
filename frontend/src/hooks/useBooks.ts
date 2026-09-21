@@ -9,11 +9,13 @@ import {
 } from "../api/books";
 
 import { useAuth } from "../context/AuthContext";
+import { useLocations } from "../context/LocationContext";
 
 import type { Book } from "../types/book";
 import type { ReviewIntent } from "../api/books";
 
 import type { ProviderResult } from "../types/provider";
+import type { Location } from "../types/location";
 
 type BookCreateInput = {
   title: string;
@@ -56,6 +58,33 @@ type Filters = {
 
 const LIMIT = 20;
 
+function locationMatchesFilter(
+  book: Book,
+  locationId: number | null | undefined,
+  locations: Location[],
+) {
+  if (locationId === null || locationId === undefined) return true;
+  if (locationId === -1) return book.location_id == null;
+  if (book.location_id == null) return false;
+  if (book.location_id === locationId) return true;
+
+  const locationById = new Map<number, Location>();
+  const addLocations = (nodes: Location[]) => {
+    nodes.forEach((location) => {
+      locationById.set(location.id, location);
+      if (location.children?.length) addLocations(location.children);
+    });
+  };
+  addLocations(locations);
+
+  let current = locationById.get(book.location_id);
+  while (current?.parent_id != null) {
+    if (current.parent_id === locationId) return true;
+    current = locationById.get(current.parent_id);
+  }
+  return false;
+}
+
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>([]);
 
@@ -76,6 +105,7 @@ export function useBooks() {
   const requestIdRef = useRef(0);
 
   const { ready, token } = useAuth();
+  const { locations } = useLocations();
 
   function notifyStatsUpdate() {
     window.dispatchEvent(new Event("stats-updated"));
@@ -266,9 +296,10 @@ export function useBooks() {
 
     // The update response is authoritative for this book. Merge it into the
     // currently loaded pages instead of resetting infinite-scroll pagination.
-    setBooks((prev) =>
-      prev.map((item) => (item.id === updated.id ? updated : item)),
-    );
+    setBooks((prev) => prev.flatMap((item) => {
+      if (item.id !== updated.id) return [item];
+      return locationMatchesFilter(updated, filters.locationId, locations) ? [updated] : [];
+    }));
 
     notifyStatsUpdate();
 
