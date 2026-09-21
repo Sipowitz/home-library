@@ -3,10 +3,10 @@ from app.models import Book, ProviderMetadataSnapshot
 from app.services.providers.evidence_service import latest_cover_snapshots, normalized_book_isbn
 from app.services.providers.types import ProviderResult
 
-def get_provider_results_for_book(db: Session, book_id: int) -> list[ProviderResult]:
+def get_provider_results_for_book(db: Session, book_id: int, lookup_isbn: str | None = None) -> list[ProviderResult]:
     """Latest successful metadata plus covers, strictly for the Book's current ISBN."""
     book = db.query(Book).filter(Book.id == book_id).first()
-    isbn = normalized_book_isbn(book) if book else None
+    isbn = lookup_isbn or (normalized_book_isbn(book) if book else None)
     if not book or not isbn:
         return []
     snapshots = (db.query(ProviderMetadataSnapshot)
@@ -20,6 +20,6 @@ def get_provider_results_for_book(db: Session, book_id: int) -> list[ProviderRes
     for provider, snapshot in sorted(latest.items()):
         data = dict(snapshot.raw_json)
         candidates = covers[provider].candidates_json if provider in covers else []
-        data.update({"cover_candidates": candidates, "cover_url": candidates[0]["url"] if candidates else None})
+        data.update({"isbn": isbn, "cover_candidates": candidates, "cover_url": candidates[0]["url"] if candidates else None})
         results.append(ProviderResult(provider=provider, success=True, isbn=isbn, duration_ms=0, data=data, error=None))
     return results

@@ -567,6 +567,10 @@ class CoverCandidateSelection(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
 
 
+class MetadataRefreshRequest(BaseModel):
+    lookup_isbn: str | None = Field(default=None, max_length=32)
+
+
 class CoverCandidatesResponse(BaseModel):
     candidates: List[CoverCandidateResponse] = Field(default_factory=list)
     cover_review: ReviewStatusResponse

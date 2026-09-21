@@ -8,13 +8,14 @@ from app.services.providers.manager import fetch_all_metadata_results
 from app.services.providers.metadata_snapshot_service import persist_provider_result
 from app.services.providers.types import ProviderResult
 
-async def refresh_book_metadata(db: Session, book_id: int) -> list[ProviderResult]:
+async def refresh_book_metadata(db: Session, book_id: int, lookup_isbn: str | None = None) -> list[ProviderResult]:
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
         raise ValueError(f"Book {book_id} not found")
-    if not book.isbn:
+    isbn = book.isbn or lookup_isbn
+    if not isbn:
         raise ValueError(f"Book {book_id} has no ISBN")
-    results = await fetch_all_metadata_results(db, book.isbn)
+    results = await fetch_all_metadata_results(db, isbn)
     for result in results:
         persist_provider_result(db, book.id, result)
     update_metadata_evidence_signature(db, book)

@@ -267,6 +267,7 @@ async def get_provider_results_by_isbn(
 )
 async def get_metadata_candidates(
     book_id: int,
+    isbn: str | None = Query(None),
 
     db: Session = Depends(get_db),
 
@@ -286,10 +287,7 @@ async def get_metadata_candidates(
             detail="Book not found",
         )
 
-    return get_provider_results_for_book(
-        db,
-        book.id,
-    )
+    return get_provider_results_for_book(db, book.id, normalize_isbn(isbn) if isbn else None)
 
 
 # -------------------
@@ -302,6 +300,7 @@ async def get_metadata_candidates(
 )
 async def refresh_metadata(
     book_id: int,
+    payload: schemas.MetadataRefreshRequest | None = None,
 
     db: Session = Depends(get_db),
 
@@ -321,10 +320,13 @@ async def refresh_metadata(
             detail="Book not found",
         )
 
+    if book.isbn and payload and payload.lookup_isbn:
+        raise HTTPException(status_code=400, detail="Cannot replace an existing ISBN during refresh")
     try:
         return await refresh_book_metadata(
             db,
             book.id,
+            normalize_isbn(payload.lookup_isbn) if payload and payload.lookup_isbn else None,
         )
 
     except ValueError as exc:
