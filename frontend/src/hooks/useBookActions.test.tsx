@@ -13,7 +13,7 @@ vi.mock("../api/books", () => ({ previewBookByISBN }));
 vi.mock("../api/providerResults", () => ({ fetchProviderResultsByISBN: vi.fn() }));
 
 import { useBookActions } from "./useBookActions";
-import type { BookDraft } from "../types/book";
+import type { Book, BookDraft } from "../types/book";
 
 afterEach(() => cleanup());
 
@@ -74,40 +74,45 @@ it("refreshes grouped results after a successful edit so location and author cha
   await waitFor(() => expect(reconcileGroupedBooks).toHaveBeenCalledTimes(1));
 });
 
-it("saves an ISBN-bearing catalog candidate through normal creation after opening Book Edit", async () => {
+it("adds an ISBN-bearing catalog candidate directly through normal creation", async () => {
   const addBook = vi.fn().mockResolvedValue({ id: 42, title: "Catalog book", author: "Author", isbn: "9780306406157" });
   const addBookFromISBN = vi.fn();
+  const setEditing = vi.fn();
+  const setEditData = vi.fn();
 
   function Harness() {
-    const [newBook, setNewBook] = useState({});
-    const [editData, setEditData] = useState<any>(null);
+    const [newBook, setNewBook] = useState<BookDraft>({});
+    const [editData, setEditData] = useState<Book | null>(null);
     const actions = useBookActions({
       newBook, setNewBook, addBook, addBookFromISBN, removeBook: vi.fn(), saveBook: vi.fn(),
-      setSelectedBook: vi.fn(), setEditData, setEditing: vi.fn(), editData,
+      setSelectedBook: vi.fn(), setEditData, setEditing, editData,
     });
     return <>
       <button onClick={() => actions.handleCatalogCandidateSelected({ title: "Catalog book", author: "Author", isbn: "9780306406157" })}>Select catalog</button>
       <button onClick={() => void actions.handleAddBook()}>Add to Library</button>
-      <button onClick={() => void actions.handleSave()}>Save</button>
+      <span>{newBook.title || "Add flow reset"}</span>
     </>;
   }
 
   render(<Harness />);
   fireEvent.click(screen.getByRole("button", { name: "Select catalog" }));
   fireEvent.click(screen.getByRole("button", { name: "Add to Library" }));
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
   await waitFor(() => expect(addBook).toHaveBeenCalledWith(expect.objectContaining({ isbn: "9780306406157" })));
   expect(addBookFromISBN).not.toHaveBeenCalled();
+  expect(setEditing).not.toHaveBeenCalledWith(true);
+  expect(setEditData).not.toHaveBeenCalled();
+  await waitFor(() => expect(screen.getByText("Add flow reset")).toBeTruthy());
 });
 
-it("opens Book Edit for an ISBN-less catalog candidate", async () => {
+it("adds an ISBN-less catalog candidate directly through normal creation", async () => {
+  const addBook = vi.fn().mockResolvedValue({ id: 44, title: "Older book", author: "Author", isbn: "" });
   const setEditing = vi.fn();
   const setEditData = vi.fn();
   function Harness() {
     const [newBook, setNewBook] = useState<BookDraft>({});
     const actions = useBookActions({
-      newBook, setNewBook, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: vi.fn(),
+      newBook, setNewBook, addBook, addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: vi.fn(),
       setSelectedBook: vi.fn(), setEditData, setEditing, editData: null,
     });
     return <><button onClick={() => actions.handleCatalogCandidateSelected({ title: "Older book", author: "Author", isbn: "" })}>Select ISBN-less catalog</button><button onClick={() => void actions.handleAddBook()}>Add to Library</button></>;
@@ -116,8 +121,27 @@ it("opens Book Edit for an ISBN-less catalog candidate", async () => {
   render(<Harness />);
   fireEvent.click(screen.getByRole("button", { name: "Select ISBN-less catalog" }));
   fireEvent.click(screen.getByRole("button", { name: "Add to Library" }));
+  await waitFor(() => expect(addBook).toHaveBeenCalledWith(expect.objectContaining({ isbn: "", title: "Older book" })));
+  expect(setEditing).not.toHaveBeenCalledWith(true);
+  expect(setEditData).not.toHaveBeenCalled();
+});
+
+it("keeps manual adds on the Book Edit path", async () => {
+  const setEditing = vi.fn();
+  const setEditData = vi.fn();
+  function Harness() {
+    const [newBook, setNewBook] = useState<BookDraft>({ title: "Manual book", author: "Author" });
+    const actions = useBookActions({
+      newBook, setNewBook, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: vi.fn(),
+      setSelectedBook: vi.fn(), setEditData, setEditing, editData: null,
+    });
+    return <button onClick={() => void actions.handleAddBook()}>Add manual book</button>;
+  }
+
+  render(<Harness />);
+  fireEvent.click(screen.getByRole("button", { name: "Add manual book" }));
   expect(setEditing).toHaveBeenCalledWith(true);
-  expect(setEditData).toHaveBeenCalledWith(expect.objectContaining({ isbn: "", title: "Older book" }));
+  expect(setEditData).toHaveBeenCalledWith(expect.objectContaining({ title: "Manual book" }));
 });
 
 it("keeps ISBN lookup drafts on the existing ISBN creation path", async () => {

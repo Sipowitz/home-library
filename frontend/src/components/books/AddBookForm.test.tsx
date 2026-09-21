@@ -141,3 +141,15 @@ it("keeps ISBN and title/author modes exclusive", () => {
   expect((screen.getByPlaceholderText("Title") as HTMLInputElement).disabled).toBe(true);
   expect((screen.getByPlaceholderText("Author") as HTMLInputElement).disabled).toBe(true);
 });
+
+it("keeps creation errors visible", async () => {
+  render(
+    <AddBookForm
+      newBook={{ title: "Catalog book", author: "Author" }} setNewBook={vi.fn()} onSearch={vi.fn()}
+      onAdd={vi.fn().mockRejectedValue(new Error("Could not create catalog book"))} onAddReview={vi.fn()}
+      canAddReview={false} onReset={vi.fn()} onISBNChange={vi.fn()} isFetching={false}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Add to Library" }));
+  await waitFor(() => expect(screen.getByText("Could not create catalog book")).toBeTruthy());
+});

@@ -249,6 +249,18 @@ export function useBookActions({
     const draftBook = draftFromNewBook();
     if (!draftBook) return;
 
+    if (draftOrigin === "catalog-search") {
+      const book: Partial<Book> = { ...draftBook };
+      delete book.id;
+      delete book.date_added;
+      const created = await addBook(book);
+      setProviderResults([]);
+      resetAddBook();
+      reconcileGroupedBooks?.();
+      toast.success("Book added to library");
+      return created;
+    }
+
     setSelectedBook(draftBook);
     setEditData(draftBook);
 
