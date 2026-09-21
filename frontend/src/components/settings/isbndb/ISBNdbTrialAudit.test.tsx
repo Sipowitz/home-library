@@ -14,7 +14,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 it("shows resumable read-only audit progress and a safe text comparison", async () => {
   api.status.mockResolvedValue(summary); api.results.mockResolvedValue([{ book_id: 1, isbn: "9780", status: "found", title: "Audit book" }]);
-  api.result.mockResolvedValue({ book: { title: "Saved" }, status: "found", isbndb: { title: "Remote", synopsis: "<b>Untrusted</b>", binding: "Paperback", subjects: ["Fiction"] } });
+  api.result.mockResolvedValue({ book: { title: "Saved", cover_url: "/covers/library.jpg" }, status: "found", isbndb: { title: "Remote", image: "https://images.isbndb.com/cover.jpg", synopsis: "<b>Untrusted</b>", binding: "Paperback", subjects: ["Fiction"], dimensions_structured: { height: { value: 7.76, unit: "inches" }, width: { value: 0.93, unit: "inches" }, length: { value: 5.08, unit: "inches" }, weight: { value: 0.51, unit: "pounds" } } } });
   render(<ISBNdbTrialAudit />);
   await waitFor(() => expect(screen.getByRole("button", { name: "Continue Audit" })).toBeTruthy());
   expect(screen.getByText("4999", { exact: false })).toBeTruthy();
@@ -22,6 +22,24 @@ it("shows resumable read-only audit progress and a safe text comparison", async 
   fireEvent.click(screen.getByText("Audit book"));
   await waitFor(() => expect(screen.getByText("<b>Untrusted</b>")).toBeTruthy());
   expect(screen.getByText("Binding:", { exact: false })).toBeTruthy();
+  expect(screen.getByRole("img", { name: "Library cover" })).toBeTruthy();
+  expect(screen.getByRole("img", { name: "ISBNdb cover" })).toBeTruthy();
+  expect(screen.getByText("Height:", { exact: false })).toBeTruthy();
+  expect(screen.getByText("7.76 inches")).toBeTruthy();
+  expect(screen.getByText("0.51 pounds")).toBeTruthy();
+  expect(screen.queryByText("[object Object]")).toBeNull();
+});
+
+it("handles missing covers and partial structured dimensions", async () => {
+  api.status.mockResolvedValue(summary); api.results.mockResolvedValue([{ book_id: 1, isbn: "9780", status: "found", title: "Audit book" }]);
+  api.result.mockResolvedValue({ book: { title: "Saved" }, status: "found", isbndb: { dimensions_structured: { weight: { value: 1, unit: "pounds" }, height: null } } });
+  render(<ISBNdbTrialAudit />);
+  await waitFor(() => expect(screen.getByText("Audit book")).toBeTruthy());
+  fireEvent.click(screen.getByText("Audit book"));
+  await waitFor(() => expect(screen.getAllByText("No cover")).toHaveLength(2));
+  expect(screen.getByText("Weight:", { exact: false })).toBeTruthy();
+  expect(screen.getByText("1 pounds")).toBeTruthy();
+  expect(screen.queryByText("[object Object]")).toBeNull();
 });
 
 it("reports missing configuration without a run control", async () => {
