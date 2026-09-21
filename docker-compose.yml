@@ -37,6 +37,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/library
       SECRET_KEY: super-secure-production-key-123
       COVERS_DIR: /var/lib/library-app/covers
+      ISBNDB_API_KEY: ${ISBNDB_API_KEY:-}
 
     volumes:
       - /srv/dev-disk-by-uuid-43d92b4b-6f5d-4851-bd58-48f90f1d2259/Docker/DockerData/development/workspace/Apps/Library-App/backend:/app

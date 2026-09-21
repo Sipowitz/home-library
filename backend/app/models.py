@@ -116,6 +116,21 @@ class MaintenanceJobItem(Base):
     job = relationship("MaintenanceJob", back_populates="items")
 
 
+class ISBNdbAuditResult(Base):
+    """Temporary, read-only ISBNdb trial evidence. Never feeds provider metadata."""
+    __tablename__ = "isbndb_audit_results"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    isbn = Column(String, nullable=False)
+    status = Column(String(16), nullable=False, index=True)
+    raw_payload = Column(JSONB, nullable=True)
+    http_status = Column(Integer, nullable=True)
+    error_summary = Column(String, nullable=True)
+    checked_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    __table_args__ = (UniqueConstraint("owner_id", "isbn", name="uq_isbndb_audit_owner_isbn"),)
+
+
 # -------------------
 # ⚙️ USER PREFERENCES
 # -------------------

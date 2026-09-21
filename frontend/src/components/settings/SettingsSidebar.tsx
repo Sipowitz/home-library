@@ -7,7 +7,8 @@ type Section =
   | "backup"
   | "library"
   | "preferences"
-  | "users";
+  | "users"
+  | "isbndb_audit";
 
 type Props = {
   active: Section;
@@ -44,6 +45,7 @@ const items: {
     label: "Maintenance",
   },
   { id: "users", label: "Users" },
+  { id: "isbndb_audit", label: "ISBNdb Trial Audit" },
 
   { id: "library", label: "Library" },
 

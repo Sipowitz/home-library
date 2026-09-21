@@ -31,6 +31,7 @@ from .routers import (
     admin_users,
     maintenance,
     series,
+    isbndb_audit,
 )
 
 from .core.error_handlers import (
@@ -117,6 +118,7 @@ app.include_router(admin_users.router)
 app.include_router(maintenance.router)
 app.include_router(series.router)
 app.include_router(series.book_router)
+app.include_router(isbndb_audit.router)
 
 
 @app.get("/")

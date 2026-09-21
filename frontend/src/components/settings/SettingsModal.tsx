@@ -35,6 +35,7 @@ import { useAuth } from "../../context/AuthContext";
 import { MaintenanceSettings, type ReviewTarget } from "./maintenance/MaintenanceSettings";
 import { ActionButton } from "../ui/ActionButton";
 import { useOverlayScrollLock } from "../../hooks/useOverlayScrollLock";
+import { ISBNdbTrialAudit } from "./isbndb/ISBNdbTrialAudit";
 
 type Props = {
   isOpen: boolean;
@@ -57,7 +58,8 @@ type Section =
   | "backup"
   | "library"
   | "preferences"
-  | "users";
+  | "users"
+  | "isbndb_audit";
 
 export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceComplete, onViewBook, reviewSaved, evidenceRefreshVersion, onCollectionsChanged }: Props) {
   useOverlayScrollLock(isOpen);
@@ -346,6 +348,8 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
                 onReviewSequenceComplete={onReviewSequenceComplete}
               />
             )}
+
+            {activeSection === "isbndb_audit" && <ISBNdbTrialAudit />}
 
             {activeSection === "providers" && user?.is_admin && (
               <div className="max-w-4xl">
