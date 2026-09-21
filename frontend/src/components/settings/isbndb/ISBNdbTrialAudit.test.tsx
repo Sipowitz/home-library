@@ -2,10 +2,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-const api = vi.hoisted(() => ({ status: vi.fn(), results: vi.fn(), result: vi.fn(), run: vi.fn() }));
+const api = vi.hoisted(() => ({ status: vi.fn(), results: vi.fn(), result: vi.fn(), run: vi.fn(), retry: vi.fn() }));
 vi.mock("../../../api/isbndbAudit", () => ({
   getISBNdbAuditStatus: api.status, getISBNdbAuditResults: api.results,
   getISBNdbAuditResult: api.result, runISBNdbAuditBatch: api.run,
+  retryISBNdbAuditErrors: api.retry,
 }));
 import { ISBNdbTrialAudit } from "./ISBNdbTrialAudit";
 
@@ -47,4 +48,15 @@ it("reports missing configuration without a run control", async () => {
   render(<ISBNdbTrialAudit />);
   await waitFor(() => expect(screen.getByText(/ISBNdb is not configured/)).toBeTruthy());
   expect(screen.queryByRole("button", { name: /Audit/ })).toBeNull();
+});
+
+it("shows Retry Errors only when errors exist and refreshes after one retry batch", async () => {
+  const errors = { ...summary, errors: 2, remaining: 0 };
+  api.status.mockResolvedValueOnce(errors).mockResolvedValueOnce({ ...errors, errors: 1, found: 2 });
+  api.results.mockResolvedValue([]); api.retry.mockResolvedValue({ ...errors, errors: 1, found: 2 });
+  render(<ISBNdbTrialAudit />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Retry Errors (2)" })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Retry Errors (2)" }));
+  expect(api.retry).toHaveBeenCalledOnce();
+  await waitFor(() => expect(screen.getByRole("button", { name: "Retry Errors (1)" })).toBeTruthy());
 });

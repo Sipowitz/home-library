@@ -1,14 +1,21 @@
 """Isolated ISBNdb trial client and audit storage. This is intentionally not a provider."""
 import os
+import threading
+import time
 from collections import Counter
 
 import httpx
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 
 from app import models
 
 BASE_URL = "https://api2.isbndb.com"
 BATCH_SIZE = 10
+RETRY_BATCH_SIZE = 3
+REQUEST_INTERVAL_SECONDS = 2.0
+_audit_lock = threading.Lock()
+_last_book_request_at = 0.0
 
 class ISBNdbAuditError(Exception):
     def __init__(self, status: str, message: str, http_status: int | None = None):
@@ -70,7 +77,34 @@ def summary(db: Session, owner_id: int, include_quota=True):
         except ISBNdbAuditError: pass
     return {"configured": client.configured, "total_books": len(books), "books_with_isbn": sum(bool(_isbn(book)) for book in books), "unique_isbns": len(isbns), "checked": len(rows), "found": counts["found"], "not_found": counts["not_found"], "errors": counts["error"], "remaining": max(0, len(isbns) - len(rows)), "quota": quota, "coverage": coverage(rows)}
 
+class ISBNdbAuditBusy(Exception): pass
+
+def _paced_fetch(client, isbn):
+    global _last_book_request_at
+    delay = REQUEST_INTERVAL_SECONDS - (time.monotonic() - _last_book_request_at)
+    if delay > 0: time.sleep(delay)
+    result = client.fetch_book(isbn)
+    _last_book_request_at = time.monotonic()
+    return result
+
+def _record_attempt(db, row, client, isbn):
+    try:
+        payload, http_status = _paced_fetch(client, isbn); status, error = "found", None
+    except ISBNdbAuditError as exc:
+        payload, http_status, status, error = None, exc.http_status, exc.status if exc.status != "configuration_error" else "error", exc.message
+    if row is None:
+        raise ValueError("New audit rows require a book")
+    row.status, row.raw_payload, row.http_status, row.error_summary = status, payload, http_status, error
+    row.checked_at = func.now()
+    db.commit()
+    return http_status
+
 def run_batch(db: Session, owner_id: int):
+    if not _audit_lock.acquire(blocking=False): raise ISBNdbAuditBusy()
+    try: return _run_batch(db, owner_id)
+    finally: _audit_lock.release()
+
+def _run_batch(db: Session, owner_id: int):
     client = ISBNdbAuditClient()
     if not client.configured: return summary(db, owner_id)
     existing = {isbn for (isbn,) in db.query(models.ISBNdbAuditResult.isbn).filter_by(owner_id=owner_id).all()}
@@ -81,14 +115,23 @@ def run_batch(db: Session, owner_id: int):
             candidates.append((book, isbn))
         if len(candidates) == BATCH_SIZE: break
     for book, isbn in candidates:
-        try:
-            payload, http_status = client.fetch_book(isbn); status, error = "found", None
-        except ISBNdbAuditError as exc:
-            payload, http_status, status, error = None, exc.http_status, exc.status if exc.status != "configuration_error" else "error", exc.message
-        db.add(models.ISBNdbAuditResult(owner_id=owner_id, book_id=book.id, isbn=isbn, status=status, raw_payload=payload, http_status=http_status, error_summary=error))
-        db.commit()
+        row = models.ISBNdbAuditResult(owner_id=owner_id, book_id=book.id, isbn=isbn, status="error")
+        db.add(row); db.flush()
+        http_status = _record_attempt(db, row, client, isbn)
         if http_status == 429: break
     return summary(db, owner_id)
+
+def retry_errors(db: Session, owner_id: int):
+    if not _audit_lock.acquire(blocking=False): raise ISBNdbAuditBusy()
+    try:
+        client = ISBNdbAuditClient()
+        if not client.configured: return summary(db, owner_id)
+        rows = db.query(models.ISBNdbAuditResult).filter_by(owner_id=owner_id, status="error").order_by(models.ISBNdbAuditResult.checked_at).limit(RETRY_BATCH_SIZE).all()
+        for row in rows:
+            http_status = _record_attempt(db, row, client, row.isbn)
+            if http_status == 429: break
+        return summary(db, owner_id)
+    finally: _audit_lock.release()
 
 def result_for_book(db: Session, owner_id: int, book_id: int):
     book = db.query(models.Book).filter_by(id=book_id, owner_id=owner_id).first()
@@ -98,4 +141,4 @@ def result_for_book(db: Session, owner_id: int, book_id: int):
 
 def list_results(db: Session, owner_id: int, limit=100):
     rows = db.query(models.ISBNdbAuditResult).filter_by(owner_id=owner_id).order_by(models.ISBNdbAuditResult.checked_at.desc()).limit(limit).all()
-    return [{"book_id": row.book_id, "isbn": row.isbn, "status": row.status, "checked_at": row.checked_at, "title": (row.raw_payload or {}).get("book", {}).get("title"), "error": row.error_summary} for row in rows]
+    return [{"book_id": row.book_id, "isbn": row.isbn, "status": row.status, "checked_at": row.checked_at, "title": (row.raw_payload or {}).get("book", {}).get("title"), "error": row.error_summary, "http_status": row.http_status} for row in rows]

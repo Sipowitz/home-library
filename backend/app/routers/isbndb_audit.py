@@ -13,7 +13,13 @@ def get_status(db: Session = Depends(get_db), current_user: models.User = Depend
 
 @router.post("/run")
 def run(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    return isbndb_audit.run_batch(db, current_user.id)
+    try: return isbndb_audit.run_batch(db, current_user.id)
+    except isbndb_audit.ISBNdbAuditBusy as exc: raise HTTPException(status_code=409, detail="ISBNdb audit is already running") from exc
+
+@router.post("/retry-errors")
+def retry_errors(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    try: return isbndb_audit.retry_errors(db, current_user.id)
+    except isbndb_audit.ISBNdbAuditBusy as exc: raise HTTPException(status_code=409, detail="ISBNdb audit is already running") from exc
 
 @router.get("/results")
 def results(limit: int = Query(100, ge=1, le=200), db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
