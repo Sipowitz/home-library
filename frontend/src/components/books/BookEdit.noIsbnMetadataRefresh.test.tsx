@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
 }));
 const fetchMetadataCandidates = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }));
+const coverBrowser = vi.hoisted(() => ({ covers: [] as Array<{ provider: string; label: string; url: string }> }));
 
 vi.mock("../../context/PreferencesContext", () => ({ usePreferencesContext: () => ({ preferences: {} }) }));
 vi.mock("../../api/metadataCandidates", () => ({ fetchMetadataCandidates }));
@@ -23,6 +24,12 @@ vi.mock("../../api/books", () => ({
   selectCoverCandidate: api.selectCoverCandidate,
 }));
 vi.mock("react-hot-toast", () => ({ default: toast }));
+vi.mock("./CoverBrowserModal", () => ({
+  CoverBrowserModal: ({ covers }: { covers: Array<{ provider: string; label: string; url: string }> }) => {
+    coverBrowser.covers = covers;
+    return null;
+  },
+}));
 
 import { BookEdit } from "./BookEdit";
 
@@ -35,7 +42,7 @@ const providerResult = {
 const editions = [
   {
     candidate_key: "without-isbn", title: "Edition without ISBN", subtitle: null, author: "A. Author",
-    publisher: "Publisher", year: 2000, isbn: null, cover_url: null, sources: ["openlibrary"],
+    publisher: "Publisher", year: 2000, isbn: null, cover_url: "https://example.test/catalog-cover.jpg", sources: ["openlibrary"],
   },
   {
     candidate_key: "with-isbn", title: "Edition with ISBN", subtitle: "Selected edition", author: "A. Author",
@@ -66,6 +73,7 @@ async function openRefresh() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  coverBrowser.covers = [];
   api.getCoverCandidates.mockResolvedValue({ candidates: [] });
   api.getBook.mockResolvedValue({ last_metadata_refresh_at: "2026-01-01", metadata_review: { state: "never_reviewed" } });
   fetchMetadataCandidates.mockResolvedValue([providerResult]);
@@ -86,7 +94,7 @@ it("keeps the ISBN-bearing refresh path unchanged", async () => {
   expect(api.searchCatalogBooks).not.toHaveBeenCalled();
 });
 
-it("searches the existing title and author and requires an explicit ISBN-bearing edition", async () => {
+it("searches the existing title and author and requires an explicit edition selection", async () => {
   api.searchCatalogBooks.mockResolvedValue(editions);
   renderEditor();
 
@@ -97,7 +105,7 @@ it("searches the existing title and author and requires an explicit ISBN-bearing
   expect(screen.getByText("Edition with ISBN")).toBeTruthy();
   expect(screen.getByText("google_books · openlibrary")).toBeTruthy();
   expect(api.refreshMetadata).not.toHaveBeenCalled();
-  expect((screen.getByRole("button", { name: /Edition without ISBN/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: /Edition without ISBN/ }) as HTMLButtonElement).disabled).toBe(false);
 });
 
 it("uses the selected ISBN only for temporary refresh and candidate retrieval", async () => {
@@ -115,6 +123,34 @@ it("uses the selected ISBN only for temporary refresh and candidate retrieval", 
   await waitFor(() => expect(fetchMetadataCandidates).toHaveBeenCalledWith(noIsbnBook.id, "9780306406157"));
   expect(await screen.findByRole("heading", { name: "Metadata Comparison" })).toBeTruthy();
   expect(setEditData).toHaveBeenCalledWith(expect.not.objectContaining({ isbn: "9780306406157" }));
+});
+
+it("opens comparison from an ISBN-less catalog result without refreshing or changing the book", async () => {
+  const setEditData = vi.fn();
+  api.searchCatalogBooks.mockResolvedValue(editions);
+  fetchMetadataCandidates.mockResolvedValue([]);
+  renderEditor(noIsbnBook, setEditData);
+
+  await openRefresh();
+  await screen.findByText("Edition without ISBN");
+  fireEvent.click(screen.getByRole("button", { name: /Edition without ISBN/ }));
+
+  expect(api.refreshMetadata).not.toHaveBeenCalled();
+  expect(await screen.findByRole("heading", { name: "Metadata Comparison" })).toBeTruthy();
+  expect(screen.getByText("Edition without ISBN")).toBeTruthy();
+  expect(screen.getByText("A. Author")).toBeTruthy();
+  expect(screen.getAllByText("Publisher").length).toBeGreaterThan(1);
+  expect(screen.getByText("2000")).toBeTruthy();
+  expect(screen.getAllByText("Openlibrary").length).toBeGreaterThan(0);
+  expect(screen.queryByText("9780306406157")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "ISBN" })).toBeNull();
+  expect(setEditData).not.toHaveBeenCalled();
+
+  expect(coverBrowser.covers).toContainEqual({
+    provider: "openlibrary",
+    label: "Catalog result",
+    url: "https://example.test/catalog-cover.jpg",
+  });
 });
 
 it("cancels the edition picker without refreshing or changing the book", async () => {

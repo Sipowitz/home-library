@@ -26,6 +26,8 @@ type Props = {
   coverUrl?: string;
 
   lookupIsbn?: string;
+
+  initialProviderResults?: ProviderResult[];
 };
 
 const FIELDS = [
@@ -39,6 +41,7 @@ const FIELDS = [
   { key: "description", label: "Description" },
   { key: "isbn", label: "ISBN" },
 ];
+const NO_INITIAL_PROVIDER_RESULTS: ProviderResult[] = [];
 
 function mergeProviderResults(
   previous: ProviderResult[],
@@ -70,8 +73,9 @@ export function MetadataComparisonPanel({
   isRefreshing = false,
   coverUrl,
   lookupIsbn,
+  initialProviderResults = NO_INITIAL_PROVIDER_RESULTS,
 }: Props) {
-  const [providers, setProviders] = useState<ProviderResult[]>([]);
+  const [providers, setProviders] = useState<ProviderResult[]>(initialProviderResults);
 
   const [loading, setLoading] = useState(false);
 
@@ -134,13 +138,14 @@ export function MetadataComparisonPanel({
 
         if (!mounted) return;
 
-        setProviders(results);
+        const mergedResults = mergeProviderResults(initialProviderResults, results);
+        setProviders(mergedResults);
         setSelections((current) => {
           if (Object.keys(current).length) return current;
 
           return Object.fromEntries(
             FIELDS.flatMap((field) => {
-              const match = results.find(
+              const match = mergedResults.find(
                 (provider) =>
                   provider.success &&
                   provider.data &&
@@ -168,11 +173,14 @@ export function MetadataComparisonPanel({
     };
     // Candidate loading intentionally follows the book identity; draft changes must not reload evidence.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, lookupIsbn]);
+  }, [bookId, lookupIsbn, initialProviderResults]);
 
   const successfulProviders = useMemo(
     () => providers.filter((p) => p.success && p.data),
     [providers],
+  );
+  const visibleFields = FIELDS.filter(
+    (field) => field.key !== "isbn" || successfulProviders.some((provider) => Boolean(provider.data?.isbn)),
   );
 
   if (loading) {
@@ -277,7 +285,7 @@ export function MetadataComparisonPanel({
             <p className="rounded-xl border border-border bg-surface/95 p-4 text-sm text-text-muted dark:bg-[#071421]/80">
               No provider metadata found. You can still acknowledge this review.
             </p>
-          ) : FIELDS.map((field) => {
+          ) : visibleFields.map((field) => {
             const values = successfulProviders.map((provider) => ({
               provider: provider.provider,
 

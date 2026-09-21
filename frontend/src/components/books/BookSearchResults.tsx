@@ -6,10 +6,9 @@ type Props = {
   visibleCount: number;
   onSelect: (candidate: CatalogSearchCandidate) => void;
   onShowMore: () => void;
-  canSelect?: (candidate: CatalogSearchCandidate) => boolean;
 };
 
-export function BookSearchResults({ items, visibleCount, onSelect, onShowMore, canSelect }: Props) {
+export function BookSearchResults({ items, visibleCount, onSelect, onShowMore }: Props) {
   const visibleItems = items.slice(0, visibleCount);
 
   return (
@@ -18,15 +17,11 @@ export function BookSearchResults({ items, visibleCount, onSelect, onShowMore, c
         {items.length} catalog {items.length === 1 ? "result" : "results"}
       </p>
       <div className="space-y-2">
-        {visibleItems.map((candidate) => {
-          const selectable = canSelect?.(candidate) ?? true;
-          return (
+        {visibleItems.map((candidate) => (
           <button
             key={candidate.candidate_key}
             type="button"
-            disabled={!selectable}
-            title={selectable ? undefined : "An ISBN is required to refresh metadata"}
-            className="flex w-full gap-3 rounded-lg border border-border bg-surface p-2 text-left transition hover:border-primary/50 hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full gap-3 rounded-lg border border-border bg-surface p-2 text-left transition hover:border-primary/50 hover:bg-surface-raised"
             onClick={() => onSelect(candidate)}
           >
             <div className="flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded bg-surface-raised">
@@ -48,8 +43,7 @@ export function BookSearchResults({ items, visibleCount, onSelect, onShowMore, c
               {candidate.sources.length > 0 && <p className="mt-1 text-xs text-text-muted">{candidate.sources.join(" · ")}</p>}
             </div>
           </button>
-          );
-        })}
+        ))}
       </div>
       {visibleCount < items.length && (
         <ActionButton className="mt-3" variant="tertiary" onClick={onShowMore}>

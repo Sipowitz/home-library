@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   BookOpen,
@@ -87,6 +87,24 @@ function mergeProviderResults(
   return Array.from(merged.values());
 }
 
+function catalogResultAsProviderResult(candidate: CatalogSearchCandidate): ProviderResult {
+  return {
+    provider: candidate.sources[0] || "catalog_search",
+    success: true,
+    isbn: candidate.isbn?.trim() || "",
+    duration_ms: 0,
+    data: {
+      title: candidate.title,
+      subtitle: candidate.subtitle,
+      author: candidate.author,
+      publisher: candidate.publisher,
+      year: candidate.year,
+      cover_url: candidate.cover_url,
+    },
+    error: null,
+  };
+}
+
 export function BookEdit({
   editData,
   setEditData,
@@ -108,6 +126,9 @@ export function BookEdit({
   const [catalogSearching, setCatalogSearching] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [temporaryLookupIsbn, setTemporaryLookupIsbn] = useState<string | null>(null);
+  const [catalogProviderResult, setCatalogProviderResult] = useState<ProviderResult | null>(null);
+  const [catalogCoverCandidate, setCatalogCoverCandidate] = useState<CoverCandidate | null>(null);
+  const currentBookId = useRef(editData?.id);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -116,6 +137,8 @@ export function BookEdit({
   const [coverReviewPending, setCoverReviewPending] = useState(false);
 
   useEffect(() => {
+    if (currentBookId.current === editData?.id) return;
+    currentBookId.current = editData?.id;
     setMetadataReviewPending(false);
     setCoverReviewPending(false);
     setShowMetadataPanel(false);
@@ -124,6 +147,8 @@ export function BookEdit({
     setCatalogSearching(false);
     setCatalogError(null);
     setTemporaryLookupIsbn(null);
+    setCatalogProviderResult(null);
+    setCatalogCoverCandidate(null);
     setCoverModalOpen(false);
   }, [editData?.id]);
 
@@ -188,6 +213,11 @@ export function BookEdit({
         merged.push(cover);
     }
 
+    if (catalogCoverCandidate?.url && !seen.has(catalogCoverCandidate.url)) {
+      seen.add(catalogCoverCandidate.url);
+      merged.push(catalogCoverCandidate);
+    }
+
     for (const cover of editData?.uploaded_cover_candidates_json || []) {
       if (!cover.url || seen.has(cover.url)) {
         continue;
@@ -211,6 +241,7 @@ export function BookEdit({
     return merged;
   }, [
     providerCoverCandidates,
+    catalogCoverCandidate,
     editData?.uploaded_cover_candidates_json,
     editData?.cover_url,
   ]);
@@ -272,6 +303,8 @@ export function BookEdit({
     setCatalogItems(null);
     setCatalogError(null);
     setTemporaryLookupIsbn(null);
+    setCatalogProviderResult(null);
+    setCatalogCoverCandidate(null);
   }
 
   async function handleRefreshMetadata(lookupIsbn?: string) {
@@ -335,11 +368,25 @@ export function BookEdit({
 
   async function selectCatalogEdition(candidate: CatalogSearchCandidate) {
     const lookupIsbn = candidate.isbn?.trim();
-    if (!lookupIsbn) return;
-
-    setTemporaryLookupIsbn(lookupIsbn);
     setShowEditionPicker(false);
-    await handleRefreshMetadata(lookupIsbn);
+
+    if (lookupIsbn) {
+      setCatalogProviderResult(null);
+      setCatalogCoverCandidate(null);
+      setTemporaryLookupIsbn(lookupIsbn);
+      await handleRefreshMetadata(lookupIsbn);
+      return;
+    }
+
+    setTemporaryLookupIsbn(null);
+    setCatalogProviderResult(catalogResultAsProviderResult(candidate));
+    setCatalogCoverCandidate(candidate.cover_url ? {
+      provider: candidate.sources[0] || "catalog_search",
+      label: "Catalog result",
+      url: candidate.cover_url,
+    } : null);
+    setMetadataReviewPending(false);
+    setShowMetadataPanel(true);
   }
 
   const inputClass =
@@ -529,7 +576,7 @@ export function BookEdit({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-text-primary">Find matching edition</h2>
-                <p className="mt-1 text-sm text-text-muted">Choose an edition with an ISBN to compare metadata. This does not change the book.</p>
+                <p className="mt-1 text-sm text-text-muted">Choose an edition to compare metadata. This does not change the book.</p>
               </div>
               <ActionButton type="button" variant="utility" size="sm" onClick={cancelEditionPicker}>Cancel</ActionButton>
             </div>
@@ -542,7 +589,6 @@ export function BookEdit({
                 visibleCount={catalogItems.length}
                 onSelect={(candidate) => void selectCatalogEdition(candidate)}
                 onShowMore={() => undefined}
-                canSelect={(candidate) => Boolean(candidate.isbn?.trim())}
               />
             )}
           </div>
@@ -558,6 +604,7 @@ export function BookEdit({
           isRefreshing={isRefreshing}
           coverUrl={editData?.cover_url}
           lookupIsbn={temporaryLookupIsbn ?? undefined}
+          initialProviderResults={catalogProviderResult ? [catalogProviderResult] : undefined}
           onApplySelectedMetadata={(selections) => {
             setEditData({
               ...editData!,
