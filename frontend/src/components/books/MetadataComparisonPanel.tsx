@@ -302,9 +302,7 @@ export function MetadataComparisonPanel({
                   "
                 >
                   {values.map((entry, index) => {
-                    const selected = Object.prototype.hasOwnProperty.call(selections, field.key)
-                      ? selections[field.key] === entry.value
-                      : currentData?.[field.key] === entry.value;
+                    const selected = selections[field.key] === entry.value;
 
                     return (
                       <div
@@ -361,10 +359,14 @@ export function MetadataComparisonPanel({
                             variant="secondary"
                             size="sm"
                             onClick={() =>
-                              setSelections((current) => ({
-                                ...current,
-                                [field.key]: entry.value,
-                              }))
+                              setSelections((current) => {
+                                if (current[field.key] === entry.value) {
+                                  const remaining = { ...current };
+                                  delete remaining[field.key];
+                                  return remaining;
+                                }
+                                return { ...current, [field.key]: entry.value };
+                              })
                             }
                             className={selected ? "border-blue-500/60 bg-blue-500/20 text-blue-700 ring-1 ring-blue-500/30 dark:text-blue-200" : "border-border-strong bg-transparent text-text-muted"}
                           >
