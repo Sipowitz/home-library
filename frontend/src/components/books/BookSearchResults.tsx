@@ -6,9 +6,10 @@ type Props = {
   visibleCount: number;
   onSelect: (candidate: CatalogSearchCandidate) => void;
   onShowMore: () => void;
+  canSelect?: (candidate: CatalogSearchCandidate) => boolean;
 };
 
-export function BookSearchResults({ items, visibleCount, onSelect, onShowMore }: Props) {
+export function BookSearchResults({ items, visibleCount, onSelect, onShowMore, canSelect }: Props) {
   const visibleItems = items.slice(0, visibleCount);
 
   return (
@@ -17,11 +18,15 @@ export function BookSearchResults({ items, visibleCount, onSelect, onShowMore }:
         {items.length} catalog {items.length === 1 ? "result" : "results"}
       </p>
       <div className="space-y-2">
-        {visibleItems.map((candidate) => (
+        {visibleItems.map((candidate) => {
+          const selectable = canSelect?.(candidate) ?? true;
+          return (
           <button
             key={candidate.candidate_key}
             type="button"
-            className="flex w-full gap-3 rounded-lg border border-border bg-surface p-2 text-left transition hover:border-primary/50 hover:bg-surface-raised"
+            disabled={!selectable}
+            title={selectable ? undefined : "An ISBN is required to refresh metadata"}
+            className="flex w-full gap-3 rounded-lg border border-border bg-surface p-2 text-left transition hover:border-primary/50 hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-60"
             onClick={() => onSelect(candidate)}
           >
             <div className="flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded bg-surface-raised">
@@ -38,10 +43,13 @@ export function BookSearchResults({ items, visibleCount, onSelect, onShowMore }:
               <p className="mt-1 text-xs text-text-muted">
                 {[candidate.publisher, candidate.year].filter(Boolean).join(" · ")}
                 {candidate.isbn && `${candidate.publisher || candidate.year ? " · " : ""}ISBN ${candidate.isbn}`}
+                {!candidate.isbn && "ISBN unavailable"}
               </p>
+              {candidate.sources.length > 0 && <p className="mt-1 text-xs text-text-muted">{candidate.sources.join(" · ")}</p>}
             </div>
           </button>
-        ))}
+          );
+        })}
       </div>
       {visibleCount < items.length && (
         <ActionButton className="mt-3" variant="tertiary" onClick={onShowMore}>

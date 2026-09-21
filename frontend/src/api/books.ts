@@ -250,8 +250,11 @@ export async function searchCatalogBooks(
 
 export async function refreshMetadata(
   bookId: number,
+  lookupIsbn?: string,
 ): Promise<ProviderResult[]> {
-  const res = await client.post(`/books/${bookId}/refresh-metadata`);
+  const res = lookupIsbn
+    ? await client.post(`/books/${bookId}/refresh-metadata`, { lookup_isbn: lookupIsbn })
+    : await client.post(`/books/${bookId}/refresh-metadata`);
 
   return res.data;
 }

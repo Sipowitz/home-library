@@ -24,6 +24,8 @@ type Props = {
   isRefreshing?: boolean;
 
   coverUrl?: string;
+
+  lookupIsbn?: string;
 };
 
 const FIELDS = [
@@ -35,6 +37,7 @@ const FIELDS = [
   { key: "language", label: "Language" },
   { key: "year", label: "Year" },
   { key: "description", label: "Description" },
+  { key: "isbn", label: "ISBN" },
 ];
 
 function mergeProviderResults(
@@ -66,6 +69,7 @@ export function MetadataComparisonPanel({
   onRefreshMetadata,
   isRefreshing = false,
   coverUrl,
+  lookupIsbn,
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
@@ -126,7 +130,7 @@ export function MetadataComparisonPanel({
 
         setError(null);
 
-        const results = await fetchMetadataCandidates(bookId);
+        const results = await fetchMetadataCandidates(bookId, lookupIsbn);
 
         if (!mounted) return;
 
@@ -164,7 +168,7 @@ export function MetadataComparisonPanel({
     };
     // Candidate loading intentionally follows the book identity; draft changes must not reload evidence.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId]);
+  }, [bookId, lookupIsbn]);
 
   const successfulProviders = useMemo(
     () => providers.filter((p) => p.success && p.data),
