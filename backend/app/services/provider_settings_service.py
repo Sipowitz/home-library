@@ -20,6 +20,7 @@ DEFAULT_PROVIDERS = [
         "timeout_seconds": 5,
         "max_retries": 3,
     },
+    {"provider_name": "isbndb", "enabled": True, "priority": 3, "timeout_seconds": 5, "max_retries": 2},
 ]
 
 

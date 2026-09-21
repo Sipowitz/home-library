@@ -12,6 +12,7 @@ from app.services.providers.google_books import (
 from app.services.providers.openlibrary import (
     OpenLibraryProvider,
 )
+from app.services.providers.isbndb import ISBNdbProvider
 
 from app.services.providers.types import (
     ProviderResult,
@@ -22,6 +23,7 @@ from app.services.isbn_validation import normalize_isbn
 PROVIDER_MAP = {
     "google_books": GoogleBooksProvider,
     "openlibrary": OpenLibraryProvider,
+    "isbndb": ISBNdbProvider,
 }
 
 
