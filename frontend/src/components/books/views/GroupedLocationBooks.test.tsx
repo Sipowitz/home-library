@@ -3,10 +3,10 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, expect, it, vi } from "vitest";
 
 vi.mock("./BookGridView", () => ({
-  BookGridView: ({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect, showLocationPositions }: any) => <div data-testid="grid-books">{books.map((book: any) => <button data-testid={`grid-book-${book.id}`} data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (suggestedBookIds?.has(book.id)) onSuggestedSelect?.(book, suggestedLocationsByBookId?.get(book.id)); else onSelect(book); }}>{book.title}{showLocationPositions && !suggestedBookIds?.has(book.id) && book.location_position != null && ` #${book.location_position}`}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
+  BookGridView: ({ books, onSelect, showLocationPositions }: any) => <div data-testid="grid-books">{books.map((book: any) => <button key={book.id} onClick={() => onSelect(book)}>{book.title}{showLocationPositions && book.location_position != null && ` #${book.location_position}`}</button>)}</div>,
 }));
 vi.mock("./BookListView", () => ({
-  BookListView: ({ books, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect, showLocationPositions }: any) => <div data-testid="list-books">{books.map((book: any) => <button data-suggested-book={suggestedBookIds?.has(book.id) || undefined} key={book.id} onClick={() => { if (suggestedBookIds?.has(book.id)) onSuggestedSelect?.(book, suggestedLocationsByBookId?.get(book.id)); else onSelect(book); }}>{book.title}{showLocationPositions && !suggestedBookIds?.has(book.id) && book.location_position != null && ` #${book.location_position}`}{suggestedBookIds?.has(book.id) && " Suggested"}</button>)}</div>,
+  BookListView: ({ books, onSelect, showLocationPositions }: any) => <div data-testid="list-books">{books.map((book: any) => <button key={book.id} onClick={() => onSelect(book)}>{book.title}{showLocationPositions && book.location_position != null && ` #${book.location_position}`}</button>)}</div>,
 }));
 
 import { GroupedLocationBooks } from "./GroupedLocationBooks";
@@ -14,7 +14,7 @@ import { GroupedLocationBooks } from "./GroupedLocationBooks";
 const book = (id: number, title: string) => ({ id, title, author: "Author", read: false, location_id: null });
 const grouped = {
   locations: [
-    { id: 2, name: "Shelf H", books: [book(2, "Parent book")], children: [{ id: 3, name: "Shelf G", books: [book(3, "Nested book")], children: [] }] },
+    { id: 2, name: "Shelf H", books: [{ ...book(2, "Parent book"), location_id: 2, location_position: 1 }], children: [{ id: 3, name: "Shelf G", books: [{ ...book(3, "Nested book"), location_id: 3, location_position: 1 }], children: [] }] },
     { id: 1, name: "Room Divider", books: [book(1, "Root book")], children: [] },
   ],
   no_location: { name: "No Location" as const, books: [book(4, "Unlocated")] },
@@ -22,79 +22,34 @@ const grouped = {
 
 afterEach(cleanup);
 
-it("renders the backend hierarchy and order, including direct parent books and No Location last", () => {
+it("renders the backend hierarchy and order, with No Location last", () => {
   render(<GroupedLocationBooks data={grouped} viewMode="grid" locations={[]} categories={[]} showCovers onSelect={vi.fn()} />);
-
   expect(Array.from(document.querySelectorAll("[data-location-group]")).map((node) => node.getAttribute("data-location-group"))).toEqual(["2", "3", "1", "no-location"]);
   expect(screen.getAllByTestId("grid-books")).toHaveLength(4);
-  expect(screen.getByText("Parent book")).toBeTruthy();
-  expect(screen.getByText("Nested book")).toBeTruthy();
+  expect(screen.getByText("Parent book #1")).toBeTruthy();
+  expect(screen.getByText("Nested book #1")).toBeTruthy();
   expect(screen.getByText("Unlocated")).toBeTruthy();
 });
 
-it("uses the existing list renderer and omits No Location when the API returns null", () => {
+it("uses list view and omits No Location when the API returns null", () => {
   const onSelect = vi.fn();
   render(<GroupedLocationBooks data={{ ...grouped, no_location: null }} viewMode="list" locations={[]} categories={[]} showCovers onSelect={onSelect} />);
-
   expect(screen.getAllByTestId("list-books")).toHaveLength(3);
   expect(screen.queryByText("No Location")).toBeNull();
-  fireEvent.click(screen.getByText("Nested book"));
+  fireEvent.click(screen.getByText("Nested book #1"));
   expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 3 }));
 });
 
-it("derives inert, alphabetically interleaved copies by Location id while retaining normal No Location books", () => {
+it.each(["grid", "list"] as const)("renders suggested books only in No Location in %s view", (viewMode) => {
   const onSelect = vi.fn();
-  const suggestedOne = { ...book(10, "Suggested A"), author: "Alice Able", suggested_locations: [{ id: 1, name: "Same name", path: [] }, { id: 2, name: "Nested", path: [] }] };
-  const suggestedTwo = { ...book(11, "Suggested C"), author: "Chris Clark", suggested_locations: [{ id: 1, name: "Same name", path: [] }] };
-  const data = {
-    locations: [
-      { id: 1, name: "Same name", books: [{ ...book(1, "Assigned B"), author: "Bob Brown" }], children: [{ id: 2, name: "Nested", books: [], children: [] }] },
-      { id: 3, name: "Same name", books: [{ ...book(3, "Assigned D"), author: "Dan Delta" }], children: [] },
-    ],
-    no_location: { name: "No Location" as const, books: [suggestedOne, suggestedTwo] },
-  };
-  render(<GroupedLocationBooks data={data} viewMode="grid" locations={[]} categories={[]} showCovers onSelect={onSelect} />);
-
-  const firstLocation = document.querySelector('[data-location-group="1"]') as HTMLElement;
-  const firstLocationBooks = within(firstLocation.querySelector('[data-testid="grid-books"]') as HTMLElement).getAllByRole("button");
-  expect(firstLocationBooks.map((element) => element.textContent)).toEqual(["Suggested A Suggested", "Assigned B", "Suggested C Suggested"]);
-  const nestedLocation = document.querySelector('[data-location-group="2"]') as HTMLElement;
-  expect(within(nestedLocation).getByText("Suggested A Suggested")).toBeTruthy();
-  const similarlyNamedLocation = document.querySelector('[data-location-group="3"]') as HTMLElement;
-  expect(within(similarlyNamedLocation).queryByText("Suggested A Suggested")).toBeNull();
-
-  fireEvent.click(firstLocationBooks[0]);
+  const onUnassignedSelect = vi.fn();
+  const suggested = { ...book(10, "Suggested"), suggested_locations: [{ id: 1, name: "Shelf", path: [] }, { id: 2, name: "Other", path: [] }] };
+  const data = { locations: [{ id: 1, name: "Shelf", books: [{ ...book(1, "Assigned"), location_id: 1, location_position: 12 }], children: [] }, { id: 2, name: "Other", books: [], children: [] }], no_location: { name: "No Location" as const, books: [suggested] } };
+  render(<GroupedLocationBooks data={data} viewMode={viewMode} locations={[]} categories={[]} showCovers onSelect={onSelect} onUnassignedSelect={onUnassignedSelect} />);
+  expect(screen.getAllByText("Suggested")).toHaveLength(1);
+  expect(within(document.querySelector('[data-location-group="1"]') as HTMLElement).queryByText("Suggested")).toBeNull();
+  expect(within(document.querySelector('[data-location-group="2"]') as HTMLElement).queryByText("Suggested")).toBeNull();
+  fireEvent.click(screen.getByText("Suggested"));
+  expect(onUnassignedSelect).toHaveBeenCalledWith(suggested);
   expect(onSelect).not.toHaveBeenCalled();
-  fireEvent.click(within(document.querySelector('[data-location-group="no-location"]') as HTMLElement).getByText("Suggested A"));
-  expect(onSelect).toHaveBeenCalledWith(suggestedOne);
-});
-
-it("passes the exact suggested Location to provisional Grid and List clicks", () => {
-  const onSuggestedSelect = vi.fn();
-  const location = { id: 7, name: "Shelf", path: [{ id: 1, name: "Room" }, { id: 7, name: "Shelf" }] };
-  const data = { locations: [{ id: 7, name: "Shelf", books: [], children: [] }], no_location: { name: "No Location" as const, books: [{ ...book(10, "Suggested"), suggested_locations: [location] }] } };
-  const { rerender } = render(<GroupedLocationBooks data={data} viewMode="grid" locations={[]} categories={[]} showCovers onSelect={vi.fn()} onSuggestedSelect={onSuggestedSelect} />);
-  fireEvent.click(document.querySelector('[data-location-group="7"] button') as HTMLElement);
-  expect(onSuggestedSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 10 }), location);
-
-  rerender(<GroupedLocationBooks data={data} viewMode="list" locations={[]} categories={[]} showCovers onSelect={vi.fn()} onSuggestedSelect={onSuggestedSelect} />);
-  fireEvent.click(document.querySelector('[data-location-group="7"] button') as HTMLElement);
-  expect(onSuggestedSelect).toHaveBeenLastCalledWith(expect.objectContaining({ id: 10 }), location);
-});
-
-it("passes suggested state to the list renderer but keeps No Location copies normal", () => {
-  const suggested = { ...book(10, "Suggested"), suggested_locations: [{ id: 1, name: "Shelf", path: [] }] };
-  const data = { locations: [{ id: 1, name: "Shelf", books: [], children: [] }], no_location: { name: "No Location" as const, books: [suggested] } };
-  render(<GroupedLocationBooks data={data} viewMode="list" locations={[]} categories={[]} showCovers onSelect={vi.fn()} />);
-  expect(document.querySelector('[data-location-group="1"] [data-suggested-book="true"]')).toBeTruthy();
-  expect(document.querySelector('[data-location-group="no-location"] [data-suggested-book="true"]')).toBeNull();
-});
-
-it("enables compact backend positions for assigned books in both grouped renderers", () => {
-  const data = { locations: [{ id: 1, name: "Shelf", books: [{ ...book(4, "Assigned"), location_id: 1, location_position: 23, location_total: 27 }], children: [] }], no_location: null };
-  const { rerender } = render(<GroupedLocationBooks data={data} viewMode="grid" locations={[]} categories={[]} showCovers onSelect={vi.fn()} />);
-  expect(screen.getByText("Assigned #23")).toBeTruthy();
-
-  rerender(<GroupedLocationBooks data={data} viewMode="list" locations={[]} categories={[]} showCovers onSelect={vi.fn()} />);
-  expect(screen.getByText("Assigned #23")).toBeTruthy();
 });

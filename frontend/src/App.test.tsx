@@ -338,14 +338,20 @@ it("confirms and authoritatively assigns a suggested book to its exact Location"
 
   fireEvent.click(screen.getAllByText("The Shining").at(0)!);
   expect(screen.getByRole("dialog")).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Suggested placements for The Shining" })).toBeTruthy();
+  expect(api.saveBook).not.toHaveBeenCalled();
+  fireEvent.click(document.querySelector('[data-placement-option="9"]') as HTMLElement);
   expect(screen.getByRole("heading", { name: "Assign to Shelf G?" })).toBeTruthy();
   expect(screen.getByRole("dialog").textContent).toContain("The Shining");
   expect(screen.getByText("House → Main Bookcase → Shelf G")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back to placements" }));
+  expect(api.saveBook).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(api.saveBook).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getAllByText("The Shining").at(0)!);
-  fireEvent.click(screen.getByRole("button", { name: "Assign to Shelf G" }));
+  fireEvent.click(document.querySelector('[data-placement-option="9"]') as HTMLElement);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm assignment to Shelf G" }));
   await act(async () => undefined);
   expect(api.saveBook).toHaveBeenCalledWith(expect.objectContaining({ id: 91, title: "The Shining", publisher: "Doubleday", category_id: 4, location_id: 9 }));
   expect(feedback.success).toHaveBeenCalledWith("Assigned to Shelf G");
@@ -370,7 +376,8 @@ it("keeps the grouped result rendered while assignment waits for its authoritati
   await act(async () => undefined);
 
   fireEvent.click(screen.getAllByText("Stay visible").at(0)!);
-  fireEvent.click(screen.getByRole("button", { name: "Assign to Shelf G" }));
+  fireEvent.click(document.querySelector('[data-placement-option="9"]') as HTMLElement);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm assignment to Shelf G" }));
   await act(async () => undefined);
 
   expect(api.grouped).toHaveBeenCalledTimes(2);
@@ -393,7 +400,8 @@ it("keeps the assignment confirmation open and reports an error when assignment 
   fireEvent.click(screen.getByLabelText("Group by Location"));
   await act(async () => undefined);
   fireEvent.click(screen.getAllByText("Failure").at(0)!);
-  fireEvent.click(screen.getByRole("button", { name: "Assign to Shelf G" }));
+  fireEvent.click(document.querySelector('[data-placement-option="9"]') as HTMLElement);
+  fireEvent.click(screen.getByRole("button", { name: "Confirm assignment to Shelf G" }));
   await act(async () => undefined);
   expect(screen.getByRole("dialog")).toBeTruthy();
   expect(feedback.success).not.toHaveBeenCalled();

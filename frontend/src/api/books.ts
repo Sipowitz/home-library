@@ -20,6 +20,8 @@ export type SuggestedLocation = {
   id: number;
   name: string;
   path: Array<{ id: number; name: string }>;
+  before?: Book[];
+  after?: Book[];
 };
 
 export type SuggestedBook = Book & {

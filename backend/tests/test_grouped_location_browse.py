@@ -202,6 +202,11 @@ def test_grouped_browse_suggests_one_location_per_alphabetical_run(db, users):
     # The existing id tie-breaker keeps same-surname placement deterministic.
     assert suggestion_ids(result, "Same author") == [first.id, reset_first.id]
     assert suggestion_ids(result, "Blank author") == []
+    before = next(book for book in result["no_location"]["books"] if book.title == "Before")
+    assert [item.title for item in before.suggested_locations[0]["before"]] == ["Ada"]
+    assert [item.title for item in before.suggested_locations[0]["after"]] == ["Brown"]
+    assert [item.title for item in before.suggested_locations[1]["before"]] == ["Aaron reset"]
+    assert [item.title for item in before.suggested_locations[1]["after"]] == ["Baker reset"]
     assert not db.dirty
 
 
@@ -280,3 +285,46 @@ def test_grouped_suggestions_ignore_visible_filters_but_preserve_location_filter
     unassigned_only = book_service.get_grouped_books(db, owner.id, location_id=-1)
     assert unassigned_only["locations"] == []
     assert suggestion_ids(unassigned_only, "Needle") == [first.id]
+
+
+def test_suggested_placement_context_uses_canonical_assigned_positions_even_when_filtered(db, users):
+    owner, _ = users
+    shelf = add_location(db, owner.id, "Shelf")
+    for title, author in (("B", "Amy Baker"), ("D", "Dan Delta"), ("F", "Fran Fox"), ("H", "Hal Hill")):
+        add_book(db, owner.id, title, author, shelf.id)
+    for title, author in (("Beginning", "Ann Able"), ("Middle", "Eve Evans"), ("End", "Zoe Zebra")):
+        add_book(db, owner.id, title, author)
+    db.commit()
+
+    result = book_service.get_grouped_books(db, owner.id, location_id=-1)
+    assert result["locations"] == []
+    suggestions = {book.title: book.suggested_locations[0] for book in result["no_location"]["books"]}
+    assert [(book.title, book.location_position) for book in suggestions["Middle"]["before"]] == [("B", 1), ("D", 2)]
+    assert [(book.title, book.location_position) for book in suggestions["Middle"]["after"]] == [("F", 3), ("H", 4)]
+    assert suggestions["Beginning"]["before"] == []
+    assert [(book.title, book.location_position) for book in suggestions["Beginning"]["after"]] == [("B", 1), ("D", 2)]
+    assert [(book.title, book.location_position) for book in suggestions["End"]["before"]] == [("F", 3), ("H", 4)]
+    assert suggestions["End"]["after"] == []
+    assert not db.dirty
+
+    validated = schemas.GroupedBooksResponse.model_validate(result)
+    middle = next(book for book in validated.no_location.books if book.title == "Middle")
+    assert middle.location_position is None
+    assert [book.location_position for book in middle.suggested_locations[0].before] == [1, 2]
+    assert [book.location_position for book in middle.suggested_locations[0].after] == [3, 4]
+
+
+def test_suggested_placement_context_on_short_shelf_uses_only_real_neighbours(db, users):
+    owner, _ = users
+    shelf = add_location(db, owner.id, "Short Shelf")
+    add_book(db, owner.id, "Only", "Bob Brown", shelf.id)
+    add_book(db, owner.id, "Before", "Ada Able")
+    add_book(db, owner.id, "After", "Cara Carter")
+    db.commit()
+
+    suggestions = {book.title: book.suggested_locations[0]
+        for book in book_service.get_grouped_books(db, owner.id)["no_location"]["books"]}
+    assert suggestions["Before"]["before"] == []
+    assert [book.title for book in suggestions["Before"]["after"]] == ["Only"]
+    assert [book.title for book in suggestions["After"]["before"]] == ["Only"]
+    assert suggestions["After"]["after"] == []

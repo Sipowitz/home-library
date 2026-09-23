@@ -257,9 +257,8 @@ def get_grouped_books(
         assigned_by_location.setdefault(book.location_id, []).append(book)
     _annotate_location_positions(assigned_books)
 
-    # Unassigned books can be returned as provisional Suggested copies. They
-    # never have a real physical position, including when this Session has
-    # previously returned the same object while it was assigned.
+    # Unassigned books never have a real physical position, including when
+    # this Session has previously returned the same object while assigned.
     for book in no_location_books:
         _set_location_position(book, None, None)
 
@@ -319,10 +318,17 @@ def get_grouped_books(
                 selected_location = location
                 if key <= last_key:
                     break
+            direct_books = assigned_by_location[selected_location.id]
+            insertion = next(
+                (index for index, existing in enumerate(direct_books) if key < book_order_key(existing)),
+                len(direct_books),
+            )
             suggestions.append({
                 "id": selected_location.id,
                 "name": selected_location.name,
                 "path": location_path(selected_location),
+                "before": direct_books[max(0, insertion - 2):insertion],
+                "after": direct_books[insertion:insertion + 2],
             })
         return suggestions
 

@@ -727,6 +727,8 @@ class SuggestedLocation(BaseModel):
     id: int
     name: str
     path: List[SuggestedLocationPathNode] = Field(default_factory=list)
+    before: List[BookResponse] = Field(default_factory=list)
+    after: List[BookResponse] = Field(default_factory=list)
 
 
 class SuggestedBookResponse(BookResponse):

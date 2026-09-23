@@ -30,7 +30,7 @@ import toast from "react-hot-toast";
 import type { Book, BookDraft } from "./types/book";
 import type { LibraryViewMode } from "./types/preferences";
 import { getBook } from "./api/books";
-import { getGroupedBooks, type GroupedBooksResponse, type SuggestedLocation } from "./api/books";
+import { getGroupedBooks, type GroupedBooksResponse, type SuggestedBook, type SuggestedLocation } from "./api/books";
 import { GroupedLocationBooks } from "./components/books/views/GroupedLocationBooks";
 import { SuggestedLocationAssignmentDialog } from "./components/books/SuggestedLocationAssignmentDialog";
 import type { ReviewTarget } from "./components/settings/maintenance/MaintenanceSettings";
@@ -137,7 +137,7 @@ export default function App() {
   const [groupedLoading, setGroupedLoading] = useState(false);
   const [groupedError, setGroupedError] = useState<string | null>(null);
   const [groupedRevision, setGroupedRevision] = useState(0);
-  const [suggestedAssignment, setSuggestedAssignment] = useState<{ book: Book; location: SuggestedLocation } | null>(null);
+  const [suggestedAssignment, setSuggestedAssignment] = useState<{ book: SuggestedBook; location: SuggestedLocation | null } | null>(null);
   const [assigningSuggestedLocation, setAssigningSuggestedLocation] = useState(false);
 
   const [isScrolling, setIsScrolling] = useState(false);
@@ -244,7 +244,7 @@ export default function App() {
   }, []);
 
   const confirmSuggestedLocationAssignment = useCallback(async () => {
-    if (!suggestedAssignment || assigningSuggestedLocation) return;
+    if (!suggestedAssignment?.location || assigningSuggestedLocation) return;
     setAssigningSuggestedLocation(true);
     try {
       await saveBook({ ...suggestedAssignment.book, location_id: suggestedAssignment.location.id });
@@ -808,7 +808,7 @@ export default function App() {
         {groupByLocation ? groupedError ? null : groupedBooks && groupedBooks.locations.length === 0 && !groupedBooks.no_location ? (
           <p className="px-1 py-6 text-sm text-text-muted">{filters.search?.trim() || filters.categoryId != null || filters.locationId != null || filters.read != null ? "No matching books." : "Your library is empty."}</p>
         ) : groupedBooks ? (
-          <GroupedLocationBooks data={groupedBooks} viewMode={viewMode} locations={locations} categories={categories} showCovers={showCoversInList} onSelect={(book) => { void openBook(book, false); }} onSuggestedSelect={(book, location) => setSuggestedAssignment({ book, location })} />
+          <GroupedLocationBooks data={groupedBooks} viewMode={viewMode} locations={locations} categories={categories} showCovers={showCoversInList} onSelect={(book) => { void openBook(book, false); }} onUnassignedSelect={(book) => setSuggestedAssignment({ book, location: null })} />
         ) : null : collectionEmpty ? (
           <p className="px-1 py-6 text-sm text-text-muted">{hasActiveCollectionFilter ? "No matching books in this collection." : "This collection is empty."}</p>
         ) : viewMode === "grid" ? (
@@ -855,7 +855,10 @@ export default function App() {
           assignment={suggestedAssignment}
           assigning={assigningSuggestedLocation}
           onClose={() => setSuggestedAssignment(null)}
+          onSelectLocation={(location) => setSuggestedAssignment((current) => current && { ...current, location })}
+          onBack={() => setSuggestedAssignment((current) => current && { ...current, location: null })}
           onConfirm={() => void confirmSuggestedLocationAssignment()}
+          onViewBook={() => { if (suggestedAssignment) { const book = suggestedAssignment.book; setSuggestedAssignment(null); void openBook(book, false); } }}
         />
 
         <AddBookDialog
