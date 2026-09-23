@@ -39,6 +39,7 @@ export type MaintenanceJob = {
   current_title?: string | null; error_summary?: string | null;
   cover_cache_counts?: { total_considered: number; cached: number; already_local: number; no_cover: number; failed: number; skipped: number } | null;
   cover_cache_cleanup_counts?: { candidate_scanned: number; candidate_retained: number; candidate_deleted: number; candidate_skipped: number; candidate_failed: number; staging_scanned: number; staging_retained: number; staging_deleted: number; staging_skipped: number; staging_failed: number } | null;
+  cover_rescan_counts?: { books_processed: number; skipped_no_isbn: number; provider_lookups: number; candidates_discovered: number; candidates_stored: number; failed_downloads: number; provider_failures: number } | null;
 };
 
 export async function startMaintenanceRefresh(kind: "metadata" | "covers") {
@@ -47,6 +48,10 @@ export async function startMaintenanceRefresh(kind: "metadata" | "covers") {
 }
 export async function cacheExistingCovers() {
   const response = await client.post("/maintenance/cache-existing-covers");
+  return response.data as MaintenanceJob;
+}
+export async function rescanAllCoverArt() {
+  const response = await client.post("/maintenance/rescan-cover-art");
   return response.data as MaintenanceJob;
 }
 export async function cleanCoverCache() {

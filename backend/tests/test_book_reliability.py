@@ -454,6 +454,23 @@ def test_maintenance_bulk_endpoints_are_wired_to_job_service(client, users):
     assert cancelled.status_code == 200
 
 
+def test_cover_rescan_endpoint_uses_existing_job_lock_without_running_providers(client, users, monkeypatch):
+    from app.services import maintenance_jobs
+
+    async def do_not_run_real_job(_job_id):
+        pass
+
+    monkeypatch.setattr(maintenance_jobs, "run_job", do_not_run_real_job)
+    owner, _other = users
+    started = client.post("/maintenance/rescan-cover-art", headers=headers(owner))
+    assert started.status_code == 202, started.text
+    assert started.json()["kind"] == "cover_rescan"
+    assert started.json()["cover_rescan_counts"]["books_processed"] == 0
+    duplicate = client.post("/maintenance/rescan-cover-art", headers=headers(owner))
+    metadata = client.post("/maintenance/refresh-metadata", headers=headers(owner))
+    assert duplicate.status_code == metadata.status_code == 409
+
+
 @pytest.mark.parametrize("field", ["id", "owner_id", "date_added", "last_metadata_refresh_at", "metadata_snapshots", "unsupported"])
 def test_from_isbn_rejects_internal_and_unknown_book_fields(client, users, field):
     owner, _ = users

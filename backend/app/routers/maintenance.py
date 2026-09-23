@@ -22,6 +22,16 @@ def start_refresh(kind: str, background_tasks: BackgroundTasks, db: Session = De
     return maintenance_jobs.serialize(job, db)
 
 
+@router.post("/rescan-cover-art", response_model=schemas.MaintenanceJobResponse, status_code=202)
+def rescan_cover_art(background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    try:
+        job = maintenance_jobs.create_job(db, current_user.id, "cover_rescan")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    background_tasks.add_task(maintenance_jobs.run_job, job.id)
+    return maintenance_jobs.serialize(job, db)
+
+
 @router.post("/cache-existing-covers", response_model=schemas.MaintenanceJobResponse, status_code=202)
 def cache_existing_covers(background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     try:

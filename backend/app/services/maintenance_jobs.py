@@ -3,6 +3,7 @@ import json
 from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app import models
@@ -25,7 +26,14 @@ def recover_interrupted_jobs():
 def _active(db: Session, owner_id: int):
     return db.query(models.MaintenanceJob).filter(models.MaintenanceJob.owner_id == owner_id, models.MaintenanceJob.status.in_(["pending", "running"])).first()
 
+def _lock_owner_jobs(db: Session, owner_id: int) -> None:
+    # Serialize concurrent starts for one owner before checking the active row.
+    if db.bind is not None and db.bind.dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(:namespace, :owner_id)"),
+            {"namespace": 734128, "owner_id": owner_id})
+
 def create_job(db: Session, owner_id: int, kind: str) -> models.MaintenanceJob:
+    _lock_owner_jobs(db, owner_id)
     if _active(db, owner_id):
         raise ValueError("A provider refresh is already running")
     books = db.query(models.Book).filter(models.Book.owner_id == owner_id).order_by(models.Book.date_added.asc().nullslast(), models.Book.id.asc()).all()
@@ -37,6 +45,7 @@ def create_job(db: Session, owner_id: int, kind: str) -> models.MaintenanceJob:
 
 
 def create_cover_cache_cleanup_job(db: Session, owner_id: int) -> models.MaintenanceJob:
+    _lock_owner_jobs(db, owner_id)
     if _active(db, owner_id):
         raise ValueError("A provider refresh is already running")
     job = models.MaintenanceJob(owner_id=owner_id, kind="cover_cache_cleanup", status="pending", total=0)
@@ -69,6 +78,29 @@ def serialize(job: models.MaintenanceJob, db: Session):
             "failed": sum(item.status == "failed" for item in items),
             "skipped": sum(item.status == "skipped" and item.error_summary != "no_cover" for item in items),
         }
+    if job.kind == "cover_rescan":
+        counts = {"books_processed": job.processed, "skipped_no_isbn": 0, "provider_lookups": 0,
+            "candidates_discovered": 0, "candidates_stored": 0, "failed_downloads": 0, "provider_failures": 0}
+        provider_errors = []
+        for item in db.query(models.MaintenanceJobItem).filter_by(job_id=job.id):
+            if item.status == "skipped" and item.error_summary == "no_isbn":
+                counts["skipped_no_isbn"] += 1
+            if not item.error_summary:
+                continue
+            try:
+                detail = json.loads(item.error_summary)
+            except (TypeError, ValueError):
+                continue
+            if isinstance(detail, dict):
+                for key in ("provider_lookups", "candidates_discovered", "candidates_stored", "failed_downloads", "provider_failures"):
+                    value = detail.get(key)
+                    if isinstance(value, int) and value >= 0:
+                        counts[key] += value
+                if isinstance(detail.get("provider_errors"), list):
+                    provider_errors.extend(error for error in detail["provider_errors"] if isinstance(error, str))
+        data["cover_rescan_counts"] = counts
+        if provider_errors and not data["error_summary"]:
+            data["error_summary"] = provider_errors[-1][:1000]
     cleanup_counts = _cleanup_counts(job)
     if cleanup_counts is not None:
         data["cover_cache_cleanup_counts"] = cleanup_counts
@@ -168,7 +200,8 @@ async def run_job(job_id: int):
             if not book:
                 item.status = "skipped"; job.skipped += 1; job.processed += 1; db.commit(); continue
             if not book.isbn:
-                item.status = "skipped"; job.skipped += 1; job.processed += 1; db.commit(); continue
+                item.status = "skipped"; item.error_summary = "no_isbn" if job.kind == "cover_rescan" else None
+                item.completed_at = datetime.now(UTC); job.skipped += 1; job.processed += 1; db.commit(); continue
             item.status = "running"; db.commit()
             before = book.metadata_evidence_signature if job.kind == "metadata_refresh" else book.cover_evidence_signature
             try:
@@ -182,6 +215,15 @@ async def run_job(job_id: int):
                 elif item.status == "succeeded": job.succeeded += 1; job.changed += int(item.changed); job.unchanged += int(not item.changed)
                 else: job.failed += 1
                 item.error_summary = "; ".join((r.error or "provider failed") for r in results if not r.success)[:1000] or None
+                if job.kind == "cover_rescan":
+                    candidates = [candidate for result in results if result.success and result.data
+                        for candidate in result.data.get("cover_candidates", []) or [] if isinstance(candidate, dict)]
+                    stored = sum(isinstance(candidate.get("url"), str) and candidate["url"].startswith("/covers/objects/sha256/") for candidate in candidates)
+                    item.error_summary = json.dumps({"provider_lookups": len(results),
+                        "candidates_discovered": len(candidates), "candidates_stored": stored,
+                        "failed_downloads": len(candidates) - stored, "provider_failures": failures,
+                        "provider_errors": [(result.error or "provider failed")[:200] for result in results if not result.success]},
+                        separators=(",", ":"))
             except Exception as exc:
                 item.status = "failed"; item.error_summary = str(exc)[:1000]; job.failed += 1
             item.completed_at = datetime.now(UTC); job.processed += 1; db.commit()
