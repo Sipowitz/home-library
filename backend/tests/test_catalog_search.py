@@ -12,6 +12,7 @@ from app.schemas import CatalogSearchRequest, CatalogSearchResponse
 from app.services.providers import manager
 from app.services.providers.catalog_search_service import merge_and_rank_catalog_candidates
 from app.services.providers.google_books import GOOGLE_BOOKS_URL, GoogleBooksProvider
+from app.services.providers.isbndb import ISBNDB_SEARCH_URL, ISBNdbProvider
 from app.services.providers.openlibrary import OPENLIBRARY_SEARCH_URL, OpenLibraryProvider
 
 
@@ -85,6 +86,108 @@ def test_openlibrary_catalog_query_title_only(monkeypatch):
     provider = OpenLibraryProvider(setting("openlibrary"))
     monkeypatch.setattr(provider, "request_json", request)
     assert asyncio.run(provider.search_catalog("The Book", None)) == []
+
+
+def test_isbndb_catalog_search_normalizes_one_title_scoped_request(monkeypatch):
+    calls = []
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"books": [{
+                "title": "The Book",
+                "title_long": "The Book: A Subtitle",
+                "authors": ["An Author", "Second Author"],
+                "publisher": "Press",
+                "date_published": "2001-04-05",
+                "isbn": "0306406152",
+                "isbn13": "9780306406157",
+                "image": "https://images.example.test/book.jpg",
+                "language": "en",
+                "pages": 321,
+                "synopsis": "Summary",
+            }]}
+
+    async def get(self, url, *, params=None, headers=None):
+        calls.append((url, params, headers))
+        return Response()
+
+    monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
+    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+    result = asyncio.run(ISBNdbProvider(setting("isbndb")).search_catalog("The Book / One", "An Author"))
+
+    assert calls == [(
+        f"{ISBNDB_SEARCH_URL}/The%20Book%20%2F%20One",
+        {"column": "title", "pageSize": 50},
+        {"Authorization": "test-key"},
+    )]
+    assert result == [
+        {
+            "title": "The Book",
+            "subtitle": "A Subtitle",
+            "author": "An Author, Second Author",
+            "publisher": "Press",
+            "year": 2001,
+            "isbn": "9780306406157",
+            "isbns": ["9780306406157", "0306406152"],
+            "cover_url": "https://images.example.test/book.jpg",
+            "language": "en",
+            "page_count": 321,
+            "description": "Summary",
+            "provider": "isbndb",
+            "provider_book_id": "9780306406157",
+            "position": 0,
+        }
+    ]
+
+
+def test_isbndb_catalog_search_tolerates_missing_fields_and_missing_key(monkeypatch):
+    provider = ISBNdbProvider(setting("isbndb"))
+    monkeypatch.delenv("ISBNDB_API_KEY", raising=False)
+    assert asyncio.run(provider.search_catalog("The Book", None)) == []
+    assert provider.last_error == "ISBNdb is not configured"
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"books": [{"title": "The Book"}]}
+
+    async def get(self, *_args, **_kwargs):
+        return Response()
+
+    monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
+    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+    result = asyncio.run(ISBNdbProvider(setting("isbndb")).search_catalog("The Book", None))
+    assert result[0]["isbn"] is None and result[0]["cover_url"] is None
+
+
+def test_isbndb_catalog_429_and_network_failure_are_isolated(monkeypatch):
+    class Response:
+        status_code = 429
+
+    calls = []
+
+    async def limited(self, *_args, **_kwargs):
+        calls.append(1)
+        return Response()
+
+    monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
+    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", limited)
+    provider = ISBNdbProvider(setting("isbndb"))
+    assert asyncio.run(provider.search_catalog("The Book", None)) == []
+    assert len(calls) == 1 and "429" in provider.last_error
+
+    import httpx
+
+    async def offline(self, *_args, **_kwargs):
+        raise httpx.ConnectError("offline")
+
+    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", offline)
+    provider = ISBNdbProvider(setting("isbndb"))
+    assert asyncio.run(provider.search_catalog("The Book", None)) == []
+    assert "Transport error" in provider.last_error
 
 
 def test_isbn_candidates_merge_including_isbn10_equivalent():
@@ -184,3 +287,39 @@ def test_both_providers_are_combined_and_a_failed_provider_does_not_hide_results
 
     monkeypatch.setattr(manager, "_get_enabled_providers", lambda _db: iter([(setting("google_books", 1), Provider("google_books", failure=True)), (setting("openlibrary", 2), openlibrary)]))
     assert asyncio.run(manager.search_catalog(None, "The Book", None))[0]["sources"] == ["openlibrary"]
+
+
+def test_isbndb_catalog_results_join_existing_providers_and_failures_stay_isolated(monkeypatch):
+    class Provider:
+        def __init__(self, name, result=None, failure=False):
+            self.provider_name, self.result, self.failure = name, result, failure
+
+        async def search_catalog(self, *_args, **_kwargs):
+            if self.failure:
+                raise RuntimeError("unavailable")
+            return self.result
+
+    google = Provider("google_books", [candidate(isbns=["9780306406157"])])
+    openlibrary = Provider("openlibrary", [candidate(provider="openlibrary", key="two", isbns=["9780306406157"])])
+    isbndb = Provider("isbndb", [candidate(provider="isbndb", key="three", isbns=["9780306406157"])])
+    monkeypatch.setattr(
+        manager,
+        "_get_enabled_providers",
+        lambda _db: iter([
+            (setting("google_books", 1), google),
+            (setting("openlibrary", 2), openlibrary),
+            (setting("isbndb", 3), isbndb),
+        ]),
+    )
+    assert asyncio.run(manager.search_catalog(None, "The Book", None))[0]["sources"] == ["google_books", "isbndb", "openlibrary"]
+
+    monkeypatch.setattr(
+        manager,
+        "_get_enabled_providers",
+        lambda _db: iter([
+            (setting("google_books", 1), google),
+            (setting("openlibrary", 2), openlibrary),
+            (setting("isbndb", 3), Provider("isbndb", failure=True)),
+        ]),
+    )
+    assert asyncio.run(manager.search_catalog(None, "The Book", None))[0]["sources"] == ["google_books", "openlibrary"]

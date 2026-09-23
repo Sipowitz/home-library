@@ -1,12 +1,28 @@
 import asyncio
 import os
 import re
+from urllib.parse import quote
 
 import httpx
 
 from app.services.providers.base import BookProvider
 
 ISBNDB_URL = "https://api2.isbndb.com/book"
+ISBNDB_SEARCH_URL = "https://api2.isbndb.com/books"
+
+
+def _catalog_subtitle(title: str, title_long: object) -> str | None:
+    if not isinstance(title_long, str):
+        return None
+    prefix = title + ":"
+    if title_long.casefold().startswith(prefix.casefold()):
+        subtitle = title_long[len(prefix):].strip()
+        return subtitle or None
+    return None
+
+
+def _catalog_year(value: object) -> int | None:
+    return int(value[:4]) if isinstance(value, str) and value[:4].isdigit() else None
 
 class ISBNdbProvider(BookProvider):
     provider_name = "isbndb"
@@ -39,4 +55,72 @@ class ISBNdbProvider(BookProvider):
         return None
 
     async def search_catalog(self, title: str, author: str | None, *, limit: int = 50):
-        return []
+        key = os.getenv("ISBNDB_API_KEY")
+        if not key:
+            self.last_error = "ISBNdb is not configured"
+            return []
+
+        self.last_error = None
+        # ISBNdb text search does not offer a combined title-and-author filter.
+        # Use one title-scoped request; the shared catalog ranker still receives
+        # the author query and ranks its normalized results accordingly.
+        try:
+            async with httpx.AsyncClient(timeout=self.get_timeout_seconds()) as client:
+                response = await client.get(
+                    f"{ISBNDB_SEARCH_URL}/{quote(title, safe='')}",
+                    params={"column": "title", "pageSize": min(limit, 50)},
+                    headers={"Authorization": key},
+                )
+        except httpx.TransportError as exc:
+            self.last_error = f"Transport error ({type(exc).__name__})"
+            return []
+
+        if response.status_code == 429:
+            self.last_error = "Quota or rate limit exceeded (HTTP 429)"
+            return []
+        if response.status_code != 200:
+            self.last_error = f"ISBNdb HTTP failure (HTTP {response.status_code})"
+            return []
+
+        payload = response.json()
+        books = payload.get("books") if isinstance(payload, dict) else None
+        if not isinstance(books, list):
+            self.last_error = "Malformed ISBNdb catalog response"
+            return []
+
+        results = []
+        for position, book in enumerate(books[: min(limit, 50)]):
+            if not isinstance(book, dict):
+                continue
+            title_value = book.get("title")
+            title_long = book.get("title_long")
+            if not isinstance(title_value, str) or not title_value.strip():
+                title_value = title_long if isinstance(title_long, str) else None
+            if not isinstance(title_value, str) or not title_value.strip():
+                continue
+            title_value = title_value.strip()
+            authors = book.get("authors")
+            authors = authors if isinstance(authors, list) else []
+            isbns = [
+                re.sub(r"[^0-9X]", "", value, flags=re.I)
+                for value in (book.get("isbn13"), book.get("isbn"), book.get("isbn10"))
+                if isinstance(value, str)
+            ]
+            isbns = list(dict.fromkeys(value for value in isbns if value))
+            results.append({
+                "title": title_value,
+                "subtitle": _catalog_subtitle(title_value, title_long),
+                "author": ", ".join(value for value in authors if isinstance(value, str)) or None,
+                "publisher": book.get("publisher") if isinstance(book.get("publisher"), str) else None,
+                "year": _catalog_year(book.get("date_published")),
+                "isbn": next((value for value in isbns if len(value) == 13), None) or (isbns[0] if isbns else None),
+                "isbns": isbns,
+                "cover_url": book.get("image") if isinstance(book.get("image"), str) else None,
+                "language": book.get("language") if isinstance(book.get("language"), str) else None,
+                "page_count": book.get("pages") if isinstance(book.get("pages"), int) else None,
+                "description": book.get("synopsis") if isinstance(book.get("synopsis"), str) else None,
+                "provider": self.provider_name,
+                "provider_book_id": book.get("isbn13") or book.get("isbn") or book.get("isbn10"),
+                "position": position,
+            })
+        return results
