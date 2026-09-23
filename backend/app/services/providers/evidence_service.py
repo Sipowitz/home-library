@@ -6,6 +6,7 @@ from app.services.isbn_validation import normalize_isbn
 from app.services.providers.evidence_signatures import cover_evidence_signature, metadata_evidence_signature
 from app.services.providers.cover_snapshot_service import source_url_for_candidate
 from app.services.covers.download import download_candidate_cover
+from app.services.cover_storage import CoverUploadError, resolve_local_cover_path
 
 METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description")
 
@@ -46,7 +47,7 @@ def latest_cover_evidence(db: Session, book: models.Book) -> list[dict]:
 
 
 async def displayable_cover_candidates(db: Session, book: models.Book) -> list[dict]:
-    """Hydrate legacy evidence and return only local candidate-cache image URLs."""
+    """Serve permanent objects directly; hydrate legacy evidence via the candidate cache."""
     result = []
     changed = False
     for snapshot in latest_cover_snapshots(db, book).values():
@@ -59,12 +60,20 @@ async def displayable_cover_candidates(db: Session, book: models.Book) -> list[d
             if source_url is None:
                 changed = True
                 continue
-            try:
-                local_url = await download_candidate_cover(source_url)
-            except Exception:
-                # Legacy hydration is best-effort.  Keep provenance but never
-                # send a remote URL to the browser when it cannot be cached.
-                local_url = None
+            local_url = None
+            existing_url = candidate.get("url")
+            if isinstance(existing_url, str) and existing_url.startswith("/covers/objects/sha256/"):
+                try:
+                    if resolve_local_cover_path(existing_url).is_file():
+                        local_url = existing_url
+                except CoverUploadError:
+                    pass
+            if local_url is None:
+                try:
+                    local_url = await download_candidate_cover(source_url)
+                except Exception:
+                    # Legacy hydration is best-effort and never exposes a remote URL.
+                    local_url = None
             normalized = {
                 "provider": candidate.get("provider") or snapshot.provider,
                 "label": candidate.get("label"),

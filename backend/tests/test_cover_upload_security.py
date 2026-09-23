@@ -26,6 +26,8 @@ from app.core.config import settings
 from app.routers import books
 from app.services import cover_storage, image_validation
 from app.services.covers import download as cover_download
+from app.services.providers.cover_snapshot_service import cache_provider_cover_candidates, persist_cover_result
+from app.services.providers.types import ProviderResult
 
 
 def image_bytes(image_format: str, size=(12, 18)) -> bytes:
@@ -595,6 +597,80 @@ def test_selecting_cached_provider_candidate_promotes_permanent_cover_without_ch
     assert snapshot.candidates_json == [{
         "provider": "google_books", "label": "large", "source_url": source_url, "url": cached.url,
     }]
+
+
+def test_variants_keep_provenance_and_only_exact_bytes_share_permanent_object(context, monkeypatch):
+    client, db, book, _other_book, headers, covers_root = context
+    book.isbn = "9780306406157"
+    variants = [
+        ("thumbnail", "https://provider.example/thumb.png", image_bytes("PNG")),
+        ("large", "https://provider.example/large.png", image_bytes("PNG")),
+        ("original", "https://provider.example/original.webp", image_bytes("WEBP")),
+    ]
+    configure_redirect_client(monkeypatch, {
+        source_url: _RedirectResponse(200, content) for _label, source_url, content in variants
+    })
+    provider_result = ProviderResult(provider="google_books", success=True, isbn=book.isbn, duration_ms=1,
+        data={"cover_candidates": [
+            {"provider": "google_books", "label": label, "url": source_url}
+            for label, source_url, _content in variants
+        ]})
+    asyncio.run(cache_provider_cover_candidates(provider_result))
+    snapshot = persist_cover_result(db, book.id, provider_result)
+    db.commit()
+    candidates = snapshot.candidates_json
+    assert _RedirectClient.calls == [source_url for _label, source_url, _content in variants]
+    assert [(item["label"], item["source_url"]) for item in candidates] == [
+        (label, source_url) for label, source_url, _content in variants
+    ]
+    assert all(item["url"].startswith("/covers/objects/sha256/") for item in candidates)
+    assert candidates[0]["url"] == candidates[1]["url"]
+    assert candidates[2]["url"] != candidates[0]["url"]
+    assert not (covers_root / "candidate-cache").exists()
+
+    async def unexpected_remote_request(*_args, **_kwargs):
+        raise AssertionError("Permanent candidates must not request remote images")
+    monkeypatch.setattr(cover_download, "_download_with_safe_redirects", unexpected_remote_request)
+    browser = client.get(f"/books/{book.id}/cover-candidates", headers=headers)
+    assert browser.status_code == 200
+    assert browser.json()["candidates"] == [
+        {"provider": item["provider"], "label": item["label"], "url": item["url"]}
+        for item in candidates
+    ]
+    assert snapshot.candidates_json == candidates
+
+    assert len(list((covers_root / "objects" / "sha256").rglob("*.*"))) == 2
+    db.refresh(book)
+    assert book.cover_url is None
+
+
+def test_failed_candidate_creates_no_object_and_preserves_successful_candidate(context, monkeypatch):
+    _client, db, book, _other_book, _headers, covers_root = context
+    book.isbn = "9780306406157"
+    good = "https://provider.example/good.png"
+    bad = "https://provider.example/bad.png"
+    configure_redirect_client(monkeypatch, {
+        good: _RedirectResponse(200, image_bytes("PNG")),
+        bad: _RedirectResponse(200, b"not an image"),
+    })
+    provider_result = ProviderResult(provider="google_books", success=True, isbn=book.isbn, duration_ms=1,
+        data={"cover_candidates": [
+            {"provider": "google_books", "label": "large", "url": good},
+            {"provider": "google_books", "label": "small", "url": bad},
+        ]})
+    asyncio.run(cache_provider_cover_candidates(provider_result))
+    snapshot = persist_cover_result(db, book.id, provider_result)
+    db.commit()
+    assert provider_result.success
+    assert snapshot.candidates_json == [
+        {"provider": "google_books", "label": "large", "source_url": good,
+         "url": snapshot.candidates_json[0]["url"]},
+        {"provider": "google_books", "label": "small", "source_url": bad},
+    ]
+    assert snapshot.candidates_json[0]["url"].startswith("/covers/objects/sha256/")
+    assert len(list((covers_root / "objects" / "sha256").rglob("*.*"))) == 1
+    db.refresh(book)
+    assert book.cover_url is None
 
 
 def test_cover_candidate_selection_rejects_foreign_and_arbitrary_candidates(context):

@@ -1,5 +1,6 @@
 """Integration tests require a dedicated disposable PostgreSQL URL in TEST_DATABASE_URL."""
 import hashlib
+import asyncio
 import io
 import os
 import zipfile
@@ -29,6 +30,7 @@ from app.services.backup.export_service import create_backup
 from app.services.backup.restore_service import restore_user
 from app.services.backup import restore_service
 from app.services.backup.storage import publish_covers
+from app.services.providers.evidence_service import displayable_cover_candidates
 
 
 @pytest.fixture
@@ -200,6 +202,71 @@ def test_content_addressed_covers_round_trip_portably_with_deduplication_and_reu
         assert (destination_root / expected_uploaded_url.removeprefix("/covers/")).read_bytes() == uploaded
         assert (destination_root / expected_series_url.removeprefix("/covers/")).read_bytes() == series
         assert str(source_root) not in str(session.library.model_dump())
+    finally:
+        settings.COVERS_DIR = previous_root
+        archive.unlink()
+
+
+def test_provider_cover_snapshots_and_permanent_candidate_objects_round_trip(db, tmp_path, monkeypatch):
+    user_id, _other_id, canonical_bytes = populated(db)
+    book = db.query(models.Book).filter_by(owner_id=user_id).one()
+    source_root = Path(settings.COVERS_DIR)
+    duplicate_bytes = cover_bytes("blue")
+    different_bytes = cover_bytes("green")
+    duplicate_url, duplicate_digest = content_addressed_cover(source_root, duplicate_bytes)
+    different_url, different_digest = content_addressed_cover(source_root, different_bytes)
+    legacy_bytes = cover_bytes("purple")
+    legacy_url = write_local_cover(source_root, Path("candidate-cache") / "aa" / ("a" * 64 + ".png"), legacy_bytes)
+    legacy_digest = hashlib.sha256(legacy_bytes).hexdigest()
+    candidates = [
+        {"provider": "google_books", "label": "thumbnail", "source_url": "https://provider.example/thumb", "url": duplicate_url},
+        {"provider": "google_books", "label": "large", "source_url": "https://provider.example/large", "url": duplicate_url},
+        {"provider": "google_books", "label": "extraLarge", "source_url": "https://provider.example/extra", "url": different_url},
+        {"provider": "google_books", "label": "unavailable", "source_url": "https://provider.example/missing"},
+    ]
+    db.add(models.ProviderCoverSnapshot(book_id=book.id, provider="google_books", isbn_query=book.isbn,
+        candidates_json=candidates))
+    db.add(models.ProviderCoverSnapshot(book_id=book.id, provider="openlibrary", isbn_query=book.isbn,
+        candidates_json=[
+            {"provider": "openlibrary", "label": "L", "source_url": "https://provider.example/legacy", "url": legacy_url},
+            {"provider": "openlibrary", "label": "S", "source_url": "https://provider.example/uncached"},
+        ]))
+    db.commit()
+
+    archive, _ = create_backup(db, user_id, "source")
+    db.rollback()
+    session = validation_session(archive, user_id)
+    assert session.manifest.record_counts.provider_cover_snapshots == 2
+    assert {duplicate_digest, different_digest, legacy_digest}.issubset(session.cover_entries)
+    assert len(session.cover_entries) == 4  # canonical/uploaded object plus three candidate objects
+
+    destination_root = tmp_path / "restored-covers"
+    previous_root = settings.COVERS_DIR
+    settings.COVERS_DIR = str(destination_root)
+    try:
+        urls = publish_covers(session)
+        restore_user(db, user_id, session, urls)
+        restored = db.query(models.Book).filter_by(owner_id=user_id).one()
+        snapshot = db.query(models.ProviderCoverSnapshot).filter_by(book_id=restored.id, provider="google_books").one()
+        assert snapshot.candidates_json == candidates
+        legacy_snapshot = db.query(models.ProviderCoverSnapshot).filter_by(book_id=restored.id, provider="openlibrary").one()
+        restored_legacy_url = f"/covers/objects/sha256/{legacy_digest[:2]}/{legacy_digest}.png"
+        assert legacy_snapshot.candidates_json == [
+            {"provider": "openlibrary", "label": "L", "source_url": "https://provider.example/legacy", "url": restored_legacy_url},
+            {"provider": "openlibrary", "label": "S", "source_url": "https://provider.example/uncached"},
+        ]
+        assert (destination_root / restored.cover_url.removeprefix("/covers/")).read_bytes() == canonical_bytes
+        assert (destination_root / duplicate_url.removeprefix("/covers/")).read_bytes() == duplicate_bytes
+        assert (destination_root / different_url.removeprefix("/covers/")).read_bytes() == different_bytes
+        assert (destination_root / restored_legacy_url.removeprefix("/covers/")).read_bytes() == legacy_bytes
+
+        async def no_remote(_source):
+            raise AssertionError("Restored permanent candidates must not contact providers")
+        monkeypatch.setattr("app.services.providers.evidence_service.download_candidate_cover", no_remote)
+        browser = asyncio.run(displayable_cover_candidates(db, restored))
+        assert [(item["label"], item["url"]) for item in browser] == [
+            (candidate["label"], candidate["url"]) for candidate in candidates if "url" in candidate
+        ] + [("L", restored_legacy_url)]
     finally:
         settings.COVERS_DIR = previous_root
         archive.unlink()

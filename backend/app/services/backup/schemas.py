@@ -142,6 +142,22 @@ class NormalizedRecordData(StrictModel):
     normalized_at: datetime
 
 
+class ProviderCoverCandidateData(StrictModel):
+    provider: str
+    label: str | None = None
+    source_url: str
+    cover: CoverReference | None = None
+
+
+class ProviderCoverSnapshotData(StrictModel):
+    book_archive_id: str
+    provider: str
+    isbn_query: str
+    candidates: list[ProviderCoverCandidateData]
+    fetched_at: datetime
+    created_at: datetime
+
+
 class LibraryData(StrictModel):
     preferences: PreferencesData | None = None
     categories: list[CategoryData]
@@ -149,6 +165,7 @@ class LibraryData(StrictModel):
     books: list[BookData]
     metadata_snapshots: list[SnapshotData]
     normalized_metadata_records: list[NormalizedRecordData]
+    provider_cover_snapshots: list[ProviderCoverSnapshotData] = Field(default_factory=list)
     series: list[SeriesData] = Field(default_factory=list)
     series_memberships: list[SeriesMembershipData] = Field(default_factory=list)
     series_orderings: list[SeriesOrderingData] = Field(default_factory=list)
@@ -194,6 +211,9 @@ class LibraryData(StrictModel):
         for snapshot in self.metadata_snapshots:
             if snapshot.book_archive_id not in book_ids:
                 raise ValueError("invalid snapshot book reference")
+        for snapshot in self.provider_cover_snapshots:
+            if snapshot.book_archive_id not in book_ids:
+                raise ValueError("invalid provider cover snapshot book reference")
         for record in self.normalized_metadata_records:
             if record.snapshot_archive_id not in snapshot_ids:
                 raise ValueError("invalid normalized record snapshot reference")
@@ -238,6 +258,7 @@ class RecordCounts(StrictModel):
     metadata_snapshots: int = Field(ge=0)
     normalized_metadata_records: int = Field(ge=0)
     cover_files: int = Field(ge=0)
+    provider_cover_snapshots: int = Field(default=0, ge=0)
     series: int = Field(default=0, ge=0)
     series_memberships: int = Field(default=0, ge=0)
     series_orderings: int = Field(default=0, ge=0)

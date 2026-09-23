@@ -31,7 +31,7 @@ from ..services.providers.types import (
 from ..services.providers.metadata_snapshot_service import (
     persist_provider_result,
 )
-from ..services.providers.cover_snapshot_service import persist_cover_result
+from ..services.providers.cover_snapshot_service import cache_provider_cover_candidates, persist_cover_result
 from ..services.providers.evidence_service import (
     latest_cover_snapshots, update_metadata_evidence_signature, update_cover_evidence_signature,
 )
@@ -707,6 +707,8 @@ async def create_book_from_isbn_endpoint(
                 book_id=created_book.id,
                 provider_result=provider_result,
             )
+
+            await cache_provider_cover_candidates(provider_result)
 
             persist_cover_result(
                 db=db, book_id=created_book.id, provider_result=provider_result,

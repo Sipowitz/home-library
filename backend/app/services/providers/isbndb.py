@@ -50,7 +50,13 @@ class ISBNdbProvider(BookProvider):
                 authors = book.get("authors") if isinstance(book.get("authors"), list) else []
                 date = book.get("date_published"); year = int(date[:4]) if isinstance(date, str) and date[:4].isdigit() else None
                 image = book.get("image") if isinstance(book.get("image"), str) else None
-                return {"title": book.get("title"), "subtitle": _subtitle_from_title_long(book.get("title"), book.get("title_long")), "author": ", ".join(a for a in authors if isinstance(a, str)) or None, "publisher": book.get("publisher"), "language": book.get("language"), "page_count": book.get("pages") if isinstance(book.get("pages"), int) else None, "year": year, "isbn": isbn, "description": book.get("synopsis"), "cover_url": image, "cover_candidates": [{"provider": self.provider_name, "label": "ISBNdb", "url": image}] if image else [], "provider": self.provider_name, "provider_book_id": book.get("isbn13") or book.get("isbn")}
+                image_original = book.get("image_original") if isinstance(book.get("image_original"), str) else None
+                cover_candidates = [
+                    {"provider": self.provider_name, "label": label, "url": url}
+                    for label, url in (("ISBNdb", image), ("ISBNdb Original", image_original))
+                    if url
+                ]
+                return {"title": book.get("title"), "subtitle": _subtitle_from_title_long(book.get("title"), book.get("title_long")), "author": ", ".join(a for a in authors if isinstance(a, str)) or None, "publisher": book.get("publisher"), "language": book.get("language"), "page_count": book.get("pages") if isinstance(book.get("pages"), int) else None, "year": year, "isbn": isbn, "description": book.get("synopsis"), "cover_url": image, "cover_candidates": cover_candidates, "provider": self.provider_name, "provider_book_id": book.get("isbn13") or book.get("isbn")}
             if response and response.status_code == 404: return {} if force_refresh else None
             if response and response.status_code == 429: self.last_error = "Quota or rate limit exceeded (HTTP 429)"
             elif response: self.last_error = f"ISBNdb HTTP failure (HTTP {response.status_code})"

@@ -19,7 +19,7 @@ class Response:
 def provider(): return ISBNdbProvider(Setting())
 
 
-def test_normalizes_isbndb_book_and_ignores_image_original(monkeypatch):
+def test_normalizes_isbndb_book_and_preserves_both_image_variants(monkeypatch):
     payload = {"book": {"title": "Example", "authors": ["First", "Second"], "publisher": "Press", "language": "en", "pages": 321, "date_published": "2001-04-05", "synopsis": "Summary", "image": "https://stable/image.jpg", "image_original": "https://signed/original.jpg", "isbn13": "9780306406157"}}
     async def get(self, *args, **kwargs): return Response(200, payload)
     monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
@@ -28,6 +28,22 @@ def test_normalizes_isbndb_book_and_ignores_image_original(monkeypatch):
     assert result["author"] == "First, Second"
     assert {key: result[key] for key in ("title", "publisher", "language", "page_count", "year", "description", "cover_url")} == {"title": "Example", "publisher": "Press", "language": "en", "page_count": 321, "year": 2001, "description": "Summary", "cover_url": "https://stable/image.jpg"}
     assert "signed" not in result["cover_url"]
+    assert result["cover_candidates"] == [
+        {"provider": "isbndb", "label": "ISBNdb", "url": "https://stable/image.jpg"},
+        {"provider": "isbndb", "label": "ISBNdb Original", "url": "https://signed/original.jpg"},
+    ]
+
+
+def test_original_image_is_a_candidate_even_without_primary_image(monkeypatch):
+    payload = {"book": {"title": "Example", "image_original": "https://example.test/original.jpg"}}
+    async def get(self, *args, **kwargs): return Response(200, payload)
+    monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
+    monkeypatch.setattr(httpx.AsyncClient, "get", get)
+    result = asyncio.run(provider().fetch_book_by_isbn("9780306406157"))
+    assert result["cover_url"] is None
+    assert result["cover_candidates"] == [
+        {"provider": "isbndb", "label": "ISBNdb Original", "url": "https://example.test/original.jpg"},
+    ]
 
 
 @pytest.mark.parametrize(

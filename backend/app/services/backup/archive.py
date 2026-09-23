@@ -168,8 +168,8 @@ def inspect_archive(path: Path) -> tuple[Manifest, LibraryData, dict[str, str]]:
                 code = "BACKUP_REFERENCE_INVALID" if "reference" in message or "duplicate" in message else "BACKUP_MALFORMED"
                 raise BackupError(400, code, "Library data is invalid") from exc
             counts = manifest.record_counts
-            actual = (len(library.books), len(library.categories), len(library.locations), len(library.metadata_snapshots), len(library.normalized_metadata_records), len(library.series), len(library.series_memberships), len(library.series_orderings), len(library.series_reading_orderings))
-            if actual != (counts.books, counts.categories, counts.locations, counts.metadata_snapshots, counts.normalized_metadata_records, counts.series, counts.series_memberships, counts.series_orderings, counts.series_reading_orderings):
+            actual = (len(library.books), len(library.categories), len(library.locations), len(library.metadata_snapshots), len(library.normalized_metadata_records), len(library.provider_cover_snapshots), len(library.series), len(library.series_memberships), len(library.series_orderings), len(library.series_reading_orderings))
+            if actual != (counts.books, counts.categories, counts.locations, counts.metadata_snapshots, counts.normalized_metadata_records, counts.provider_cover_snapshots, counts.series, counts.series_memberships, counts.series_orderings, counts.series_reading_orderings):
                 raise BackupError(400, "BACKUP_MALFORMED", "Manifest record counts do not match library data")
             _validate_tree(library.categories, "category")
             _validate_tree(library.locations, "location")
@@ -218,6 +218,13 @@ def _referenced_covers(library: LibraryData) -> dict[str, str]:
             previous = result.setdefault(cover.object_sha256, cover.media_type)
             if previous != cover.media_type:
                 raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Cover object has conflicting media types")
+    for snapshot in library.provider_cover_snapshots:
+        for candidate in snapshot.candidates:
+            cover = candidate.cover
+            if cover is not None and cover.kind == "local":
+                previous = result.setdefault(cover.object_sha256, cover.media_type)
+                if previous != cover.media_type:
+                    raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Cover object has conflicting media types")
     return result
 
 

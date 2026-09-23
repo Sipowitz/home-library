@@ -31,7 +31,10 @@ vi.mock("./CoverBrowserModal", () => ({
     onSelectCover?: (cover: { provider: string; label: string; url: string }) => Promise<void> | void;
   }) => {
     coverBrowser.covers = covers;
-    return <button onClick={() => void onSelectCover?.({ provider: "google_books", label: "large", url: "/covers/candidate-cache/aa/candidate.jpg" })}>Select provider cover</button>;
+    return <>
+      <button onClick={() => void onSelectCover?.({ provider: "google_books", label: "large", url: "/covers/candidate-cache/aa/candidate.jpg" })}>Select provider cover</button>
+      <button onClick={() => void onSelectCover?.({ provider: "google_books", label: "original", url: "/covers/objects/sha256/aa/permanent.jpg" })}>Select permanent candidate</button>
+    </>;
   },
 }));
 
@@ -118,6 +121,32 @@ it("uses a promoted provider cover as a Book Edit draft value", async () => {
   }));
   expect(screen.getByTestId("draft-cover-url").textContent).toBe(permanentUrl);
   expect(screen.getByAltText("Cover of The Test Book").getAttribute("src")).toBe(permanentUrl);
+});
+
+it("uses a permanent candidate only in the draft until Save", async () => {
+  const originalCover = "/covers/objects/sha256/aa/original.jpg";
+  const permanentCandidate = "/covers/objects/sha256/aa/permanent.jpg";
+  const persistedBook = { ...noIsbnBook, cover_url: originalCover };
+  const onSave = vi.fn();
+
+  function DraftHarness() {
+    const [draft, setDraft] = useState<Book>({ ...persistedBook });
+    return <>
+      <BookEdit editData={draft} setEditData={setDraft} categories={[]} locations={[]}
+        textareaRef={createRef<HTMLTextAreaElement>()} onSave={onSave} onDelete={vi.fn()} />
+      <output data-testid="draft-cover-url">{draft.cover_url}</output>
+    </>;
+  }
+
+  const view = render(<DraftHarness />);
+  fireEvent.click(screen.getByRole("button", { name: "Select permanent candidate" }));
+  expect(screen.getByTestId("draft-cover-url").textContent).toBe(permanentCandidate);
+  expect(screen.getByAltText("Cover of The Test Book").getAttribute("src")).toBe(permanentCandidate);
+  expect(api.selectCoverCandidate).not.toHaveBeenCalled();
+  expect(onSave).not.toHaveBeenCalled();
+  expect(persistedBook.cover_url).toBe(originalCover);
+  view.unmount(); // Exiting Book Edit discards the component-local draft.
+  expect(persistedBook.cover_url).toBe(originalCover);
 });
 
 it("searches the existing title and author and requires an explicit edition selection", async () => {

@@ -23,6 +23,7 @@ from app.services.providers.google_books import GoogleBooksProvider
 from app.services.providers.openlibrary import OpenLibraryProvider
 from app.services.providers.isbndb import ISBNdbProvider
 from app.services.providers.snapshot_query_service import get_provider_results_for_book
+from app.services.providers.evidence_service import displayable_cover_candidates
 from app.services.providers.types import ProviderResult
 
 @pytest.fixture()
@@ -186,10 +187,10 @@ def test_newer_empty_openlibrary_cover_snapshot_supersedes_old_candidates(db, bo
     assert latest_cover_evidence(db, book) == []
 
 
-def test_refresh_persists_provider_source_url_and_local_cached_url(db, book, monkeypatch):
+def test_refresh_persists_provider_source_url_and_permanent_url(db, book, monkeypatch):
     import app.services.providers.refresh_cover_service as cover_refresh
     source = "https://books.google.example/cover.jpg"
-    local = "/covers/candidate-cache/aa/cached.jpg"
+    local = "/covers/objects/sha256/aa/cached.jpg"
 
     async def provider_results(_db, _isbn):
         return [result({"cover_candidates": [{"provider": "google_books", "label": "large", "url": source}]})]
@@ -199,7 +200,7 @@ def test_refresh_persists_provider_source_url_and_local_cached_url(db, book, mon
         return local
 
     monkeypatch.setattr(cover_refresh, "fetch_all_cover_results", provider_results)
-    monkeypatch.setattr(cover_snapshot_service, "download_candidate_cover", cache)
+    monkeypatch.setattr(cover_snapshot_service, "download_permanent_cover", cache)
     asyncio.run(cover_refresh.refresh_book_covers(db, book.id))
 
     snapshot = db.query(models.ProviderCoverSnapshot).one()
@@ -207,11 +208,84 @@ def test_refresh_persists_provider_source_url_and_local_cached_url(db, book, mon
     assert latest_cover_evidence(db, book)[0]["source_url"] == source
 
 
+@pytest.mark.parametrize("provider_name", ["google_books", "openlibrary", "isbndb"])
+def test_refresh_downloads_every_emitted_variant_and_serves_local_candidates(db, book, monkeypatch, tmp_path, provider_name):
+    import app.services.providers.refresh_cover_service as cover_refresh
+    import app.services.providers.evidence_service as evidence_service
+    from app.core.config import settings
+
+    setting = SimpleNamespace(provider_name=provider_name, api_key=None, timeout_seconds=5, max_retries=0)
+    if provider_name == "google_books":
+        labels = ["extraLarge", "large", "medium", "small", "thumbnail", "smallThumbnail"]
+        payload = {"items": [{"volumeInfo": {
+            "title": "Book", "authors": ["Author"],
+            "industryIdentifiers": [{"type": "ISBN_13", "identifier": book.isbn}],
+            "imageLinks": {label: f"https://covers.example/{label}.jpg" for label in labels},
+        }}]}
+        provider = GoogleBooksProvider(setting)
+        async def fetch(_isbn): return payload
+        monkeypatch.setattr(provider, "fetch_from_google", fetch)
+    elif provider_name == "openlibrary":
+        labels = ["L", "M", "S"]
+        provider = OpenLibraryProvider(setting)
+        async def request(_url, *, params):
+            return {"docs": [{"title": "Book", "author_name": ["Author"], "cover_i": 12345}]}
+        monkeypatch.setattr(provider, "request_json", request)
+    else:
+        labels = ["ISBNdb", "ISBNdb Original"]
+        provider = ISBNdbProvider(setting)
+        monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
+        class Response:
+            status_code = 200
+            def json(self): return {"book": {"title": "Book", "image": "https://covers.example/image.jpg", "image_original": "https://covers.example/original.jpg"}}
+        async def get(_self, _url, *, headers): return Response()
+        monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+
+    provider_data = asyncio.run(provider.refresh_covers(book.isbn))
+    assert [item["label"] for item in provider_data["cover_candidates"]] == labels
+    sources = [item["url"] for item in provider_data["cover_candidates"]]
+    monkeypatch.setattr(settings, "COVERS_DIR", str(tmp_path))
+    local_by_source = {source: f"/covers/objects/sha256/{index:02x}/{index:064x}.jpg" for index, source in enumerate(sources)}
+    for local_url in local_by_source.values():
+        path = tmp_path / local_url.removeprefix("/covers/")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"locally retained fixture")
+    attempted = []
+    async def cache(source):
+        attempted.append(source)
+        return local_by_source[source]
+    async def results(_db, _isbn):
+        return [result(provider_data, provider=provider_name)]
+    monkeypatch.setattr(cover_refresh, "fetch_all_cover_results", results)
+    monkeypatch.setattr(cover_snapshot_service, "download_permanent_cover", cache)
+    async def no_remote(_source):
+        raise AssertionError("Permanent candidates must not request their source URL")
+    monkeypatch.setattr(evidence_service, "download_candidate_cover", no_remote)
+
+    book.cover_url = "/covers/objects/sha256/old.jpg"
+    db.commit()
+    asyncio.run(cover_refresh.refresh_book_covers(db, book.id))
+    assert attempted == sources
+    snapshot = db.query(models.ProviderCoverSnapshot).filter_by(book_id=book.id).one()
+    assert snapshot.candidates_json == [
+        {"provider": provider_name, "label": label, "source_url": source, "url": local_by_source[source]}
+        for label, source in zip(labels, sources)
+    ]
+    browser_candidates = asyncio.run(displayable_cover_candidates(db, book))
+    assert browser_candidates == [
+        {"provider": provider_name, "label": label, "url": local_by_source[source]}
+        for label, source in zip(labels, sources)
+    ]
+    assert all(candidate["url"].startswith("/covers/objects/sha256/") for candidate in browser_candidates)
+    db.refresh(book)
+    assert book.cover_url == "/covers/objects/sha256/old.jpg"
+
+
 def test_refresh_survives_an_individual_candidate_cache_failure(db, book, monkeypatch):
     import app.services.providers.refresh_cover_service as cover_refresh
     good = "https://books.google.example/good.jpg"
     broken = "https://books.google.example/broken.jpg"
-    local = "/covers/candidate-cache/aa/good.jpg"
+    local = "/covers/objects/sha256/aa/good.jpg"
 
     async def provider_results(_db, _isbn):
         return [result({"cover_candidates": [
@@ -223,7 +297,7 @@ def test_refresh_survives_an_individual_candidate_cache_failure(db, book, monkey
         return local if url == good else None
 
     monkeypatch.setattr(cover_refresh, "fetch_all_cover_results", provider_results)
-    monkeypatch.setattr(cover_snapshot_service, "download_candidate_cover", cache)
+    monkeypatch.setattr(cover_snapshot_service, "download_permanent_cover", cache)
     results = asyncio.run(cover_refresh.refresh_book_covers(db, book.id))
 
     assert results[0].success

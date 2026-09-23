@@ -156,6 +156,13 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                     published_year=item.published_year, subjects_json=item.subjects_json,
                     cover_candidates_json=item.cover_candidates_json, normalizer_version=item.normalizer_version,
                     normalized_at=item.normalized_at))
+            for item in data.provider_cover_snapshots:
+                db.add(models.ProviderCoverSnapshot(book_id=book_map[item.book_archive_id], provider=item.provider,
+                    isbn_query=item.isbn_query, candidates_json=[{
+                        "provider": candidate.provider, "label": candidate.label,
+                        "source_url": candidate.source_url,
+                        **({"url": _cover_url(candidate.cover, cover_urls)} if candidate.cover is not None else {}),
+                    } for candidate in item.candidates], fetched_at=item.fetched_at, created_at=item.created_at))
             db.flush()
             expected = session.manifest.record_counts
             actual = {
@@ -164,6 +171,7 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                 "locations": db.query(models.Location).filter(models.Location.owner_id == user_id).count(),
                 "metadata_snapshots": db.query(models.ProviderMetadataSnapshot).join(models.Book).filter(models.Book.owner_id == user_id).count(),
                 "normalized_metadata_records": db.query(models.NormalizedMetadataRecord).join(models.ProviderMetadataSnapshot).join(models.Book).filter(models.Book.owner_id == user_id).count(),
+                "provider_cover_snapshots": db.query(models.ProviderCoverSnapshot).join(models.Book).filter(models.Book.owner_id == user_id).count(),
                 "series": db.query(models.Series).filter(models.Series.owner_id == user_id).count(),
                 "series_memberships": db.query(models.BookSeriesMembership).join(models.Book).filter(models.Book.owner_id == user_id).count(),
                 "series_orderings": db.query(models.BookSeriesOrdering).join(models.Book).filter(models.Book.owner_id == user_id).count(),
@@ -173,6 +181,7 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
             if actual != {"books": expected.books, "categories": expected.categories, "locations": expected.locations,
                           "metadata_snapshots": expected.metadata_snapshots,
                           "normalized_metadata_records": expected.normalized_metadata_records,
+                          "provider_cover_snapshots": expected.provider_cover_snapshots,
                           "series": expected.series, "series_memberships": expected.series_memberships,
                           "series_orderings": expected.series_orderings,
                           "series_reading_orderings": expected.series_reading_orderings}:

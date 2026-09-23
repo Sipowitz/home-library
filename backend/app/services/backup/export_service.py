@@ -23,7 +23,7 @@ def _archive_id() -> str:
     return str(uuid.uuid4())
 
 
-def _local_path(url: str) -> tuple[Path, str] | None:
+def _local_path(url: str, *, allow_candidate_cache: bool = False) -> tuple[Path, str] | None:
     parsed = urlsplit(url)
     if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment or not parsed.path.startswith("/covers/"):
         return None
@@ -39,7 +39,7 @@ def _local_path(url: str) -> tuple[Path, str] | None:
         candidate.relative_to(root)
     except ValueError as exc:
         raise BackupError(400, "BACKUP_FILE_MISSING", "A local cover reference is unsafe") from exc
-    if relative.parts[:1] in (("candidate-cache",), ("staging",)):
+    if relative.parts[:1] == ("staging",) or (relative.parts[:1] == ("candidate-cache",) and not allow_candidate_cache):
         raise BackupError(
             400,
             "BACKUP_REFERENCE_INVALID",
@@ -49,10 +49,10 @@ def _local_path(url: str) -> tuple[Path, str] | None:
     return candidate, origin
 
 
-def _cover_reference(url: str | None, objects: dict[str, dict]) -> dict | None:
+def _cover_reference(url: str | None, objects: dict[str, dict], *, allow_candidate_cache: bool = False) -> dict | None:
     if not url:
         return None
-    local = _local_path(url)
+    local = _local_path(url, allow_candidate_cache=allow_candidate_cache)
     if local is None:
         parsed = urlsplit(url)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
@@ -97,6 +97,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
     book_data = []
     snapshots = []
     normalized = []
+    cover_snapshots = []
     snapshot_ids: dict[int, str] = {}
     for book in books:
         if book.category_id is not None and book.category_id not in category_ids:
@@ -137,6 +138,24 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
                     "cover_candidates_json": record.cover_candidates_json, "normalizer_version": record.normalizer_version,
                     "normalized_at": record.normalized_at,
                 })
+        for snapshot in sorted(book.cover_snapshots, key=lambda item: item.id):
+            snapshot_candidates = []
+            for candidate in snapshot.candidates_json or []:
+                if not isinstance(candidate, dict) or not isinstance(candidate.get("source_url"), str):
+                    raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Provider cover candidate provenance is invalid")
+                url = candidate.get("url")
+                # Package existing legacy cache bytes as a normal cover object;
+                # restore publishes them to permanent SHA-256 storage.
+                if isinstance(url, str) and url.startswith("/covers/candidate-cache/"):
+                    local = _local_path(url, allow_candidate_cache=True)
+                    cover = _cover_reference(url, objects, allow_candidate_cache=True) if local and local[0].is_file() else None
+                else:
+                    cover = _cover_reference(url, objects) if isinstance(url, str) else None
+                snapshot_candidates.append({"provider": str(candidate.get("provider") or snapshot.provider),
+                    "label": candidate.get("label"), "source_url": candidate["source_url"], "cover": cover})
+            cover_snapshots.append({"book_archive_id": book_ids[book.id], "provider": snapshot.provider,
+                "isbn_query": snapshot.isbn_query, "candidates": snapshot_candidates,
+                "fetched_at": snapshot.fetched_at, "created_at": snapshot.created_at})
     memberships = (
         db.query(models.BookSeriesMembership)
         .join(models.Book).join(models.Series)
@@ -184,6 +203,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
             "position": row.position,
         } for row in reading_orderings],
         "books": book_data, "metadata_snapshots": snapshots, "normalized_metadata_records": normalized,
+        "provider_cover_snapshots": cover_snapshots,
     })
     library_bytes = json.dumps(library.model_dump(mode="json"), separators=(",", ":"), ensure_ascii=False).encode()
     files = [ManifestFile(path="library.json", size=len(library_bytes), sha256=hashlib.sha256(library_bytes).hexdigest(), media_type="application/json")]
@@ -192,8 +212,8 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
     manifest = Manifest(
         format=FORMAT, format_version=FORMAT_VERSION, created_at=datetime.now(timezone.utc),
         application={"name": "Library App", "schema": "sqlalchemy-current"}, subject_username=username,
-        feature_flags={"preferences": True, "metadata_snapshots": True, "normalized_metadata": True, "uploaded_cover_candidates": True, "content_addressed_covers": True, "series": True},
-        record_counts=RecordCounts(books=len(books), categories=len(categories), locations=len(locations), metadata_snapshots=len(snapshots), normalized_metadata_records=len(normalized), cover_files=len(objects), series=len(series), series_memberships=len(memberships), series_orderings=len(orderings), series_reading_orderings=len(reading_orderings)),
+        feature_flags={"preferences": True, "metadata_snapshots": True, "normalized_metadata": True, "uploaded_cover_candidates": True, "content_addressed_covers": True, "provider_cover_snapshots": True, "series": True},
+        record_counts=RecordCounts(books=len(books), categories=len(categories), locations=len(locations), metadata_snapshots=len(snapshots), normalized_metadata_records=len(normalized), cover_files=len(objects), provider_cover_snapshots=len(cover_snapshots), series=len(series), series_memberships=len(memberships), series_orderings=len(orderings), series_reading_orderings=len(reading_orderings)),
         files=files,
     )
     temp = tempfile.NamedTemporaryFile(prefix="library-backup-", suffix=".lbak", delete=False)

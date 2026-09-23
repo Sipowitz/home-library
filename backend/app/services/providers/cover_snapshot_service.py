@@ -1,7 +1,7 @@
 """Independent persistence for successful external-provider cover evidence."""
 from sqlalchemy.orm import Session
 from app import models
-from app.services.covers.download import download_candidate_cover
+from app.services.covers.download import download_permanent_cover
 from app.services.providers.types import ProviderResult
 
 
@@ -12,14 +12,14 @@ def source_url_for_candidate(candidate: dict) -> str | None:
 
 
 async def cache_provider_cover_candidates(provider_result: ProviderResult) -> None:
-    """Replace provider image URLs with local cache URLs without losing provenance.
+    """Store every available provider image as a permanent object without changing the Book.
 
     Individual image failures are intentionally non-fatal: provider evidence is
-    still persisted, but an uncacheable image has no browser-displayable URL.
+    still persisted, but an unavailable image has no browser-displayable URL.
     """
     if not provider_result.success or provider_result.data is None:
         return
-    cached_candidates = []
+    preserved_candidates = []
     for candidate in provider_result.data.get("cover_candidates", []) or []:
         if not isinstance(candidate, dict):
             continue
@@ -27,21 +27,21 @@ async def cache_provider_cover_candidates(provider_result: ProviderResult) -> No
         if source_url is None:
             continue
         try:
-            cached_url = await download_candidate_cover(source_url)
+            permanent_url = await download_permanent_cover(source_url)
         except Exception:
             # Cover bytes are auxiliary provider output.  A malformed or
             # unavailable image must not turn a successful provider refresh
             # into a provider failure.
-            cached_url = None
-        cached_candidate = {
+            permanent_url = None
+        preserved_candidate = {
             "provider": provider_result.provider,
             "label": candidate.get("label"),
             "source_url": source_url,
         }
-        if cached_url is not None:
-            cached_candidate["url"] = cached_url
-        cached_candidates.append(cached_candidate)
-    provider_result.data["cover_candidates"] = cached_candidates
+        if permanent_url is not None:
+            preserved_candidate["url"] = permanent_url
+        preserved_candidates.append(preserved_candidate)
+    provider_result.data["cover_candidates"] = preserved_candidates
 
 
 def extract_cover_candidates(data: dict | None, provider: str) -> list[dict]:

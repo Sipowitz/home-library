@@ -57,7 +57,10 @@ def users(db):
 
 
 @pytest.fixture()
-def client(db):
+def client(db, monkeypatch):
+    async def no_provider_network(_result):
+        pass
+    monkeypatch.setattr(books_router, "cache_provider_cover_candidates", no_provider_network)
     def override_db():
         yield db
 
@@ -328,6 +331,32 @@ def test_from_isbn_frontend_payload_persists_owned_book_and_metadata(client, db,
     )
     assert candidates.status_code == 200
     assert candidates.json()[0]["data"]["title"] == "Provider title"
+
+
+def test_from_isbn_preserves_provider_candidate_before_snapshot(client, db, users, monkeypatch):
+    owner, _other = users
+    source_url = "https://example.test/cover.jpg"
+    permanent_url = "/covers/objects/sha256/aa/permanent.jpg"
+
+    async def preserve(provider_result):
+        assert provider_result.data["cover_candidates"][0]["url"] == source_url
+        provider_result.data["cover_candidates"] = [{
+            "provider": "google_books", "label": "thumbnail",
+            "source_url": source_url, "url": permanent_url,
+        }]
+
+    async def skip_post_create_refresh(_book_id):
+        pass
+
+    monkeypatch.setattr(books_router, "cache_provider_cover_candidates", preserve)
+    monkeypatch.setattr(books_router, "refresh_created_book_metadata", skip_post_create_refresh)
+    response = client.post("/books/from-isbn", json=isbn_payload(), headers=headers(owner))
+    assert response.status_code == 200, response.text
+    saved = db.query(models.Book).filter_by(id=response.json()["id"]).one()
+    assert saved.cover_snapshots[0].candidates_json == [{
+        "provider": "google_books", "label": "thumbnail",
+        "source_url": source_url, "url": permanent_url,
+    }]
 
 
 def test_from_isbn_schedules_post_create_refresh_for_returned_book_id(client, users, monkeypatch):
