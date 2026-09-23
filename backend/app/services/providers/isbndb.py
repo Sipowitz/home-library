@@ -11,14 +11,17 @@ ISBNDB_URL = "https://api2.isbndb.com/book"
 ISBNDB_SEARCH_URL = "https://api2.isbndb.com/books"
 
 
-def _catalog_subtitle(title: str, title_long: object) -> str | None:
-    if not isinstance(title_long, str):
+def _subtitle_from_title_long(title: object, title_long: object) -> str | None:
+    """Use only text that follows the complete explicit ISBNdb title."""
+    if not isinstance(title, str) or not title.strip() or not isinstance(title_long, str):
         return None
-    prefix = title + ":"
-    if title_long.casefold().startswith(prefix.casefold()):
-        subtitle = title_long[len(prefix):].strip()
-        return subtitle or None
-    return None
+    title_words = title.strip().split()
+    prefix = r"\s+".join(re.escape(word) for word in title_words)
+    match = re.match(rf"^\s*{prefix}\s*[:\-–—.]\s*(.*?)\s*$", title_long, flags=re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    subtitle = match.group(1).strip()
+    return subtitle if any(char.isalnum() for char in subtitle) else None
 
 
 def _catalog_year(value: object) -> int | None:
@@ -46,7 +49,7 @@ class ISBNdbProvider(BookProvider):
                 authors = book.get("authors") if isinstance(book.get("authors"), list) else []
                 date = book.get("date_published"); year = int(date[:4]) if isinstance(date, str) and date[:4].isdigit() else None
                 image = book.get("image") if isinstance(book.get("image"), str) else None
-                return {"title": book.get("title"), "subtitle": None, "author": ", ".join(a for a in authors if isinstance(a, str)) or None, "publisher": book.get("publisher"), "language": book.get("language"), "page_count": book.get("pages") if isinstance(book.get("pages"), int) else None, "year": year, "isbn": isbn, "description": book.get("synopsis"), "cover_url": image, "cover_candidates": [{"provider": self.provider_name, "label": "ISBNdb", "url": image}] if image else [], "provider": self.provider_name, "provider_book_id": book.get("isbn13") or book.get("isbn")}
+                return {"title": book.get("title"), "subtitle": _subtitle_from_title_long(book.get("title"), book.get("title_long")), "author": ", ".join(a for a in authors if isinstance(a, str)) or None, "publisher": book.get("publisher"), "language": book.get("language"), "page_count": book.get("pages") if isinstance(book.get("pages"), int) else None, "year": year, "isbn": isbn, "description": book.get("synopsis"), "cover_url": image, "cover_candidates": [{"provider": self.provider_name, "label": "ISBNdb", "url": image}] if image else [], "provider": self.provider_name, "provider_book_id": book.get("isbn13") or book.get("isbn")}
             if response and response.status_code == 404: return {} if force_refresh else None
             if response and response.status_code == 429: self.last_error = "Quota or rate limit exceeded (HTTP 429)"
             elif response: self.last_error = f"ISBNdb HTTP failure (HTTP {response.status_code})"
@@ -109,7 +112,7 @@ class ISBNdbProvider(BookProvider):
             isbns = list(dict.fromkeys(value for value in isbns if value))
             results.append({
                 "title": title_value,
-                "subtitle": _catalog_subtitle(title_value, title_long),
+                "subtitle": _subtitle_from_title_long(book.get("title"), title_long),
                 "author": ", ".join(value for value in authors if isinstance(value, str)) or None,
                 "publisher": book.get("publisher") if isinstance(book.get("publisher"), str) else None,
                 "year": _catalog_year(book.get("date_published")),

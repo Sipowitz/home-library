@@ -30,6 +30,46 @@ def test_normalizes_isbndb_book_and_ignores_image_original(monkeypatch):
     assert "signed" not in result["cover_url"]
 
 
+@pytest.mark.parametrize(
+    ("title", "title_long", "expected_title", "expected_subtitle"),
+    [
+        (
+            "The Lighthouse Stevensons",
+            "The Lighthouse Stevensons: The extraordinary story of the building of the Scottish lighthouses by the ancestors of Robert Louis Stevenson",
+            "The Lighthouse Stevensons",
+            "The extraordinary story of the building of the Scottish lighthouses by the ancestors of Robert Louis Stevenson",
+        ),
+        ("Example Book", "Example Book - A History", "Example Book", "A History"),
+        ("Example Book", "Example Book — A History", "Example Book", "A History"),
+        ("Example Book", "Example Book – A History", "Example Book", "A History"),
+        ("Example Book", "Example Book. A History", "Example Book", "A History"),
+        ("Example Book", "Example Book", "Example Book", None),
+        ("Example Book", "Completely Different Extended Title", "Example Book", None),
+        ("Example Book", None, "Example Book", None),
+        ("Example Book", "Example", "Example Book", None),
+        (None, "Example Book: A History", None, None),
+        ("London: A History", "London: A History: From Roman Times to Today", "London: A History", "From Roman Times to Today"),
+        ("  Example   Book  ", " example book :  A History ", "  Example   Book  ", "A History"),
+        ("Example Book", "Example Book: —", "Example Book", None),
+        ("Example Book", "Example Bookish: A History", "Example Book", None),
+    ],
+)
+def test_isbndb_book_subtitle_requires_complete_title_prefix(
+    monkeypatch, title, title_long, expected_title, expected_subtitle,
+):
+    payload = {"book": {"title": title, "title_long": title_long}}
+
+    async def get(self, *args, **kwargs):
+        return Response(200, payload)
+
+    monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
+    monkeypatch.setattr(httpx.AsyncClient, "get", get)
+    result = asyncio.run(provider().fetch_book_by_isbn("9780306406157"))
+
+    assert result["title"] == expected_title
+    assert result["subtitle"] == expected_subtitle
+
+
 def test_missing_key_and_not_found_are_safe(monkeypatch):
     monkeypatch.delenv("ISBNDB_API_KEY", raising=False)
     missing = provider(); assert asyncio.run(missing.fetch_book_by_isbn("9780306406157")) is None

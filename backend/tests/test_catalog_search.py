@@ -142,6 +142,40 @@ def test_isbndb_catalog_search_normalizes_one_title_scoped_request(monkeypatch):
     ]
 
 
+@pytest.mark.parametrize(
+    ("title", "title_long", "expected_title", "expected_subtitle"),
+    [
+        (
+            "The Lighthouse Stevensons",
+            "The Lighthouse Stevensons: The extraordinary story of the building of the Scottish lighthouses by the ancestors of Robert Louis Stevenson",
+            "The Lighthouse Stevensons",
+            "The extraordinary story of the building of the Scottish lighthouses by the ancestors of Robert Louis Stevenson",
+        ),
+        ("London: A History", "London: A History: From Roman Times to Today", "London: A History", "From Roman Times to Today"),
+        ("Example Book", "  eXaMpLe   bOoK — A History  ", "Example Book", "A History"),
+        (None, "Extended Title: A History", "Extended Title: A History", None),
+    ],
+)
+def test_isbndb_catalog_subtitle_uses_explicit_title_only(
+    monkeypatch, title, title_long, expected_title, expected_subtitle,
+):
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"books": [{"title": title, "title_long": title_long}]}
+
+    async def get(self, *_args, **_kwargs):
+        return Response()
+
+    monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
+    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+    result = asyncio.run(ISBNdbProvider(setting("isbndb")).search_catalog("Example", None))
+
+    assert result[0]["title"] == expected_title
+    assert result[0]["subtitle"] == expected_subtitle
+
+
 def test_isbndb_catalog_search_tolerates_missing_fields_and_missing_key(monkeypatch):
     provider = ISBNdbProvider(setting("isbndb"))
     monkeypatch.delenv("ISBNDB_API_KEY", raising=False)
