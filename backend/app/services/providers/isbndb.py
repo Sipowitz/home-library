@@ -30,8 +30,15 @@ def _catalog_year(value: object) -> int | None:
 class ISBNdbProvider(BookProvider):
     provider_name = "isbndb"
 
+    def _api_key(self) -> str | None:
+        """Prefer the server-side provider setting, retaining env fallback."""
+        stored = getattr(self.settings, "api_key", None)
+        if isinstance(stored, str) and stored.strip():
+            return stored.strip()
+        return os.getenv("ISBNDB_API_KEY") or None
+
     async def fetch_book_by_isbn(self, raw_isbn: str, *, force_refresh: bool = False):
-        key = os.getenv("ISBNDB_API_KEY")
+        key = self._api_key()
         if not key:
             self.last_error = "ISBNdb is not configured"
             return None
@@ -65,7 +72,7 @@ class ISBNdbProvider(BookProvider):
         return None
 
     async def search_catalog(self, title: str, author: str | None, *, limit: int = 50):
-        key = os.getenv("ISBNDB_API_KEY")
+        key = self._api_key()
         if not key:
             self.last_error = "ISBNdb is not configured"
             return []

@@ -329,6 +329,23 @@ def test_manager_continues_to_second_provider_after_retry_exhaustion(monkeypatch
     assert secret not in caplog.text
 
 
+def test_missing_isbndb_key_does_not_block_other_enabled_providers(monkeypatch):
+    monkeypatch.delenv("ISBNDB_API_KEY", raising=False)
+    settings = [
+        setting("isbndb", retries=0, priority=1),
+        setting("openlibrary", retries=0, priority=2),
+    ]
+    monkeypatch.setattr(manager, "get_enabled_provider_settings", lambda _db: settings)
+    FakeAsyncClient.events = [response(200, openlibrary_payload())]
+
+    results = asyncio.run(manager.fetch_all_metadata_results(object(), ISBN))
+
+    assert [item.provider for item in results] == ["isbndb", "openlibrary"]
+    assert [item.success for item in results] == [False, True]
+    assert results[0].error == "ISBNdb is not configured"
+    assert results[1].data["title"] == "OpenLibrary title"
+
+
 def test_unknown_provider_is_skipped_without_blocking_known_provider(monkeypatch):
     settings = [
         setting("unknown", retries=0, priority=1),

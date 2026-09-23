@@ -18,6 +18,7 @@ from app import models
 from app.services import maintenance_jobs
 from app.services.providers import manager, refresh_cover_service, cover_snapshot_service
 from app.services.providers.types import ProviderResult
+from app.services.provider_settings_service import ensure_default_provider_settings
 
 
 @pytest.fixture()
@@ -131,3 +132,48 @@ def test_cover_manager_uses_only_enabled_providers_in_priority_order(monkeypatch
     results = asyncio.run(manager.fetch_all_cover_results(object(), "9780306406157"))
     assert [item.provider for item in results] == ["google_books", "openlibrary"]
     assert called == [("google_books", "9780306406157"), ("openlibrary", "9780306406157")]
+
+
+def test_rescan_uses_stored_isbndb_key_without_changing_canonical_cover(db, monkeypatch):
+    session, session_factory = db
+    owner = models.User(username="stored-key-owner", email="stored-key@example.test", hashed_password="x")
+    session.add(owner); session.flush()
+    book = models.Book(owner_id=owner.id, title="Book", author="Author", isbn="9780306406157",
+        cover_url="/covers/objects/sha256/selected.jpg")
+    session.add(book)
+    session.add(models.ProviderSetting(provider_name="isbndb", enabled=True, priority=1,
+        api_key="stored-rescan-secret", timeout_seconds=5, max_retries=0))
+    session.commit()
+    ensure_default_provider_settings(session)
+    session.query(models.ProviderSetting).filter(models.ProviderSetting.provider_name != "isbndb").update({"enabled": False})
+    session.commit()
+    monkeypatch.setenv("ISBNDB_API_KEY", "environment-rescan-secret")
+    seen = []
+
+    class Response:
+        status_code = 200
+        def json(self):
+            return {"book": {"title": "Book", "image": "https://example.test/image",
+                "image_original": "https://example.test/original"}}
+
+    async def get(_client, _url, **kwargs):
+        seen.append(kwargs["headers"])
+        return Response()
+
+    async def store(source):
+        return f"/covers/objects/sha256/{source.rsplit('/', 1)[-1]}.jpg"
+
+    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+    monkeypatch.setattr(cover_snapshot_service, "download_permanent_cover", store)
+    monkeypatch.setattr(maintenance_jobs, "SessionLocal", session_factory)
+
+    job = maintenance_jobs.create_job(session, owner.id, "cover_rescan")
+    asyncio.run(maintenance_jobs.run_job(job.id))
+    session.expire_all()
+    snapshots = session.query(models.ProviderCoverSnapshot).filter_by(book_id=book.id, provider="isbndb").all()
+    assert seen == [{"Authorization": "stored-rescan-secret"}]
+    assert len(snapshots) == 1
+    assert [candidate["source_url"] for candidate in snapshots[0].candidates_json] == [
+        "https://example.test/image", "https://example.test/original"]
+    assert all(candidate["url"].startswith("/covers/objects/sha256/") for candidate in snapshots[0].candidates_json)
+    assert book.cover_url == "/covers/objects/sha256/selected.jpg"

@@ -181,8 +181,14 @@ export function ProviderSettingsPanel() {
                 await updateProvider(provider.id, { api_key: value });
                 setApiKeyValues((prev) => ({ ...prev, [provider.id]: "" }));
               }}>Save key</ActionButton>
-              {provider.has_api_key && <ActionButton variant="danger" size="sm" onClick={() => updateProvider(provider.id, { clear_api_key: true })}>Remove key</ActionButton>}
+              {provider.has_api_key && <ActionButton variant="danger" size="sm" onClick={async () => {
+                await updateProvider(provider.id, { clear_api_key: true });
+                setApiKeyValues((prev) => ({ ...prev, [provider.id]: "" }));
+              }}>Remove key</ActionButton>}
             </div>
+            {provider.provider_name === "isbndb" && <p className="mt-2 text-sm text-text-muted">
+              {provider.has_api_key ? "API key configured" : "No stored API key configured"}
+            </p>}
           </div>
         </div>
       ))}

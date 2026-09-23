@@ -70,6 +70,7 @@ def test_complete_provider_response_survives_without_changing_comparison(db, boo
     else:
         payload = {"book": {"title": "The Lighthouse Stevensons", "title_long": "The Lighthouse Stevensons: The extraordinary story", "authors": ["Author"], "binding": "Hardcover", "subjects": ["Lighthouses"], "dimensions_structured": {"height": 9}, "other_isbns": ["123"], "image_original": "https://example.test/original", "unknown": {"nested": [1, {"kept": True}]}}, "unknown_root": "kept"}
         provider = ISBNdbProvider(setting)
+        setting.api_key = "isbn-secret"
         monkeypatch.setenv("ISBNDB_API_KEY", "isbn-secret")
         seen = {}
         class Response:
