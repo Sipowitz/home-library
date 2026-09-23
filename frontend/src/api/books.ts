@@ -122,6 +122,8 @@ export type CoverCandidate = {
   url: string;
 };
 
+export type PromotedCoverCandidate = CoverCandidate;
+
 export type ReviewIntent = {
   mark_metadata_reviewed?: boolean;
   mark_cover_reviewed?: boolean;
@@ -272,7 +274,7 @@ export async function refreshCovers(bookId: number): Promise<CoverRefreshRespons
 export async function selectCoverCandidate(
   bookId: number,
   candidate: CoverCandidate,
-): Promise<Book> {
+): Promise<PromotedCoverCandidate> {
   const res = await client.post(`/books/${bookId}/select-cover-candidate`, candidate);
   return res.data;
 }

@@ -44,6 +44,8 @@ type Params = {
 
   reconcileDeletedBook?: (id: number) => void;
 
+  reconcileSavedBook?: (book: Book) => void;
+
   reconcileGroupedBooks?: () => void;
 };
 
@@ -59,6 +61,7 @@ export function useBookActions({
   setEditing,
   editData,
   reconcileDeletedBook,
+  reconcileSavedBook,
   reconcileGroupedBooks,
 }: Params) {
   const [isFetching, setIsFetching] = useState(false);
@@ -390,6 +393,8 @@ export function useBookActions({
     // -------------------
 
     const updated = await saveBook(payload as Book, reviewIntent);
+
+    reconcileSavedBook?.(updated);
 
     await Promise.all([reloadCategories(), reloadLocations()]);
 

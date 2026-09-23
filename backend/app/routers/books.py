@@ -359,7 +359,7 @@ async def get_cover_candidates(
 
 @router.post(
     "/{book_id}/select-cover-candidate",
-    response_model=schemas.BookResponse,
+    response_model=schemas.PromotedCoverCandidateResponse,
 )
 async def select_cover_candidate(
     book_id: int,
@@ -367,7 +367,7 @@ async def select_cover_candidate(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Promote a current, locally cached provider candidate to the selected cover."""
+    """Promote a current provider candidate without changing the Book draft."""
     book = book_service.get_book(db, current_user.id, book_id)
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
@@ -394,16 +394,11 @@ async def select_cover_candidate(
     except CoverUploadError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
-    book.cover_url = stored.url
-    try:
-        db.commit()
-        db.refresh(book)
-    except Exception as exc:
-        db.rollback()
-        logger.exception("Failed to select provider cover candidate for book %s", book.id)
-        raise HTTPException(status_code=500, detail="Failed to save selected cover") from exc
-
-    return book
+    return {
+        "provider": selection.provider,
+        "label": selection.label,
+        "url": stored.url,
+    }
 
 
 @router.post(

@@ -11,7 +11,7 @@ vi.mock("./context/CategoryContext", () => ({ useCategories: () => ({ categories
 vi.mock("./context/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: true, login: vi.fn(), logout: vi.fn() }) }));
 vi.mock("./hooks/usePreferences", () => ({ usePreferences: () => ({ preferences: { library_name: "Library", library_view_mode: "grid", show_collections_in_library: true, root_collection_display_mode: "collections_only" }, updatePreferences: vi.fn() }) }));
 vi.mock("./hooks/useSearch", () => ({ useSearch: () => ({ searchInput: "", setSearchInput: vi.fn() }) }));
-vi.mock("./hooks/useBookActions", () => ({ useBookActions: (params: any) => ({ isFetching: false, handleSearch: vi.fn(), handleAddBook: vi.fn(), handleQuickAdd: vi.fn(), handleAddAndReview: vi.fn(), handleDelete: async (id: number) => { await params.removeBook(id); params.reconcileDeletedBook(id); params.setSelectedBook(null); }, handleSave: vi.fn(), resetAddBook: vi.fn(), handleAddBookISBNChange: vi.fn() }) }));
+vi.mock("./hooks/useBookActions", () => ({ useBookActions: (params: any) => ({ isFetching: false, handleSearch: vi.fn(), handleAddBook: vi.fn(), handleQuickAdd: vi.fn(), handleAddAndReview: vi.fn(), handleDelete: async (id: number) => { await params.removeBook(id); params.reconcileDeletedBook(id); params.setSelectedBook(null); }, handleSave: async () => { const updated = await params.saveBook(params.editData); params.reconcileSavedBook?.(updated); params.setSelectedBook(updated); params.setEditData(updated); params.setEditing(false); params.reconcileGroupedBooks?.(); }, resetAddBook: vi.fn(), handleAddBookISBNChange: vi.fn() }) }));
 vi.mock("./api/books", () => ({ getBook: api.getBook, getGroupedBooks: api.grouped }));
 vi.mock("./api/auth", () => ({ login: vi.fn() }));
 vi.mock("react-hot-toast", () => ({ default: feedback }));
@@ -20,21 +20,24 @@ vi.mock("./components/books/views/BookGridView", () => ({ BookGridView: ({ items
   ...(books ?? []).map((book: any) => ({ kind: "book", book })),
 ]).map((item: any) => item.kind === "collection"
   ? <button key={`collection-${item.collection.id}`} onClick={() => onSelectCollection?.(item.collection)}>{item.collection.name}</button>
-  : <button key={`book-${item.book.id}`} onClick={() => suggestedBookIds?.has(item.book.id) ? onSuggestedSelect?.(item.book, suggestedLocationsByBookId?.get(item.book.id)) : onSelect?.(item.book)}>{item.book.title}</button>)}</div> }));
+  : <button key={`book-${item.book.id}`} data-cover={item.book.cover_url ?? ""} onClick={() => suggestedBookIds?.has(item.book.id) ? onSuggestedSelect?.(item.book, suggestedLocationsByBookId?.get(item.book.id)) : onSelect?.(item.book)}>{item.book.title}</button>)}</div> }));
 vi.mock("./components/layout/Header", () => ({ Header: () => null }));
 vi.mock("./components/layout/TopPanels", () => ({ TopPanels: () => null }));
 vi.mock("./components/search/SearchBar", () => ({ SearchBar: () => null }));
 vi.mock("./components/books/views/ViewModeSwitcher", () => ({ ViewModeSwitcher: () => null }));
 vi.mock("./components/settings/SettingsModal", () => ({ SettingsModal: () => null }));
-vi.mock("./components/books/BookPanel", () => ({ BookPanel: ({ book, openedInCollection, editing, editData, setEditing, setEditData, onClose, onDelete }: any) => <section data-testid="book-panel"><span data-testid="panel-title">{book.title}</span><span data-testid="opened-in-collection">{String(openedInCollection)}</span><span data-testid="panel-publisher">{book.publisher}</span><span data-testid="panel-location">{book.location_id}</span><span data-testid="panel-category">{book.category_id}</span><button onClick={() => { setEditData(book); setEditing(true); }}>Edit selected book</button><button onClick={onClose}>Close selected book</button><button onClick={() => void onDelete(book.id)}>Delete selected book</button>{editing && <><span data-testid="edit-publisher">{editData?.publisher}</span><span data-testid="edit-year">{editData?.year}</span><span data-testid="edit-language">{editData?.language}</span><span data-testid="edit-pages">{editData?.page_count}</span><span data-testid="edit-isbn">{editData?.isbn}</span><span data-testid="edit-description">{editData?.description}</span><span data-testid="edit-location">{editData?.location_id}</span><span data-testid="edit-category">{editData?.category_id}</span></>}</section> }));
+vi.mock("./components/books/BookPanel", () => ({ BookPanel: ({ book, openedInCollection, editing, editData, setEditing, setEditData, onClose, onDelete, onSave }: any) => <section data-testid="book-panel"><span data-testid="panel-title">{book.title}</span><span data-testid="opened-in-collection">{String(openedInCollection)}</span><span data-testid="panel-publisher">{book.publisher}</span><span data-testid="panel-location">{book.location_id}</span><span data-testid="panel-category">{book.category_id}</span><button onClick={() => { setEditData(book); setEditing(true); }}>Edit selected book</button><button onClick={onClose}>Close selected book</button><button onClick={() => void onDelete(book.id)}>Delete selected book</button>{editing && <><button onClick={() => void onSave()}>Save selected book</button><span data-testid="edit-publisher">{editData?.publisher}</span><span data-testid="edit-year">{editData?.year}</span><span data-testid="edit-language">{editData?.language}</span><span data-testid="edit-pages">{editData?.page_count}</span><span data-testid="edit-isbn">{editData?.isbn}</span><span data-testid="edit-description">{editData?.description}</span><span data-testid="edit-location">{editData?.location_id}</span><span data-testid="edit-category">{editData?.category_id}</span></>}</section> }));
 vi.mock("./components/settings/maintenance/MaintenanceReviewSession", () => ({ MaintenanceReviewSession: () => null }));
 vi.mock("./components/books/AddBookDialog", () => ({ AddBookDialog: () => null }));
 vi.mock("./components/books/CheckLibraryDialog", () => ({ CheckLibraryDialog: () => null }));
 
-import App from "./App";
+import App, { reconcileCollectionBrowseBook } from "./App";
+import type { CollectionBrowseBook, CollectionBrowseResult } from "./api/collections";
+import type { Book } from "./types/book";
+import type { Series } from "./types/series";
 
 function deferred<T>() { let resolve!: (value: T) => void; return { promise: new Promise<T>((done) => { resolve = done; }), resolve }; }
-const root = { id: 1, name: "Root", node_type: "series", author: null, description: null, cover_url: null, parent_id: null };
+const root: Series = { id: 1, owner_id: 1, name: "Root", node_type: "series", author: null, description: null, cover_url: null, parent_id: null, created_at: "2024-01-01T00:00:00Z", updated_at: "2024-01-01T00:00:00Z" };
 const nested = { ...root, id: 2, name: "Nested", parent_id: 1 };
 
 beforeEach(() => {
@@ -46,6 +49,61 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+});
+
+it("reconciles every retained book projection without changing browse structure", () => {
+  const originalBook: CollectionBrowseBook = { id: 90, title: "Old title", author: "Old author", cover_url: "/covers/old.jpg", read: false, publication_order: 2, chronological_order: 4, reading_order: 3 };
+  const untouchedBook: CollectionBrowseBook = { id: 91, title: "Untouched", author: "Author", cover_url: "/covers/keep.jpg", read: false, publication_order: 5, chronological_order: 6, reading_order: 7 };
+  const collection = { ...root, id: 93, name: "Unchanged collection" };
+  const browse: CollectionBrowseResult = {
+    collection: null,
+    items: [{ kind: "collection" as const, collection }, { kind: "book" as const, book: originalBook }, { kind: "book" as const, book: untouchedBook }],
+    collections: [collection],
+    books: [originalBook, untouchedBook],
+    total: 42,
+  };
+  const updated: Book = { id: originalBook.id, title: "New title", author: "New author", year: 2026, cover_url: "/covers/objects/sha256/new-cover.jpg" };
+  const merged = { ...originalBook, ...updated };
+
+  const reconciled = reconcileCollectionBrowseBook(browse, updated);
+
+  expect(reconciled.books).toEqual([merged, untouchedBook]);
+  expect(reconciled.items).toEqual([{ kind: "collection", collection }, { kind: "book", book: merged }, { kind: "book", book: untouchedBook }]);
+  expect(reconciled.collections).toBe(browse.collections);
+  expect(reconciled.total).toBe(42);
+});
+
+it("reconciles a saved book in the current collection browse and retained root snapshot without refetching", async () => {
+  api.root.mockReset(); api.collection.mockReset(); api.getBook.mockReset(); api.saveBook.mockReset();
+  const stale: CollectionBrowseBook = { id: 94, title: "Old title", author: "Old author", cover_url: "/covers/old.jpg", read: false, publication_order: 1, chronological_order: 1, reading_order: 1 };
+  const updated: Book = { id: stale.id, title: "New title", author: "New author", year: 2026, cover_url: "/covers/objects/sha256/new-cover.jpg" };
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "collection", collection: root }, { kind: "book", book: stale }], collections: [root], books: [stale], total: 20 });
+  api.collection.mockResolvedValue({ collection: root, items: [], collections: [], books: [stale], total: 20 });
+  api.getBook.mockResolvedValue(stale);
+  api.saveBook.mockResolvedValue(updated);
+
+  render(<App />);
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Root"));
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Old title"));
+  await act(async () => undefined);
+  fireEvent.click(screen.getByText("Edit selected book"));
+  fireEvent.click(screen.getByText("Save selected book"));
+  await act(async () => undefined);
+
+  const current = screen.getByTestId("grid").querySelector("button")!;
+  expect(current.getAttribute("data-cover")).toBe(updated.cover_url);
+  expect(screen.queryByText("Old title")).toBeNull();
+  expect(api.root).toHaveBeenCalledTimes(1);
+  expect(api.collection).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(screen.getByRole("button", { name: "Library" }));
+  const restored = Array.from(screen.getByTestId("grid").querySelectorAll("button"))
+    .find((button) => button.textContent === "New title")!;
+  expect(restored.getAttribute("data-cover")).toBe(updated.cover_url);
+  expect(api.root).toHaveBeenCalledTimes(1);
+  expect(api.collection).toHaveBeenCalledTimes(1);
 });
 
 it("keeps the source collection coherent until destination data is ready and ignores stale navigation", async () => {

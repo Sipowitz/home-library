@@ -74,6 +74,24 @@ it("refreshes grouped results after a successful edit so location and author cha
   await waitFor(() => expect(reconcileGroupedBooks).toHaveBeenCalledTimes(1));
 });
 
+it("reconciles the authoritative saved book into retained collection browse state", async () => {
+  const reconcileSavedBook = vi.fn();
+  const original = { id: 18, title: "Before", author: "Author", read: false, location_id: null, category_id: null, isbn: "", description: "", cover_url: "/covers/old.jpg", date_added: "2024-01-01" };
+  const updated = { ...original, title: "After", cover_url: "/covers/objects/sha256/new.jpg", year: 2026 };
+  function Harness() {
+    const { handleSave } = useBookActions({
+      newBook: {}, setNewBook: vi.fn(), addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(),
+      saveBook: vi.fn().mockResolvedValue(updated), setSelectedBook: vi.fn(), setEditData: vi.fn(), setEditing: vi.fn(),
+      editData: original, reconcileSavedBook,
+    });
+    return <button onClick={() => void handleSave()}>Save collection book</button>;
+  }
+
+  render(<Harness />);
+  fireEvent.click(screen.getByRole("button", { name: "Save collection book" }));
+  await waitFor(() => expect(reconcileSavedBook).toHaveBeenCalledWith(updated));
+});
+
 it("adds an ISBN-bearing catalog candidate directly through normal creation", async () => {
   const addBook = vi.fn().mockResolvedValue({ id: 42, title: "Catalog book", author: "Author", isbn: "9780306406157" });
   const addBookFromISBN = vi.fn();

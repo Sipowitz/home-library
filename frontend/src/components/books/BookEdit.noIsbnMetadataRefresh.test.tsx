@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createRef } from "react";
+import { createRef, useState } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { Book } from "../../types/book";
 
 const api = vi.hoisted(() => ({
   getBook: vi.fn(),
@@ -25,9 +26,12 @@ vi.mock("../../api/books", () => ({
 }));
 vi.mock("react-hot-toast", () => ({ default: toast }));
 vi.mock("./CoverBrowserModal", () => ({
-  CoverBrowserModal: ({ covers }: { covers: Array<{ provider: string; label: string; url: string }> }) => {
+  CoverBrowserModal: ({ covers, onSelectCover }: {
+    covers: Array<{ provider: string; label: string; url: string }>;
+    onSelectCover?: (cover: { provider: string; label: string; url: string }) => Promise<void> | void;
+  }) => {
     coverBrowser.covers = covers;
-    return null;
+    return <button onClick={() => void onSelectCover?.({ provider: "google_books", label: "large", url: "/covers/candidate-cache/aa/candidate.jpg" })}>Select provider cover</button>;
   },
 }));
 
@@ -92,6 +96,28 @@ it("keeps the ISBN-bearing refresh path unchanged", async () => {
 
   await waitFor(() => expect(api.refreshMetadata).toHaveBeenCalledWith(isbnBook.id));
   expect(api.searchCatalogBooks).not.toHaveBeenCalled();
+});
+
+it("uses a promoted provider cover as a Book Edit draft value", async () => {
+  const permanentUrl = "/covers/objects/sha256/aa/permanent.jpg";
+  api.selectCoverCandidate.mockResolvedValue({ provider: "google_books", label: "large", url: permanentUrl });
+
+  function DraftHarness() {
+    const [draft, setDraft] = useState<Book>({ ...noIsbnBook, cover_url: "/covers/old.jpg" });
+    return <>
+      <BookEdit editData={draft} setEditData={setDraft} categories={[]} locations={[]} textareaRef={createRef<HTMLTextAreaElement>()} onSave={vi.fn()} onDelete={vi.fn()} />
+      <output data-testid="draft-cover-url">{draft.cover_url}</output>
+    </>;
+  }
+
+  render(<DraftHarness />);
+  fireEvent.click(screen.getByRole("button", { name: "Select provider cover" }));
+
+  await waitFor(() => expect(api.selectCoverCandidate).toHaveBeenCalledWith(noIsbnBook.id, {
+    provider: "google_books", label: "large", url: "/covers/candidate-cache/aa/candidate.jpg",
+  }));
+  expect(screen.getByTestId("draft-cover-url").textContent).toBe(permanentUrl);
+  expect(screen.getByAltText("Cover of The Test Book").getAttribute("src")).toBe(permanentUrl);
 });
 
 it("searches the existing title and author and requires an explicit edition selection", async () => {

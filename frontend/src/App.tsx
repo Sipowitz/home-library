@@ -35,8 +35,32 @@ import { GroupedLocationBooks } from "./components/books/views/GroupedLocationBo
 import { SuggestedLocationAssignmentDialog } from "./components/books/SuggestedLocationAssignmentDialog";
 import type { ReviewTarget } from "./components/settings/maintenance/MaintenanceSettings";
 import type { ReviewIntent } from "./api/books";
-import { browseCollection, browseRootCollections, type CollectionBrowseResult } from "./api/collections";
+import { browseCollection, browseRootCollections, type CollectionBrowseBook, type CollectionBrowseResult } from "./api/collections";
 import type { Series } from "./types/series";
+
+/**
+ * The collection browser is a separate, retained projection of books. Keep its
+ * loaded pages authoritative after an edit without changing their membership,
+ * order, or pagination.
+ */
+export function reconcileCollectionBrowseBook(
+  browse: CollectionBrowseResult,
+  updatedBook: Book,
+): CollectionBrowseResult {
+  const reconcileBook = (book: CollectionBrowseBook): CollectionBrowseBook => (
+    book.id === updatedBook.id ? { ...book, ...updatedBook } : book
+  );
+
+  return {
+    ...browse,
+    books: browse.books.map(reconcileBook),
+    items: browse.items.map((item) => (
+      item.kind === "book" && item.book.id === updatedBook.id
+        ? { ...item, book: reconcileBook(item.book) }
+        : item
+    )),
+  };
+}
 
 export default function App() {
   const {
@@ -154,6 +178,20 @@ export default function App() {
     }
   }, []);
 
+  const reconcileSavedBook = useCallback((updatedBook: Book) => {
+    setCollectionBrowse((current) => (
+      current ? reconcileCollectionBrowseBook(current, updatedBook) : current
+    ));
+
+    const snapshot = rootCollectionSnapshotRef.current;
+    if (snapshot) {
+      rootCollectionSnapshotRef.current = {
+        ...snapshot,
+        browse: reconcileCollectionBrowseBook(snapshot.browse, updatedBook),
+      };
+    }
+  }, []);
+
   const {
     isFetching,
     draftOrigin,
@@ -179,6 +217,7 @@ export default function App() {
       setEditing,
       editData,
       reconcileDeletedBook,
+      reconcileSavedBook,
       reconcileGroupedBooks: refreshGroupedBooks,
     });
 

@@ -572,7 +572,7 @@ def test_permanent_cover_storage_is_content_addressed_and_valid(context):
     assert image_validation.validate_image(first.path) == ("image/webp", "webp")
 
 
-def test_selecting_cached_provider_candidate_promotes_permanent_cover_and_preserves_provenance(context):
+def test_selecting_cached_provider_candidate_promotes_permanent_cover_without_changing_book(context):
     client, db, book, _other_book, headers, covers_root = context
     source_url = "https://provider.example/covers/one.jpg"
     cached, snapshot = add_cached_provider_candidate(db, book, source_url, image_bytes("PNG"))
@@ -582,16 +582,16 @@ def test_selecting_cached_provider_candidate_promotes_permanent_cover_and_preser
     second = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
 
     assert first.status_code == second.status_code == 200
-    permanent_url = first.json()["cover_url"]
+    permanent_url = first.json()["url"]
     assert permanent_url.startswith("/covers/objects/sha256/")
-    assert second.json()["cover_url"] == permanent_url
+    assert second.json() == {"provider": "google_books", "label": "large", "url": permanent_url}
     permanent = covers_root / permanent_url.removeprefix("/covers/")
     assert permanent.is_file()
     assert permanent.read_bytes() == (covers_root / cached.url.removeprefix("/covers/")).read_bytes()
     assert len(list((covers_root / "objects" / "sha256").rglob("*.*"))) == 1
     db.refresh(book)
     db.refresh(snapshot)
-    assert book.cover_url == permanent_url
+    assert book.cover_url is None
     assert snapshot.candidates_json == [{
         "provider": "google_books", "label": "large", "source_url": source_url, "url": cached.url,
     }]
@@ -638,7 +638,7 @@ def test_missing_or_invalid_cached_candidate_fails_without_replacing_existing_co
     assert snapshot.candidates_json[0]["url"] == cached.url
 
 
-def test_cover_candidate_selection_db_failure_keeps_existing_cover(context, monkeypatch):
+def test_cover_candidate_promotion_does_not_need_a_book_metadata_commit(context, monkeypatch):
     client, db, book, _other_book, headers, _covers_root = context
     book.cover_url = "/covers/uploaded/existing.jpg"
     cached, _snapshot = add_cached_provider_candidate(
@@ -652,7 +652,7 @@ def test_cover_candidate_selection_db_failure_keeps_existing_cover(context, monk
     monkeypatch.setattr(db, "commit", fail_commit)
     response = client.post(f"/books/{book.id}/select-cover-candidate", headers=headers, json=selection)
 
-    assert response.status_code == 500
+    assert response.status_code == 200
     db.refresh(book)
     assert book.cover_url == "/covers/uploaded/existing.jpg"
 

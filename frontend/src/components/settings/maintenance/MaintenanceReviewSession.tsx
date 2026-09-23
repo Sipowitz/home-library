@@ -194,7 +194,8 @@ export function MaintenanceReviewSession({
           }))}
           onSelectCover={async (cover) => {
             if (cover.url.startsWith("/covers/candidate-cache/")) {
-              setDraft(await selectCoverCandidate(draft.id, cover));
+              const promoted = await selectCoverCandidate(draft.id, cover);
+              setDraft((current) => ({ ...current, cover_url: promoted.url }));
               return;
             }
             setDraft((current) => ({ ...current, cover_url: cover.url }));

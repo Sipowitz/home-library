@@ -647,8 +647,8 @@ export function BookEdit({
         }}
         onSelectCover={async (cover) => {
           if (cover.url.startsWith("/covers/candidate-cache/")) {
-            const selected = await selectCoverCandidate(editData!.id, cover);
-            setEditData(selected);
+            const promoted = await selectCoverCandidate(editData!.id, cover);
+            setEditData({ ...editData!, cover_url: promoted.url });
             return;
           }
           setEditData({

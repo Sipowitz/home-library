@@ -377,6 +377,9 @@ class CatalogSearchCandidate(BaseModel):
     author: Optional[str] = None
     publisher: Optional[str] = None
     year: Optional[int] = None
+    language: Optional[str] = None
+    page_count: Optional[int] = None
+    description: Optional[str] = None
     isbn: Optional[str] = None
     cover_url: Optional[str] = None
     sources: List[str] = Field(default_factory=list)
@@ -565,6 +568,13 @@ class CoverCandidateSelection(BaseModel):
     provider: str = Field(min_length=1, max_length=64)
     label: Optional[str] = Field(default=None, max_length=100)
     url: str = Field(min_length=1, max_length=2048)
+
+
+class PromotedCoverCandidateResponse(BaseModel):
+    """A validated provider candidate copied into permanent cover storage."""
+    provider: str
+    label: Optional[str] = None
+    url: str
 
 
 class MetadataRefreshRequest(BaseModel):
