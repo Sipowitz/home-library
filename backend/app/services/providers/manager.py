@@ -74,12 +74,13 @@ async def _fetch_provider_result(
                 * 1000
             ),
             data=result,
+            raw_response=getattr(provider, "raw_response", None) if evidence_kind == "metadata" and result is not None else None,
             error=getattr(provider, "last_error", None),
         )
 
         logger.info(
             "Provider result: %s",
-            provider_result,
+            provider_result.model_dump(),
         )
 
         return provider_result

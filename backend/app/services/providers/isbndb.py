@@ -45,6 +45,7 @@ class ISBNdbProvider(BookProvider):
                 self.last_error = f"Transport error ({type(exc).__name__})"; response = None
             if response and response.status_code == 200:
                 payload = response.json(); book = payload.get("book") if isinstance(payload, dict) else None
+                if isinstance(payload, dict): self.raw_response = payload
                 if not isinstance(book, dict): self.last_error = "Malformed ISBNdb response"; return None
                 authors = book.get("authors") if isinstance(book.get("authors"), list) else []
                 date = book.get("date_published"); year = int(date[:4]) if isinstance(date, str) and date[:4].isdigit() else None

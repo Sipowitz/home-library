@@ -200,6 +200,7 @@ class GoogleBooksProvider(BookProvider):
 
         if data is None:
             return None
+        self.raw_response = data
         if not isinstance(data.get("items"), list) or not data["items"]:
             self.last_error = "No Google Books results for ISBN"
             return {} if force_refresh else None

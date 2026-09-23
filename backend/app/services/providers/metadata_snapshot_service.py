@@ -3,6 +3,7 @@ from app import models
 from app.services.providers.types import ProviderResult
 
 NORMALIZER_VERSION = "v2"
+PROVIDER_EVIDENCE_KEY = "_provider_evidence"
 METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description")
 
 def metadata_projection(data: dict) -> dict:
@@ -13,9 +14,12 @@ def persist_provider_result(db: Session, book_id: int, provider_result: Provider
     if not provider_result.success or provider_result.data is None:
         return None
     data = metadata_projection(provider_result.data)
+    raw_json = dict(data)
+    if provider_result.raw_response is not None:
+        raw_json[PROVIDER_EVIDENCE_KEY] = {"schema_version": 1, "raw_response": provider_result.raw_response}
     snapshot = models.ProviderMetadataSnapshot(book_id=book_id, provider=provider_result.provider,
         provider_book_id=provider_result.data.get("provider_book_id"), isbn_query=provider_result.isbn,
-        raw_json=data, http_status=200, normalizer_version=NORMALIZER_VERSION)
+        raw_json=raw_json, http_status=200, normalizer_version=NORMALIZER_VERSION)
     db.add(snapshot)
     db.flush()
     normalized = models.NormalizedMetadataRecord(snapshot_id=snapshot.id, provider=provider_result.provider,

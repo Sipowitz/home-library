@@ -17,6 +17,8 @@ class BookProvider(ABC):
     ):
         self.settings = settings
         self.last_error: str | None = None
+        # Successful response body for the current metadata lookup only.
+        self.raw_response: dict | None = None
 
     def record_request_failure(self, detail: str) -> None:
         self.last_error = detail
@@ -65,6 +67,7 @@ class BookProvider(ABC):
         pass
 
     async def refresh_metadata(self, isbn: str) -> dict | None:
+        self.raw_response = None
         data = await self.fetch_book_by_isbn(isbn, force_refresh=True)
         if data is None:
             return None

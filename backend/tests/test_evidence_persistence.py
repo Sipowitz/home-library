@@ -1,5 +1,6 @@
 import asyncio
 import os
+from types import SimpleNamespace
 from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import create_engine
@@ -17,6 +18,11 @@ from app.services.providers import cover_snapshot_service
 from app.services.providers.cover_snapshot_service import persist_cover_result
 from app.services.providers.evidence_service import displayable_cover_candidates, latest_cover_evidence, update_cover_evidence_signature, update_metadata_evidence_signature
 from app.services.providers.metadata_snapshot_service import persist_provider_result
+from app.services.providers.manager import _fetch_provider_result
+from app.services.providers.google_books import GoogleBooksProvider
+from app.services.providers.openlibrary import OpenLibraryProvider
+from app.services.providers.isbndb import ISBNdbProvider
+from app.services.providers.snapshot_query_service import get_provider_results_for_book
 from app.services.providers.types import ProviderResult
 
 @pytest.fixture()
@@ -38,6 +44,92 @@ def book(db):
 
 def result(data, success=True, provider="google_books", isbn="9780306406157"):
     return ProviderResult(provider=provider, success=success, isbn=isbn, duration_ms=1, data=data if success else None, error=None if success else "failed")
+
+
+@pytest.mark.parametrize("provider_name", ["google_books", "openlibrary", "isbndb"])
+def test_complete_provider_response_survives_without_changing_comparison(db, book, monkeypatch, provider_name):
+    isbn = book.isbn
+    setting = SimpleNamespace(provider_name=provider_name, api_key="google-secret", timeout_seconds=5, max_retries=0)
+    if provider_name == "google_books":
+        payload = {"items": [
+            {"id": "chosen", "volumeInfo": {"title": "The Lighthouse Stevensons", "authors": ["Author"], "industryIdentifiers": [{"type": "ISBN_13", "identifier": isbn}]}},
+            {"id": "other", "unknown": {"nested": [1, {"kept": True}]}}
+        ], "totalItems": 2, "unknown_root": "kept"}
+        provider = GoogleBooksProvider(setting)
+        async def fetch(_isbn): return payload
+        monkeypatch.setattr(provider, "fetch_from_google", fetch)
+    elif provider_name == "openlibrary":
+        payload = {"docs": [
+            {"title": "The Lighthouse Stevensons", "author_name": ["Author"], "subjects": ["Lighthouses"]},
+            {"title": "Another edition", "unknown": {"nested": [1, {"kept": True}]}}
+        ], "numFound": 2, "unknown_root": "kept"}
+        provider = OpenLibraryProvider(setting)
+        async def request(_url, *, params): return payload
+        monkeypatch.setattr(provider, "request_json", request)
+    else:
+        payload = {"book": {"title": "The Lighthouse Stevensons", "title_long": "The Lighthouse Stevensons: The extraordinary story", "authors": ["Author"], "binding": "Hardcover", "subjects": ["Lighthouses"], "dimensions_structured": {"height": 9}, "other_isbns": ["123"], "image_original": "https://example.test/original", "unknown": {"nested": [1, {"kept": True}]}}, "unknown_root": "kept"}
+        provider = ISBNdbProvider(setting)
+        monkeypatch.setenv("ISBNDB_API_KEY", "isbn-secret")
+        seen = {}
+        class Response:
+            status_code = 200
+            def json(self): return payload
+        async def get(_self, _url, *, headers):
+            seen.update(headers)
+            return Response()
+        monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+
+    fetched = asyncio.run(_fetch_provider_result(setting, provider, isbn, evidence_kind="metadata"))
+    assert fetched.success
+    assert "raw_response" not in fetched.model_dump()
+    snapshot = persist_provider_result(db, book.id, fetched)
+    db.commit()
+    assert snapshot.raw_json["_provider_evidence"] == {"schema_version": 1, "raw_response": payload}
+    assert set(snapshot.raw_json) == {"title", "subtitle", "author", "publisher", "page_count", "language", "year", "description", "_provider_evidence"}
+    assert snapshot.raw_json["title"] == "The Lighthouse Stevensons"
+    assert snapshot.raw_json["author"] == "Author"
+    record = snapshot.normalized_records[0]
+    assert record.title == "The Lighthouse Stevensons"
+    assert record.authors_json == ["Author"]
+    assert record.subjects_json == [] and record.cover_candidates_json == []
+    candidate = get_provider_results_for_book(db, book.id)[0]
+    assert "_provider_evidence" not in candidate.data
+    assert candidate.data["title"] == "The Lighthouse Stevensons"
+    assert "google-secret" not in str(snapshot.raw_json)
+    assert "isbn-secret" not in str(snapshot.raw_json)
+    if provider_name == "isbndb":
+        assert seen == {"Authorization": "isbn-secret"}
+        assert snapshot.raw_json["subtitle"] == "The extraordinary story"
+        assert candidate.data["subtitle"] == "The extraordinary story"
+
+
+def test_old_and_historical_provider_snapshots_remain_isolated(db, book):
+    old = persist_provider_result(db, book.id, result({"title": "Old"}))
+    db.commit()
+    old_candidate = get_provider_results_for_book(db, book.id)[0]
+    assert old_candidate.data == {**old.raw_json, "isbn": book.isbn, "cover_candidates": [], "cover_url": None}
+    first = result({"title": "New"})
+    first.raw_response = {"items": [{"id": "first"}]}
+    new = persist_provider_result(db, book.id, first)
+    other_provider = result({"title": "Open"}, provider="openlibrary")
+    other_provider.raw_response = {"docs": [{"id": "open"}]}
+    open_snapshot = persist_provider_result(db, book.id, other_provider)
+    other_isbn = result({"title": "Other ISBN"}, isbn="9781861972712")
+    other_isbn.raw_response = {"items": [{"id": "other-isbn"}]}
+    isbn_snapshot = persist_provider_result(db, book.id, other_isbn)
+    other_book = book_service.create_book(db, book.owner_id, {"title": "Second", "author": "Author", "isbn": book.isbn})
+    other_book_result = result({"title": "Second book"})
+    other_book_result.raw_response = {"items": [{"id": "other-book"}]}
+    second_snapshot = persist_provider_result(db, other_book.id, other_book_result)
+    db.commit()
+
+    assert "_provider_evidence" not in old.raw_json
+    assert new.raw_json["_provider_evidence"]["raw_response"] == {"items": [{"id": "first"}]}
+    assert open_snapshot.raw_json["_provider_evidence"]["raw_response"] == {"docs": [{"id": "open"}]}
+    assert isbn_snapshot.raw_json["_provider_evidence"]["raw_response"] == {"items": [{"id": "other-isbn"}]}
+    assert second_snapshot.raw_json["_provider_evidence"]["raw_response"] == {"items": [{"id": "other-book"}]}
+    assert {(item.provider, item.data["title"]) for item in get_provider_results_for_book(db, book.id)} == {("google_books", "New"), ("openlibrary", "Open")}
+    assert [(item.provider, item.data["title"]) for item in get_provider_results_for_book(db, other_book.id)] == [("google_books", "Second book")]
 
 def test_manual_creation_has_empty_evidence_but_is_never_reviewed(book):
     assert book.metadata_evidence_signature.startswith("metadata:v1:")

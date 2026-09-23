@@ -62,6 +62,9 @@ class ProviderResult(BaseModel):
 
     data: Optional[dict[str, Any]] = None
 
+    # Internal evidence transport; never serialize into client-facing results.
+    raw_response: Optional[dict[str, Any]] = Field(default=None, exclude=True)
+
     error: Optional[str] = None
 
 

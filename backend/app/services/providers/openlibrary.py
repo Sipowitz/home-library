@@ -55,6 +55,7 @@ class OpenLibraryProvider(BookProvider):
         )
         if data is None:
             return None
+        self.raw_response = data
 
         docs = data.get("docs", [])
 
