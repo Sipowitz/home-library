@@ -101,6 +101,7 @@ class BookData(StrictModel):
     isbn: str | None = None
     description: str | None = None
     read: bool
+    is_checked_out: bool = False
     read_at: datetime | None = None
     category_archive_id: str | None = None
     location_archive_id: str | None = None

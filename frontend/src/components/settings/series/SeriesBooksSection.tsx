@@ -163,7 +163,7 @@ export function AddBooksDialog({ open, seriesId, seriesName, assignmentCandidate
       return [book.title, book.author, book.isbn].some((value) => value?.toLocaleLowerCase().includes(query));
     });
   }, [assignmentCandidates, directBookIds, search]);
-  useEffect(() => { if (!open || assigning) return; const timer = window.setTimeout(() => void getBooks(0, 50, search || undefined).then((response) => setResults(response.items)), 200); return () => window.clearTimeout(timer); }, [assigning, open, search]);
+  useEffect(() => { if (!open || assigning) return; const timer = window.setTimeout(() => void getBooks(0, 50, search || undefined, undefined, undefined, undefined, true).then((response) => setResults(response.items)), 200); return () => window.clearTimeout(timer); }, [assigning, open, search]);
   async function add() { setAdding(true); const ids = [...selected]; const results = await Promise.allSettled(ids.map((id) => addSeriesMembership(seriesId, id))); const failed = ids.filter((_, index) => results[index].status === "rejected"); setSelected(new Set(failed)); await onAdded(!failed.length); setAdding(false); if (!failed.length) toast.success(`Added ${ids.length} book${ids.length === 1 ? "" : "s"} to ${seriesName}`); }
   const choices = assigning ? assignmentResults.map((book) => ({
     id: book.book_id,

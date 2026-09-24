@@ -1,7 +1,7 @@
 import type { SuggestedBook, SuggestedLocation } from "../../api/books";
-import type { Book } from "../../types/book";
 import { ActionButton } from "../ui/ActionButton";
 import { Dialog } from "../ui/Dialog";
+import { PlacementBookCard } from "./PlacementBookCard";
 
 type Props = {
   assignment: { book: SuggestedBook; location: SuggestedLocation | null } | null;
@@ -12,17 +12,6 @@ type Props = {
   onConfirm: () => void;
   onViewBook: () => void;
 };
-
-function PlacementBook({ book, isNew = false }: { book: Book; isNew?: boolean }) {
-  return <div className={`w-24 shrink-0 rounded-lg border p-2 text-left sm:w-32 ${isNew ? "border-blue-500 bg-blue-50/40 dark:border-blue-400 dark:bg-blue-950/20" : "border-border bg-surface"}`} data-placement-book={isNew ? "new" : book.id}>
-    <div className="mb-1 text-[11px] font-semibold text-text-secondary">
-      {isNew ? <span className="text-blue-600 dark:text-blue-400">NEW BOOK</span> : Number.isInteger(book.location_position) ? `#${book.location_position}` : null}
-    </div>
-    {book.cover_url ? <img src={book.cover_url} alt="" className="mb-2 h-20 w-14 rounded object-cover" /> : <div className="mb-2 h-20 w-14 rounded bg-surface-muted" aria-hidden="true" />}
-    <div className="line-clamp-2 text-xs font-medium">{book.title}</div>
-    <div className="line-clamp-2 text-[11px] text-text-muted">{book.author}</div>
-  </div>;
-}
 
 export function SuggestedLocationAssignmentDialog({ assignment, assigning, onClose, onSelectLocation, onBack, onConfirm, onViewBook }: Props) {
   const book = assignment?.book;
@@ -43,9 +32,9 @@ export function SuggestedLocationAssignmentDialog({ assignment, assigning, onClo
             <span className="block text-sm font-semibold">{suggestion.path.map((node) => node.name).join(" → ") || suggestion.name}</span>
             <span className="mt-1 block text-xs text-text-muted">Select this placement</span>
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-              {(suggestion.before ?? []).map((existing) => <PlacementBook key={existing.id} book={existing} />)}
-              <PlacementBook book={book} isNew />
-              {(suggestion.after ?? []).map((existing) => <PlacementBook key={existing.id} book={existing} />)}
+              {(suggestion.before ?? []).map((existing) => <PlacementBookCard key={existing.id} book={existing} />)}
+              <PlacementBookCard book={book} label="NEW BOOK" />
+              {(suggestion.after ?? []).map((existing) => <PlacementBookCard key={existing.id} book={existing} />)}
             </div>
           </button>) : <p className="text-sm text-text-muted">No physical placement suggestions are available for this book.</p>}
           <div className="flex flex-wrap justify-end gap-2">

@@ -10,12 +10,14 @@ import {
 
 import { useAuth } from "../context/AuthContext";
 import { useLocations } from "../context/LocationContext";
+import { useCategories } from "../context/CategoryContext";
 
 import type { Book } from "../types/book";
 import type { ReviewIntent } from "../api/books";
 
 import type { ProviderResult } from "../types/provider";
 import type { Location } from "../types/location";
+import type { Category } from "../types/category";
 
 type BookCreateInput = {
   title: string;
@@ -57,6 +59,21 @@ type Filters = {
 };
 
 const LIMIT = 20;
+
+function categoryMatchesFilter(book: Book, categoryId: number | null | undefined, categories: Category[]) {
+  if (categoryId == null) return true;
+  if (categoryId === -1) return book.category_id == null;
+  if (book.category_id === categoryId) return true;
+  const byId = new Map<number, Category>();
+  const visit = (nodes: Category[]) => nodes.forEach((node) => { byId.set(node.id, node); visit(node.children ?? []); });
+  visit(categories);
+  let current = book.category_id == null ? undefined : byId.get(book.category_id);
+  while (current?.parent_id != null) {
+    if (current.parent_id === categoryId) return true;
+    current = byId.get(current.parent_id);
+  }
+  return false;
+}
 
 function locationMatchesFilter(
   book: Book,
@@ -106,6 +123,7 @@ export function useBooks() {
 
   const { ready, token } = useAuth();
   const { locations } = useLocations();
+  const { categories } = useCategories();
 
   function notifyStatsUpdate() {
     window.dispatchEvent(new Event("stats-updated"));
@@ -316,6 +334,33 @@ export function useBooks() {
     );
   }
 
+  function reconcileCheckout(updated: Book) {
+    // Invalidate a page requested before the physical-presence transition.
+    requestIdRef.current += 1;
+    setIsLoading(false);
+    const matches = locationMatchesFilter(updated, filters.locationId, locations)
+      && categoryMatchesFilter(updated, filters.categoryId, categories)
+      && (filters.read == null || Boolean(updated.read) === filters.read)
+      && (!filters.search || updated.title.toLocaleLowerCase().includes(filters.search.toLocaleLowerCase()) || updated.author.toLocaleLowerCase().includes(filters.search.toLocaleLowerCase()));
+    const exists = books.some((book) => book.id === updated.id);
+    const surnameKey = (book: Book) => book.author.split(" ").at(-1) ?? "";
+    const lastLoaded = books.at(-1);
+    const fitsLoadedWindow = !hasMore || !lastLoaded
+      || surnameKey(updated).localeCompare(surnameKey(lastLoaded)) < 0
+      || (surnameKey(updated) === surnameKey(lastLoaded) && updated.id <= lastLoaded.id);
+    const insert = !updated.is_checked_out && matches && (exists || fitsLoadedWindow);
+    if (exists && (updated.is_checked_out || !matches)) setSkip((value) => Math.max(0, value - 1));
+    else if (!exists && insert) setSkip((value) => value + 1);
+    setBooks((current) => {
+      if (updated.is_checked_out || !matches) {
+        return current.filter((book) => book.id !== updated.id);
+      }
+      if (!insert) return current;
+      const next = [...current.filter((book) => book.id !== updated.id), updated];
+      return next.sort((a, b) => surnameKey(a).localeCompare(surnameKey(b)) || a.id - b.id);
+    });
+  }
+
   return {
     books,
     loadBooks,
@@ -326,6 +371,7 @@ export function useBooks() {
     removeBook,
     saveBook,
     updateBookInState,
+    reconcileCheckout,
     updateFilters,
     filters,
     isLoading,

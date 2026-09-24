@@ -33,6 +33,39 @@ export type GroupedBooksResponse = {
   no_location: { name: "No Location"; books: SuggestedBook[] } | null;
 };
 
+export type ReturnPlacementPreview = {
+  book: Book;
+  location_id: number;
+  before: Book[];
+  after: Book[];
+};
+
+export async function getOutOfLibrary(params: {
+  search?: string; locationId?: number | null; categoryId?: number | null;
+  read?: boolean | null; collectionId?: number | null;
+}): Promise<Book[]> {
+  const res = await client.get<Book[]>("/books/out-of-library", { params: {
+    search: params.search || undefined,
+    location_id: params.locationId ?? undefined,
+    category_id: params.categoryId ?? undefined,
+    read: params.read ?? undefined,
+    collection_id: params.collectionId ?? undefined,
+  } });
+  return res.data;
+}
+
+export async function takeOutBook(id: number): Promise<Book> {
+  return (await client.post<Book>(`/books/${id}/take-out`)).data;
+}
+
+export async function getReturnPreview(id: number): Promise<ReturnPlacementPreview> {
+  return (await client.get<ReturnPlacementPreview>(`/books/${id}/return-preview`)).data;
+}
+
+export async function confirmReturnBook(id: number): Promise<Book> {
+  return (await client.post<Book>(`/books/${id}/confirm-return`)).data;
+}
+
 export type CatalogSearchCandidate = {
   candidate_key: string;
   title: string;
@@ -160,6 +193,7 @@ export async function getBooks(
   locationId?: number | null,
   categoryId?: number | null,
   read?: boolean,
+  includeCheckedOut = false,
 ): Promise<PaginatedBooksResponse> {
   const params = new URLSearchParams();
 
@@ -182,6 +216,7 @@ export async function getBooks(
   if (read !== undefined) {
     params.append("read", String(read));
   }
+  if (includeCheckedOut) params.append("include_checked_out", "true");
 
   const res = await client.get(`/books/?${params.toString()}`);
 

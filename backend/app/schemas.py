@@ -592,6 +592,7 @@ class CoverRefreshResponse(CoverCandidatesResponse):
 
 class BookResponse(BookBase):
     id: int
+    is_checked_out: bool = False
 
     # Derived from the complete set of books directly assigned to location_id.
     # These are deliberately not persisted: a book's physical position changes
@@ -706,6 +707,13 @@ class BookListResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ReturnPlacementPreview(BaseModel):
+    book: BookResponse
+    location_id: int
+    before: List[BookResponse] = Field(default_factory=list)
+    after: List[BookResponse] = Field(default_factory=list)
 
 
 class LocationBookGroup(BaseModel):

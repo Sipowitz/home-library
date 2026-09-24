@@ -130,6 +130,7 @@ export function BookView({ book, locations, categories, onCollectionPathsChange 
     : "";
   const hasLocationPosition = book.location_id !== null
     && book.location_id !== undefined
+    && !book.is_checked_out
     && Number.isInteger(book.location_position)
     && Number.isInteger(book.location_total)
     && (book.location_position ?? 0) > 0
@@ -167,6 +168,7 @@ export function BookView({ book, locations, categories, onCollectionPathsChange 
 
   const libraryFacts = ([
     categoryPath ? { label: "Category", value: categoryPath, icon: Folder } : null,
+    book.is_checked_out ? { label: "Status", value: "Out of Library", icon: MapPin } : null,
     locationPath ? {
       label: "Location",
       value: <>{locationPath}{hasLocationPosition && <span className="text-text-secondary"> · #{book.location_position} of {book.location_total}</span>}</>,

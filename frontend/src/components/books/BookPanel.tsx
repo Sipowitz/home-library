@@ -28,6 +28,9 @@ type Props = {
   onSave: (reviewIntent?: ReviewIntent) => void;
 
   onDelete: (id: number) => Promise<void>;
+  onTakeOut?: (id: number) => void;
+  onReturnToShelf?: (id: number) => void;
+  checkoutPending?: boolean;
 
 };
 
@@ -41,6 +44,9 @@ export function BookPanel({
   onClose,
   onSave,
   onDelete,
+  onTakeOut,
+  onReturnToShelf,
+  checkoutPending = false,
 }: Props) {
   useOverlayScrollLock(Boolean(book));
   const { locations } = useLocations();
@@ -164,6 +170,9 @@ export function BookPanel({
 
         {!metadataComparisonOpen && (
         <div className="absolute inset-x-3 top-3 z-[70] flex items-center gap-2 sm:left-auto sm:right-3">
+          {!editing && (book.is_checked_out
+            ? <ActionButton type="button" size="sm" onClick={() => onReturnToShelf?.(book.id)} disabled={checkoutPending}>Return to Shelf</ActionButton>
+            : <span className="flex flex-col items-start" title={book.location_id == null ? "Assign a location before taking this book out." : undefined}><ActionButton type="button" size="sm" onClick={() => onTakeOut?.(book.id)} disabled={checkoutPending || book.location_id == null}>Take Out</ActionButton>{book.location_id == null && <span className="max-w-44 text-[10px] text-white">Assign a location before taking this book out.</span>}</span>)}
           {!editing && (
             <ActionButton
               type="button"

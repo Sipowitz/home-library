@@ -43,6 +43,20 @@ it("shows a top-level confirmation over Book Edit and Cancel returns to editing"
   expect(screen.getByRole("button", { name: "Delete Book" })).toBeTruthy();
 });
 
+it("offers Take Out only for located books and Return to Shelf for out books", () => {
+  const takeOut = vi.fn(); const returnToShelf = vi.fn();
+  const props = { openedInCollection: false, editing: false, editData: null, setEditing: vi.fn(), setEditData: vi.fn(), onClose: vi.fn(), onSave: vi.fn(), onDelete: vi.fn().mockResolvedValue(undefined), onTakeOut: takeOut, onReturnToShelf: returnToShelf };
+  const view = render(<BookPanel {...props} book={{ ...book, location_id: 3, is_checked_out: false }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Take Out" }));
+  expect(takeOut).toHaveBeenCalledWith(book.id);
+  view.rerender(<BookPanel {...props} book={{ ...book, location_id: null, is_checked_out: false }} />);
+  expect((screen.getByRole("button", { name: "Take Out" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText("Assign a location before taking this book out.")).toBeTruthy();
+  view.rerender(<BookPanel {...props} book={{ ...book, location_id: 3, is_checked_out: true }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Return to Shelf" }));
+  expect(returnToShelf).toHaveBeenCalledWith(book.id);
+});
+
 it("confirms once while pending and leaves a failed confirmation recoverable", async () => {
   let rejectDelete!: (error: Error) => void;
   const onDelete = vi.fn().mockReturnValue(new Promise<void>((_resolve, reject) => { rejectDelete = reject; }));

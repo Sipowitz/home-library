@@ -2,6 +2,7 @@
 import hashlib
 import asyncio
 import io
+import json
 import os
 import zipfile
 from destructive_db_guard import require_disposable_database
@@ -135,6 +136,41 @@ def test_populated_round_trip_remaps_ids_preserves_data_and_other_user(db):
     assert db.query(models.UserPreferences).filter_by(user_id=user_id).one().appearance_mode == "dark"
     assert Path(settings.COVERS_DIR, restored.cover_url.removeprefix("/covers/")).read_bytes() == cover_bytes
     assert db.query(models.Book).filter_by(owner_id=other_id).one().title == "Untouched"
+    archive.unlink()
+
+
+def test_checkout_state_round_trip_and_legacy_book_data(db, tmp_path):
+    user_id, _, _ = populated(db)
+    source = db.query(models.Book).filter_by(owner_id=user_id).one()
+    source.is_checked_out = True
+    db.commit()
+    archive, _ = create_backup(db, user_id, "source")
+    session = validation_session(archive, user_id)
+    assert session.library.books[0].is_checked_out is True
+    db.commit()
+    restore_user(db, user_id, session, publish_covers(session))
+    assert db.query(models.Book).filter_by(owner_id=user_id).one().is_checked_out is True
+
+    with zipfile.ZipFile(archive) as source_zip:
+        entries = {name: source_zip.read(name) for name in source_zip.namelist()}
+    legacy = json.loads(entries["library.json"])
+    for book in legacy["books"]:
+        book.pop("is_checked_out")
+    entries["library.json"] = json.dumps(legacy).encode("utf-8")
+    manifest = json.loads(entries["manifest.json"])
+    library_entry = next(item for item in manifest["files"] if item["path"] == "library.json")
+    library_entry["size"] = len(entries["library.json"])
+    library_entry["sha256"] = hashlib.sha256(entries["library.json"]).hexdigest()
+    entries["manifest.json"] = json.dumps(manifest).encode("utf-8")
+    legacy_archive = tmp_path / "legacy-without-checkout.lbak"
+    with zipfile.ZipFile(legacy_archive, "w", compression=zipfile.ZIP_DEFLATED) as target_zip:
+        for name, content in entries.items():
+            target_zip.writestr(name, content)
+    old_session = validation_session(legacy_archive, user_id)
+    assert all(book.is_checked_out is False for book in old_session.library.books)
+    db.commit()
+    restore_user(db, user_id, old_session, publish_covers(old_session))
+    assert db.query(models.Book).filter_by(owner_id=user_id).one().is_checked_out is False
     archive.unlink()
 
 

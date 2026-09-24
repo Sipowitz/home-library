@@ -387,6 +387,8 @@ class Book(Base):
         index=True,
     )
 
+    is_checked_out = Column(Boolean, nullable=False, default=False, server_default="false")
+
     location_id = Column(
         Integer,
         ForeignKey("locations.id"),

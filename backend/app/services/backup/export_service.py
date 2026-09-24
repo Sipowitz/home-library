@@ -116,6 +116,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
             "subtitle": book.subtitle, "publisher": book.publisher, "language": book.language,
             "page_count": book.page_count, "year": book.year, "isbn": book.isbn,
             "description": book.description, "read": bool(book.read), "read_at": book.read_at,
+            "is_checked_out": bool(book.is_checked_out),
             "category_archive_id": category_ids.get(book.category_id), "location_archive_id": location_ids.get(book.location_id),
             "cover": _cover_reference(book.cover_url, objects), "uploaded_cover_candidates": candidates,
             "date_added": book.date_added, "last_metadata_refresh_at": book.last_metadata_refresh_at,

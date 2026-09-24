@@ -126,6 +126,8 @@ def get_books(
 
     read: bool | None = Query(None),
 
+    include_checked_out: bool = Query(False),
+
     sort: Literal[
         "id", "title", "author", "publisher", "language", "page_count",
         "year", "isbn", "read", "read_at", "date_added",
@@ -156,6 +158,8 @@ def get_books(
 
         read=read,
 
+        include_checked_out=include_checked_out,
+
         sort=sort,
 
         order=order,
@@ -165,6 +169,43 @@ def get_books(
 # -------------------
 # 📍 GROUPED LIBRARY BROWSE
 # -------------------
+
+@router.get("/out-of-library", response_model=list[schemas.BookResponse])
+def get_out_of_library(
+    search: str | None = Query(None, max_length=500),
+    category_id: int | None = Query(None, ge=-1),
+    location_id: int | None = Query(None, ge=-1),
+    read: bool | None = Query(None),
+    collection_id: int | None = Query(None, ge=1),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return book_service.get_out_books(db, current_user.id, search=search, category_id=category_id,
+                                      location_id=location_id, read=read, collection_id=collection_id)
+
+
+@router.post("/{book_id}/take-out", response_model=schemas.BookResponse)
+def take_out_book(book_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    book = book_service.take_out_book(db, current_user.id, book_id)
+    if book is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return book
+
+
+@router.get("/{book_id}/return-preview", response_model=schemas.ReturnPlacementPreview)
+def get_return_preview(book_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    preview = book_service.get_return_preview(db, current_user.id, book_id)
+    if preview is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return preview
+
+
+@router.post("/{book_id}/confirm-return", response_model=schemas.BookResponse)
+def confirm_return_book(book_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    book = book_service.confirm_return_book(db, current_user.id, book_id)
+    if book is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return book
 
 @router.get(
     "/grouped-by-location",

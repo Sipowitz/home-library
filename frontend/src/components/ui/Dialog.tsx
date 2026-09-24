@@ -9,9 +9,10 @@ type Props = {
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  layerClassName?: string;
 };
 
-export function Dialog({ open, title, onClose, children, className = "max-w-2xl" }: Props) {
+export function Dialog({ open, title, onClose, children, className = "max-w-2xl", layerClassName = "z-[80]" }: Props) {
   useOverlayScrollLock(open);
   useEffect(() => {
     if (!open) return;
@@ -25,7 +26,7 @@ export function Dialog({ open, title, onClose, children, className = "max-w-2xl"
   if (!open) return null;
   const titleId = `dialog-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={onClose}>
+    <div className={`fixed inset-0 ${layerClassName} flex items-center justify-center bg-black/75 p-3 sm:p-6`} role="dialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={onClose}>
       <div className={`elevation-floating min-w-0 max-h-[calc(100dvh-1.5rem)] w-full overflow-y-auto rounded-2xl border border-border-strong bg-canvas text-text-primary ${className}`} onMouseDown={(event) => event.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-canvas/95 px-4 py-3 backdrop-blur">
           <h2 id={titleId} className="min-w-0 truncate text-lg font-semibold">{title}</h2>

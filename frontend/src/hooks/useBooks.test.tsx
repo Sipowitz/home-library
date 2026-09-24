@@ -13,6 +13,7 @@ const locationContext = vi.hoisted(() => ({ locations: [] as Location[] }));
 vi.mock("../api/books", () => ({ getBooks, createBook: vi.fn(), createBookFromISBN: vi.fn(), deleteBook, updateBook }));
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ ready: true, token: "test-token" }) }));
 vi.mock("../context/LocationContext", () => ({ useLocations: () => locationContext }));
+vi.mock("../context/CategoryContext", () => ({ useCategories: () => ({ categories: [] }) }));
 
 const page = (start: number) => ({
   items: Array.from({ length: 20 }, (_, index) => ({ id: start + index, title: `Book ${start + index}`, author: "Author", location_id: 1 })),
@@ -33,6 +34,66 @@ function LocationFilterHarness({ locationId, nextLocationId }: { locationId: num
   const book = books[0];
   return <><div data-testid="book-count">{books.length}</div><div data-testid="book-location">{book?.location_id ?? "missing"}</div><button disabled={!book} onClick={() => void saveBook({ ...book!, location_id: nextLocationId })}>save filtered book</button></>;
 }
+
+function CheckoutHarness() {
+  const { books, reconcileCheckout, loadMoreBooks } = useBooks();
+  const target = books.find((book) => book.id === 45);
+  return <><span data-testid="checkout-count">{books.length}</span>
+    <button onClick={() => void loadMoreBooks()}>more checkout books</button>
+    <button disabled={!target} onClick={() => reconcileCheckout({ ...target!, is_checked_out: true })}>take out loaded</button>
+    <button onClick={() => reconcileCheckout({ id: 45, title: "Book 45", author: "Author", location_id: 1, is_checked_out: false })}>return loaded</button>
+  </>;
+}
+
+function StaleCheckoutHarness() {
+  const { books, reconcileCheckout, loadMoreBooks } = useBooks();
+  return <><span data-testid="stale-ids">{books.map((book) => book.id).join(",")}</span>
+    <button onClick={() => void loadMoreBooks()}>request next page</button>
+    <button onClick={() => reconcileCheckout({ id: 1, title: "Book 1", author: "Author", location_id: 1, is_checked_out: true })}>take out first</button>
+  </>;
+}
+
+it("keeps the next page offset when a returned book sorts beyond loaded pages", async () => {
+  function OutsideWindow() {
+    const { books, reconcileCheckout, loadMoreBooks } = useBooks();
+    return <><span data-testid="outside-count">{books.length}</span>
+      <button onClick={() => reconcileCheckout({ id: 999, title: "Later", author: "Author Zebra", location_id: 1, is_checked_out: false })}>return later book</button>
+      <button onClick={() => void loadMoreBooks()}>more later books</button></>;
+  }
+  getBooks.mockResolvedValueOnce(page(1)).mockResolvedValueOnce(page(21));
+  render(<OutsideWindow />);
+  await waitFor(() => expect(screen.getByTestId("outside-count").textContent).toBe("20"));
+  await act(async () => { screen.getByRole("button", { name: "return later book" }).click(); });
+  expect(screen.getByTestId("outside-count").textContent).toBe("20");
+  await act(async () => { screen.getByRole("button", { name: "more later books" }).click(); });
+  expect(getBooks).toHaveBeenLastCalledWith(20, 20, "", null, null, undefined);
+});
+
+it("ignores a page response started before a checkout transition", async () => {
+  let resolvePage!: (value: ReturnType<typeof page>) => void;
+  getBooks.mockResolvedValueOnce(page(1)).mockImplementationOnce(() => new Promise((resolve) => { resolvePage = resolve; }));
+  render(<StaleCheckoutHarness />);
+  await waitFor(() => expect(screen.getByTestId("stale-ids").textContent).toContain("1"));
+  await act(async () => { screen.getByRole("button", { name: "request next page" }).click(); });
+  await act(async () => { screen.getByRole("button", { name: "take out first" }).click(); });
+  await act(async () => { resolvePage({ items: [{ id: 1, title: "Book 1", author: "Author", location_id: 1 }], total: 60 }); });
+  expect(screen.getByTestId("stale-ids").textContent?.split(",")).not.toContain("1");
+});
+
+it("reconciles checkout across loaded pages without a reset and adjusts the next offset", async () => {
+  getBooks.mockResolvedValueOnce(page(1)).mockResolvedValueOnce(page(21)).mockResolvedValueOnce(page(41));
+  render(<CheckoutHarness />);
+  await waitFor(() => expect(screen.getByTestId("checkout-count").textContent).toBe("20"));
+  await act(async () => { screen.getByRole("button", { name: "more checkout books" }).click(); });
+  await act(async () => { screen.getByRole("button", { name: "more checkout books" }).click(); });
+  expect(screen.getByTestId("checkout-count").textContent).toBe("60");
+  await act(async () => { screen.getByRole("button", { name: "take out loaded" }).click(); });
+  expect(screen.getByTestId("checkout-count").textContent).toBe("59");
+  expect(getBooks).toHaveBeenCalledTimes(3);
+  await act(async () => { screen.getByRole("button", { name: "return loaded" }).click(); });
+  expect(screen.getByTestId("checkout-count").textContent).toBe("60");
+  expect(getBooks).toHaveBeenCalledTimes(3);
+});
 
 it("merges an edited later-page book without resetting loaded pages or pagination", async () => {
   getBooks.mockResolvedValueOnce(page(1)).mockResolvedValueOnce(page(21)).mockResolvedValueOnce(page(41));

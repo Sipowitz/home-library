@@ -1,18 +1,18 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const api = vi.hoisted(() => ({ root: vi.fn(), collection: vi.fn(), grouped: vi.fn(), getBook: vi.fn(), saveBook: vi.fn() }));
+const api = vi.hoisted(() => ({ root: vi.fn(), collection: vi.fn(), grouped: vi.fn(), getBook: vi.fn(), saveBook: vi.fn(), out: vi.fn(), takeOut: vi.fn(), preview: vi.fn(), confirmReturn: vi.fn(), reconcileCheckout: vi.fn() }));
 const feedback = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("./api/collections", () => ({ browseRootCollections: api.root, browseCollection: api.collection }));
-vi.mock("./hooks/useBooks", () => ({ useBooks: () => ({ books: [], loadMoreBooks: vi.fn(), hasMore: false, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: api.saveBook, updateFilters: vi.fn(), isLoading: false, loadError: null, filters: {} }) }));
+vi.mock("./hooks/useBooks", () => ({ useBooks: () => ({ books: [], loadMoreBooks: vi.fn(), hasMore: false, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: api.saveBook, reconcileCheckout: api.reconcileCheckout, updateFilters: vi.fn(), isLoading: false, loadError: null, filters: {} }) }));
 vi.mock("./context/LocationContext", () => ({ useLocations: () => ({ locations: [] }) }));
 vi.mock("./context/CategoryContext", () => ({ useCategories: () => ({ categories: [] }) }));
 vi.mock("./context/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: true, login: vi.fn(), logout: vi.fn() }) }));
 vi.mock("./hooks/usePreferences", () => ({ usePreferences: () => ({ preferences: { library_name: "Library", library_view_mode: "grid", show_collections_in_library: true, root_collection_display_mode: "collections_only" }, updatePreferences: vi.fn() }) }));
 vi.mock("./hooks/useSearch", () => ({ useSearch: () => ({ searchInput: "", setSearchInput: vi.fn() }) }));
 vi.mock("./hooks/useBookActions", () => ({ useBookActions: (params: any) => ({ isFetching: false, handleSearch: vi.fn(), handleAddBook: vi.fn(), handleQuickAdd: vi.fn(), handleAddAndReview: vi.fn(), handleDelete: async (id: number) => { await params.removeBook(id); params.reconcileDeletedBook(id); params.setSelectedBook(null); }, handleSave: async () => { const updated = await params.saveBook(params.editData); params.reconcileSavedBook?.(updated); params.setSelectedBook(updated); params.setEditData(updated); params.setEditing(false); params.reconcileGroupedBooks?.(); }, resetAddBook: vi.fn(), handleAddBookISBNChange: vi.fn() }) }));
-vi.mock("./api/books", () => ({ getBook: api.getBook, getGroupedBooks: api.grouped }));
+vi.mock("./api/books", () => ({ getBook: api.getBook, getGroupedBooks: api.grouped, getOutOfLibrary: api.out, takeOutBook: api.takeOut, getReturnPreview: api.preview, confirmReturnBook: api.confirmReturn }));
 vi.mock("./api/auth", () => ({ login: vi.fn() }));
 vi.mock("react-hot-toast", () => ({ default: feedback }));
 vi.mock("./components/books/views/BookGridView", () => ({ BookGridView: ({ items, collections, books, onSelectCollection, onSelect, suggestedBookIds, suggestedLocationsByBookId, onSuggestedSelect }: any) => <div data-testid="grid">{(items ?? [
@@ -26,7 +26,7 @@ vi.mock("./components/layout/TopPanels", () => ({ TopPanels: () => null }));
 vi.mock("./components/search/SearchBar", () => ({ SearchBar: () => null }));
 vi.mock("./components/books/views/ViewModeSwitcher", () => ({ ViewModeSwitcher: () => null }));
 vi.mock("./components/settings/SettingsModal", () => ({ SettingsModal: () => null }));
-vi.mock("./components/books/BookPanel", () => ({ BookPanel: ({ book, openedInCollection, editing, editData, setEditing, setEditData, onClose, onDelete, onSave }: any) => <section data-testid="book-panel"><span data-testid="panel-title">{book.title}</span><span data-testid="opened-in-collection">{String(openedInCollection)}</span><span data-testid="panel-publisher">{book.publisher}</span><span data-testid="panel-location">{book.location_id}</span><span data-testid="panel-category">{book.category_id}</span><button onClick={() => { setEditData(book); setEditing(true); }}>Edit selected book</button><button onClick={onClose}>Close selected book</button><button onClick={() => void onDelete(book.id)}>Delete selected book</button>{editing && <><button onClick={() => void onSave()}>Save selected book</button><span data-testid="edit-publisher">{editData?.publisher}</span><span data-testid="edit-year">{editData?.year}</span><span data-testid="edit-language">{editData?.language}</span><span data-testid="edit-pages">{editData?.page_count}</span><span data-testid="edit-isbn">{editData?.isbn}</span><span data-testid="edit-description">{editData?.description}</span><span data-testid="edit-location">{editData?.location_id}</span><span data-testid="edit-category">{editData?.category_id}</span></>}</section> }));
+vi.mock("./components/books/BookPanel", () => ({ BookPanel: ({ book, openedInCollection, editing, editData, setEditing, setEditData, onClose, onDelete, onSave, onTakeOut, onReturnToShelf }: any) => <section data-testid="book-panel"><span data-testid="panel-title">{book.title}</span><span data-testid="opened-in-collection">{String(openedInCollection)}</span><span data-testid="panel-publisher">{book.publisher}</span><span data-testid="panel-location">{book.location_id}</span><span data-testid="panel-category">{book.category_id}</span><button onClick={() => onTakeOut?.(book.id)}>Take Out</button><button onClick={() => onReturnToShelf?.(book.id)}>Return to Shelf</button><button onClick={() => { setEditData(book); setEditing(true); }}>Edit selected book</button><button onClick={onClose}>Close selected book</button><button onClick={() => void onDelete(book.id)}>Delete selected book</button>{editing && <><button onClick={() => void onSave()}>Save selected book</button><span data-testid="edit-publisher">{editData?.publisher}</span><span data-testid="edit-year">{editData?.year}</span><span data-testid="edit-language">{editData?.language}</span><span data-testid="edit-pages">{editData?.page_count}</span><span data-testid="edit-isbn">{editData?.isbn}</span><span data-testid="edit-description">{editData?.description}</span><span data-testid="edit-location">{editData?.location_id}</span><span data-testid="edit-category">{editData?.category_id}</span></>}</section> }));
 vi.mock("./components/settings/maintenance/MaintenanceReviewSession", () => ({ MaintenanceReviewSession: () => null }));
 vi.mock("./components/books/AddBookDialog", () => ({ AddBookDialog: () => null }));
 vi.mock("./components/books/CheckLibraryDialog", () => ({ CheckLibraryDialog: () => null }));
@@ -41,6 +41,7 @@ const root: Series = { id: 1, owner_id: 1, name: "Root", node_type: "series", au
 const nested = { ...root, id: 2, name: "Nested", parent_id: 1 };
 
 beforeEach(() => {
+  api.out.mockResolvedValue([]);
   api.getBook.mockReset();
   api.saveBook.mockReset();
   feedback.success.mockReset();
@@ -49,6 +50,54 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+});
+
+it("takes a book out and confirms return without resetting the library or scroll", async () => {
+  const present = { id: 301, title: "Checkout target", author: "Ada Adams", location_id: 9, is_checked_out: false, read: false };
+  const out = { ...present, is_checked_out: true, location_position: null, location_total: null };
+  let current = present;
+  let rootItems: any[] = [{ kind: "book", book: present }];
+  let outItems: any[] = [];
+  api.root.mockReset().mockImplementation(async () => ({ collection: null, collections: [], books: [], items: rootItems, total: rootItems.length }));
+  api.out.mockImplementation(async () => outItems);
+  api.getBook.mockImplementation(async () => ({ ...current, publisher: "Hydrated" }));
+  api.takeOut.mockImplementation(async () => { current = out; rootItems = []; outItems = [out]; return out; });
+  api.preview.mockResolvedValue({ book: out, location_id: 9, before: [], after: [] });
+  api.confirmReturn.mockImplementation(async () => { current = present; rootItems = [{ kind: "book", book: present }]; outItems = []; return present; });
+  const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+  render(<App />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Checkout target" })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Checkout target" }));
+  await waitFor(() => expect(screen.getByTestId("panel-publisher").textContent).toBe("Hydrated"));
+  const scrollCallsBeforeCheckout = scrollTo.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Take Out" }));
+  await waitFor(() => expect(api.reconcileCheckout).toHaveBeenCalledWith(out));
+  await waitFor(() => expect(screen.getByRole("region", { name: "Out of Library" })).toBeTruthy());
+  expect(screen.getAllByRole("button", { name: /Checkout target/ })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Return to Shelf" }));
+  await waitFor(() => expect(screen.getByText("THIS BOOK")).toBeTruthy());
+  expect(api.confirmReturn).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(api.confirmReturn).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Return to Shelf" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Confirm Return" })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Confirm Return" }));
+  await waitFor(() => expect(api.reconcileCheckout).toHaveBeenCalledWith(present));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Out of Library" })).toBeNull());
+  expect(screen.getByRole("button", { name: "Checkout target" })).toBeTruthy();
+  expect(scrollTo.mock.calls.slice(scrollCallsBeforeCheckout).every((args) => typeof args[0] !== "object")).toBe(true);
+  scrollTo.mockRestore();
+});
+
+it("shows an out book without an empty-shelf message in grouped browsing", async () => {
+  const out = { id: 302, title: "Out title", author: "A Author", location_id: 9, is_checked_out: true };
+  api.root.mockResolvedValue({ collection: null, collections: [], books: [], items: [], total: 0 });
+  api.grouped.mockResolvedValue({ locations: [], no_location: null });
+  api.out.mockResolvedValue([out]);
+  render(<App />);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Group by Location" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "Out of Library" })).toBeTruthy());
+  expect(screen.queryByText("Your library is empty.")).toBeNull();
 });
 
 it("reconciles every retained book projection without changing browse structure", () => {

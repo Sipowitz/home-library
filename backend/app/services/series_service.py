@@ -330,7 +330,7 @@ def browse_collection(
         descendant_ids = _descendant_ids(db, user_id, collection.id) | direct_ids
 
     active_filter = bool((search or "").strip() or category_id is not None or location_id is not None or read is not None)
-    query = db.query(models.Book).filter(models.Book.owner_id == user_id)
+    query = db.query(models.Book).filter(models.Book.owner_id == user_id, models.Book.is_checked_out.is_(False))
     if collection_id is None:
         if root_mode == "collections_only":
             query = query.filter(~models.Book.series_memberships.any())
@@ -351,8 +351,11 @@ def browse_collection(
         category_ids = _owned_subtree_ids(db, models.Category, user_id, category_id)
         query = query.filter(models.Book.category_id.in_(category_ids)) if category_ids else query.filter(False)
     if location_id is not None:
-        location_ids = _owned_subtree_ids(db, models.Location, user_id, location_id)
-        query = query.filter(models.Book.location_id.in_(location_ids)) if location_ids else query.filter(False)
+        if location_id == -1:
+            query = query.filter(models.Book.location_id.is_(None))
+        else:
+            location_ids = _owned_subtree_ids(db, models.Location, user_id, location_id)
+            query = query.filter(models.Book.location_id.in_(location_ids)) if location_ids else query.filter(False)
     if read is not None:
         query = query.filter(models.Book.read == read)
 

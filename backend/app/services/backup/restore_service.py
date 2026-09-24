@@ -115,6 +115,7 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                 row = models.Book(owner_id=user_id, title=item.title, author=item.author, subtitle=item.subtitle,
                     publisher=item.publisher, language=item.language, page_count=item.page_count, year=item.year,
                     isbn=item.isbn, description=item.description, read=item.read, read_at=item.read_at,
+                    is_checked_out=item.is_checked_out,
                     location_id=location_map.get(item.location_archive_id), category_id=category_map.get(item.category_archive_id),
                     cover_url=_cover_url(item.cover, cover_urls), uploaded_cover_candidates_json=candidates,
                     date_added=item.date_added, last_metadata_refresh_at=item.last_metadata_refresh_at)

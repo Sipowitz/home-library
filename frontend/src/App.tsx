@@ -29,10 +29,12 @@ import toast from "react-hot-toast";
 
 import type { Book, BookDraft } from "./types/book";
 import type { LibraryViewMode } from "./types/preferences";
-import { getBook } from "./api/books";
+import { getBook, getOutOfLibrary, takeOutBook, getReturnPreview, confirmReturnBook, type ReturnPlacementPreview } from "./api/books";
 import { getGroupedBooks, type GroupedBooksResponse, type SuggestedBook, type SuggestedLocation } from "./api/books";
 import { GroupedLocationBooks } from "./components/books/views/GroupedLocationBooks";
 import { SuggestedLocationAssignmentDialog } from "./components/books/SuggestedLocationAssignmentDialog";
+import { ReturnToShelfDialog } from "./components/books/ReturnToShelfDialog";
+import { OutOfLibrary } from "./components/books/OutOfLibrary";
 import type { ReviewTarget } from "./components/settings/maintenance/MaintenanceSettings";
 import type { ReviewIntent } from "./api/books";
 import { browseCollection, browseRootCollections, type CollectionBrowseBook, type CollectionBrowseResult } from "./api/collections";
@@ -71,6 +73,7 @@ export default function App() {
     addBookFromISBN,
     removeBook,
     saveBook,
+    reconcileCheckout,
     updateFilters,
     isLoading,
     loadError,
@@ -108,6 +111,10 @@ export default function App() {
 
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [selectedBookOpenedInCollection, setSelectedBookOpenedInCollection] = useState(false);
+  const [outBooks, setOutBooks] = useState<Book[]>([]);
+  const [outRevision, setOutRevision] = useState(0);
+  const [returnPreview, setReturnPreview] = useState<ReturnPlacementPreview | null>(null);
+  const [checkoutPending, setCheckoutPending] = useState(false);
 
   const [editing, setEditing] = useState(false);
 
@@ -155,6 +162,7 @@ export default function App() {
   const rootCollectionSnapshotRef = useRef<{ browse: CollectionBrowseResult; hasMore: boolean; key: string; scrollY: number } | null>(null);
   const pendingRootScrollRestoreRef = useRef<number | null>(null);
   const groupedRequestGenerationRef = useRef(0);
+  const outRequestGenerationRef = useRef(0);
 
   const refreshGroupedBooks = useCallback(() => {
     setGroupedRevision((revision) => revision + 1);
@@ -300,6 +308,79 @@ export default function App() {
   const showCollections = preferences?.show_collections_in_library ?? false;
   const rootCollectionMode = preferences?.root_collection_display_mode ?? "collections_only";
   const currentCollection = collectionPath.at(-1) ?? null;
+
+  useEffect(() => {
+    const generation = ++outRequestGenerationRef.current;
+    if (!isAuthenticated) { setOutBooks([]); return; }
+    void getOutOfLibrary({ search: filters.search, categoryId: filters.categoryId,
+      locationId: filters.locationId, read: filters.read,
+      collectionId: groupByLocation ? null : currentCollection?.id ?? null,
+    }).then((items) => {
+      if (generation === outRequestGenerationRef.current) setOutBooks(items);
+    }).catch((error) => {
+      if (generation === outRequestGenerationRef.current) console.error("Failed to load out books", error);
+    });
+    return () => { outRequestGenerationRef.current += 1; };
+  }, [filters.search, filters.categoryId, filters.locationId, filters.read, currentCollection?.id, groupByLocation, outRevision, isAuthenticated]);
+
+  async function reconcileCheckoutAction(updated: Book) {
+    reconcileCheckout?.(updated);
+    setSelectedBook(updated);
+    setEditData(updated);
+    outRequestGenerationRef.current += 1;
+    setOutBooks((items) => updated.is_checked_out
+      ? items.some((item) => item.id === updated.id) ? items.map((item) => item.id === updated.id ? updated : item) : [...items, updated]
+      : items.filter((item) => item.id !== updated.id));
+    setOutRevision((value) => value + 1);
+    refreshGroupedBooks();
+    rootCollectionSnapshotRef.current = null;
+    if (!groupByLocation && showCollections && viewMode === "grid") {
+      const generation = ++collectionRequestGenerationRef.current;
+      collectionPageRequestGenerationRef.current += 1;
+      const desiredCount = Math.max(100, currentCollection ? collectionBrowse?.books.length ?? 0 : collectionBrowse?.items.length ?? 0);
+      const requestPage = (skip: number) => currentCollection
+        ? browseCollection(currentCollection.id, { ...collectionOptions(collectionPath), skip, limit: 100 })
+        : browseRootCollections({ ...collectionOptions(collectionPath), skip, limit: 100 });
+      let result = await requestPage(0);
+      let loadedCount = currentCollection ? result.books.length : result.items.length;
+      while (loadedCount < desiredCount && loadedCount < result.total && generation === collectionRequestGenerationRef.current) {
+        const page = await requestPage(loadedCount);
+        if (currentCollection) result = { ...result, books: [...result.books, ...page.books] };
+        else result = { ...result, items: [...result.items, ...page.items] };
+        const nextCount = currentCollection ? result.books.length : result.items.length;
+        if (nextCount === loadedCount) break;
+        loadedCount = nextCount;
+      }
+      if (generation === collectionRequestGenerationRef.current) {
+        setCollectionBrowse(result);
+        setCollectionHasMore(loadedCount < result.total);
+      }
+    }
+  }
+
+  async function handleTakeOut(bookId: number) {
+    if (checkoutPending) return;
+    setCheckoutPending(true);
+    try { await reconcileCheckoutAction(await takeOutBook(bookId)); }
+    catch (error) { console.error("Take Out failed", error); toast.error("Could not take book out"); }
+    finally { setCheckoutPending(false); }
+  }
+
+  async function handleReturnPreview(bookId: number) {
+    try { setReturnPreview(await getReturnPreview(bookId)); }
+    catch (error) { console.error("Return preview failed", error); toast.error("Could not preview return"); }
+  }
+
+  async function handleConfirmReturn() {
+    if (!returnPreview || checkoutPending) return;
+    setCheckoutPending(true);
+    try {
+      const updated = await confirmReturnBook(returnPreview.book.id);
+      setReturnPreview(null);
+      await reconcileCheckoutAction(updated);
+    } catch (error) { console.error("Confirm Return failed", error); toast.error("Could not return book"); }
+    finally { setCheckoutPending(false); }
+  }
 
   useEffect(() => {
     if (!groupByLocation) {
@@ -487,7 +568,7 @@ export default function App() {
   }
 
   const hasActiveCollectionFilter = Boolean(filters.search?.trim() || filters.categoryId != null || filters.locationId != null || filters.read != null);
-  const collectionEmpty = Boolean(currentCollection && collectionBrowse && !collectionLoading && !collectionPageLoading && collectionBrowse.books.length === 0 && collectionBrowse.collections.length === 0);
+  const collectionEmpty = Boolean(currentCollection && collectionBrowse && !collectionLoading && !collectionPageLoading && collectionBrowse.books.length === 0 && collectionBrowse.collections.length === 0 && outBooks.length === 0);
 
   async function handleViewModeChange(mode: LibraryViewMode) {
     try {
@@ -804,8 +885,10 @@ export default function App() {
           </div>
         </div>
 
+        <OutOfLibrary books={outBooks} onSelect={(book) => { void openBook(book, Boolean(currentCollection)); }} />
+
         {/* BOOK VIEWS */}
-        {groupByLocation ? groupedError ? null : groupedBooks && groupedBooks.locations.length === 0 && !groupedBooks.no_location ? (
+        {groupByLocation ? groupedError ? null : groupedBooks && groupedBooks.locations.length === 0 && !groupedBooks.no_location && outBooks.length === 0 ? (
           <p className="px-1 py-6 text-sm text-text-muted">{filters.search?.trim() || filters.categoryId != null || filters.locationId != null || filters.read != null ? "No matching books." : "Your library is empty."}</p>
         ) : groupedBooks ? (
           <GroupedLocationBooks data={groupedBooks} viewMode={viewMode} locations={locations} categories={categories} showCovers={showCoversInList} onSelect={(book) => { void openBook(book, false); }} onUnassignedSelect={(book) => setSuggestedAssignment({ book, location: null })} />
@@ -848,6 +931,9 @@ export default function App() {
             }}
             onSave={handleSave}
             onDelete={handleDelete}
+            onTakeOut={(id) => { void handleTakeOut(id); }}
+            onReturnToShelf={(id) => { void handleReturnPreview(id); }}
+            checkoutPending={checkoutPending}
           />
         )}
 
@@ -860,6 +946,8 @@ export default function App() {
           onConfirm={() => void confirmSuggestedLocationAssignment()}
           onViewBook={() => { if (suggestedAssignment) { const book = suggestedAssignment.book; setSuggestedAssignment(null); void openBook(book, false); } }}
         />
+
+        <ReturnToShelfDialog preview={returnPreview} confirming={checkoutPending} onClose={() => setReturnPreview(null)} onConfirm={() => { void handleConfirmReturn(); }} />
 
         <AddBookDialog
           open={showAddBook}

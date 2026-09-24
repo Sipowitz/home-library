@@ -53,6 +53,8 @@ export type Book = {
 
   read_at?: string | null;
 
+  is_checked_out?: boolean;
+
   location_id?: number | null;
 
   location_position?: number | null;

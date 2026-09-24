@@ -59,7 +59,7 @@ def _annotate_location_positions(books: list[Book]) -> None:
     for book in books:
         # Callers provide assigned books, but retaining this guard makes the
         # transient response fields safe if that contract changes.
-        if book.location_id is not None:
+        if book.location_id is not None and not book.is_checked_out:
             books_by_location.setdefault(book.location_id, []).append(book)
 
     for direct_books in books_by_location.values():
@@ -70,7 +70,7 @@ def _annotate_location_positions(books: list[Book]) -> None:
 
 def _annotate_single_book_location_position(db: Session, user_id: int, book: Book) -> None:
     """Calculate one book's position with one window-function query."""
-    if book.location_id is None:
+    if book.location_id is None or book.is_checked_out:
         _set_location_position(book, None, None)
         return
 
@@ -83,7 +83,7 @@ def _annotate_single_book_location_position(db: Session, user_id: int, book: Boo
             ).label("location_position"),
             func.count(Book.id).over().label("location_total"),
         )
-        .filter(Book.owner_id == user_id, Book.location_id == book.location_id)
+        .filter(Book.owner_id == user_id, Book.location_id == book.location_id, Book.is_checked_out.is_(False))
         .subquery()
     )
     position, total = (
@@ -190,10 +190,13 @@ def get_books(
     read: bool | None = None,
     sort: str = "date_added",
     order: str = "desc",
+    include_checked_out: bool = False,
 ):
     query = _filtered_books_query(
         db, user_id, search, category_id, location_id, read
     )
+    if not include_checked_out:
+        query = query.filter(Book.is_checked_out.is_(False))
 
     total = query.count()
 
@@ -213,6 +216,72 @@ def get_books(
     return {"items": items, "total": total}
 
 
+def get_out_books(
+    db: Session, user_id: int, *, search: str | None = None,
+    category_id: int | None = None, location_id: int | None = None,
+    read: bool | None = None, collection_id: int | None = None,
+):
+    """All matching out books, independent of normal browse pagination."""
+    query = _filtered_books_query(db, user_id, search, category_id, location_id, read)
+    query = query.filter(Book.is_checked_out.is_(True))
+    if collection_id is not None:
+        from app.services.series_service import _descendant_ids, _owned_series
+        collection = _owned_series(db, user_id, collection_id)
+        if collection is None:
+            raise HTTPException(status_code=404, detail="Collection not found")
+        descendants = _descendant_ids(db, user_id, collection_id)
+        active_filter = bool((search or "").strip() or category_id is not None or location_id is not None or read is not None)
+        ids = descendants | {collection_id} if active_filter else {collection_id}
+        query = query.filter(Book.series_memberships.any(models.BookSeriesMembership.series_id.in_(ids)))
+        if not active_filter and descendants:
+            query = query.filter(~Book.series_memberships.any(models.BookSeriesMembership.series_id.in_(descendants)))
+    return apply_book_ordering(query, "author", "asc").all()
+
+
+def take_out_book(db: Session, user_id: int, book_id: int):
+    book = db.query(Book).filter(Book.id == book_id, Book.owner_id == user_id).with_for_update().first()
+    if book is None:
+        return None
+    if book.location_id is None:
+        raise HTTPException(status_code=409, detail="Assign a location before taking this book out")
+    if not book.is_checked_out:
+        book.is_checked_out = True
+        db.commit()
+    return get_book(db, user_id, book_id)
+
+
+def get_return_preview(db: Session, user_id: int, book_id: int):
+    book = get_book(db, user_id, book_id)
+    if book is None:
+        return None
+    if not book.is_checked_out or book.location_id is None:
+        raise HTTPException(status_code=409, detail="Book is not out of a home location")
+    if not db.query(models.Location.id).filter(models.Location.id == book.location_id, models.Location.owner_id == user_id).first():
+        raise HTTPException(status_code=409, detail="Home location is unavailable")
+    shelf = apply_book_ordering(
+        db.query(Book).filter(Book.owner_id == user_id, Book.location_id == book.location_id, Book.is_checked_out.is_(False)),
+        "author", "asc",
+    ).all()
+    _annotate_location_positions(shelf)
+    key = (book.author.rsplit(" ", 1)[-1], book.id)
+    insertion = next((i for i, peer in enumerate(shelf) if key < (peer.author.rsplit(" ", 1)[-1], peer.id)), len(shelf))
+    return {"book": book, "location_id": book.location_id,
+            "before": shelf[max(0, insertion - 2):insertion], "after": shelf[insertion:insertion + 2]}
+
+
+def confirm_return_book(db: Session, user_id: int, book_id: int):
+    book = db.query(Book).filter(Book.id == book_id, Book.owner_id == user_id).with_for_update().first()
+    if book is None:
+        return None
+    if not book.is_checked_out:
+        raise HTTPException(status_code=409, detail="Book is already on the shelf")
+    if book.location_id is None or not db.query(models.Location.id).filter(models.Location.id == book.location_id, models.Location.owner_id == user_id).first():
+        raise HTTPException(status_code=409, detail="Home location is unavailable")
+    book.is_checked_out = False
+    db.commit()
+    return get_book(db, user_id, book_id)
+
+
 def get_grouped_books(
     db: Session,
     user_id: int,
@@ -224,7 +293,7 @@ def get_grouped_books(
     """Return the complete filtered Library hierarchy, grouped by direct Location."""
     query = _filtered_books_query(
         db, user_id, search, category_id, location_id, read
-    )
+    ).filter(Book.is_checked_out.is_(False))
     books = (
         apply_book_ordering(query, "author", "asc")
         .options(joinedload(Book.category), joinedload(Book.location))
@@ -246,7 +315,7 @@ def get_grouped_books(
         apply_book_ordering(
             db.query(Book)
             .filter(Book.owner_id == user_id)
-            .filter(Book.location_id.isnot(None)),
+            .filter(Book.location_id.isnot(None), Book.is_checked_out.is_(False)),
             "author",
             "asc",
         )
