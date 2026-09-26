@@ -532,9 +532,9 @@ export function SeriesSettings({ onViewBook, onCollectionsChanged }: Props) {
                     <h3 className="break-words text-lg font-semibold text-text-primary">{selectedBookContext.book.title}</h3>
                     <p className="mt-0.5 break-words text-sm text-text-secondary">{selectedBookContext.book.author}</p>
                     <p className="mt-1 text-xs font-medium text-text-secondary">Member of {selectedBookContext.series.name}</p>
-                    {(selectedBookContext.book.isbn || selectedBookContext.book.year) && (
+                    {(selectedBookContext.book.isbn || selectedBookContext.book.edition_published_year) && (
                       <p className="mt-1 text-xs text-text-muted">
-                        {[selectedBookContext.book.isbn ? `ISBN ${selectedBookContext.book.isbn}` : null, selectedBookContext.book.year]
+                        {[selectedBookContext.book.isbn ? `ISBN ${selectedBookContext.book.isbn}` : null, selectedBookContext.book.edition_published_year]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>

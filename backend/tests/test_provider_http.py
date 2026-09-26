@@ -337,7 +337,7 @@ def test_manager_marks_empty_adapter_result_as_no_match_without_provider_specifi
 
         async def refresh_metadata(self, _isbn):
             return {"title": None, "subtitle": None, "author": None, "publisher": None,
-                    "page_count": None, "language": None, "year": None, "description": None}
+                    "page_count": None, "language": None, "first_published_year": None, "edition_published_year": None, "description": None}
 
     configured = setting("future_provider")
     monkeypatch.setattr(manager, "_get_enabled_providers", lambda _db: iter([(configured, EmptyProvider(configured))]))
@@ -598,6 +598,6 @@ def test_explicit_refresh_distinguishes_successful_empty_from_failure(provider_c
     provider = provider_case(provider_class)
     assert asyncio.run(provider.refresh_metadata(ISBN)) == {
         "title": None, "subtitle": None, "author": None, "publisher": None,
-        "page_count": None, "language": None, "year": None, "description": None,
+        "page_count": None, "language": None, "first_published_year": None, "edition_published_year": None, "description": None,
     }
     assert asyncio.run(provider.refresh_metadata(ISBN)) is None

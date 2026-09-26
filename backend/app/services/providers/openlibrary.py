@@ -69,7 +69,7 @@ class OpenLibraryProvider(BookProvider):
         if not title:
             return {} if force_refresh else None
 
-        year = book.get(
+        first_published_year = book.get(
             "first_publish_year"
         )
 
@@ -142,7 +142,8 @@ class OpenLibraryProvider(BookProvider):
                 else None
             ),
 
-            "year": year,
+            "first_published_year": first_published_year if isinstance(first_published_year, int) and not isinstance(first_published_year, bool) else None,
+            "edition_published_year": None,
 
             "description": None,
 
@@ -188,8 +189,8 @@ class OpenLibraryProvider(BookProvider):
             cover_id = valid_cover_id(book.get("cover_i"))
             publishers = book.get("publisher")
             publisher = publishers[0] if isinstance(publishers, list) and publishers else None
-            year = book.get("first_publish_year")
-            year = year if isinstance(year, int) and not isinstance(year, bool) else None
+            first_published_year = book.get("first_publish_year")
+            first_published_year = first_published_year if isinstance(first_published_year, int) and not isinstance(first_published_year, bool) else None
             authors = book.get("author_name")
             author_value = ", ".join(value for value in authors if isinstance(value, str)) if isinstance(authors, list) else None
             results.append(
@@ -198,7 +199,8 @@ class OpenLibraryProvider(BookProvider):
                     "subtitle": book.get("subtitle") if isinstance(book.get("subtitle"), str) else None,
                     "author": author_value or None,
                     "publisher": publisher if isinstance(publisher, str) else None,
-                    "year": year,
+                    "first_published_year": first_published_year,
+                    "edition_published_year": None,
                     "isbn": preferred,
                     "isbns": isbns,
                     "cover_url": f"{OPENLIBRARY_COVER_URL}/{cover_id}-L.jpg" if cover_id else None,

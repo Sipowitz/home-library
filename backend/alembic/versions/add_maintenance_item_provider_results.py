@@ -3,7 +3,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "add_maintenance_item_provider_results"
+revision = "maint_item_provider_results"
 down_revision = "allow_isbnless_cover_snapshots"
 branch_labels = None
 depends_on = None

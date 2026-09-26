@@ -468,10 +468,8 @@ export function BookEdit({
                   <FieldLabel>Publisher</FieldLabel>
                   <input value={editData?.publisher || ""} onChange={(e) => setEditData({ ...editData!, publisher: e.target.value })} className={inputClass} />
                 </div>
-                <div>
-                  <FieldLabel>Year</FieldLabel>
-                  <input value={editData?.year || ""} onChange={(e) => setEditData({ ...editData!, year: Number(e.target.value) })} className={inputClass} />
-                </div>
+                <div><FieldLabel>First published</FieldLabel><input value={editData?.first_published_year || ""} onChange={(e) => setEditData({ ...editData!, first_published_year: e.target.value ? Number(e.target.value) : undefined })} className={inputClass} /></div>
+                <div><FieldLabel>Edition published</FieldLabel><input value={editData?.edition_published_year || ""} onChange={(e) => setEditData({ ...editData!, edition_published_year: e.target.value ? Number(e.target.value) : undefined })} className={inputClass} /></div>
                 <div>
                   <FieldLabel>Language</FieldLabel>
                   <input value={editData?.language || ""} onChange={(e) => setEditData({ ...editData!, language: e.target.value })} className={inputClass} />

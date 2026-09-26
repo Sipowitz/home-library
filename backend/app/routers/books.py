@@ -200,7 +200,7 @@ def get_books(
 
     sort: Literal[
         "id", "title", "author", "publisher", "language", "page_count",
-        "year", "isbn", "read", "read_at", "date_added",
+        "first_published_year", "edition_published_year", "isbn", "read", "read_at", "date_added",
     ] = Query("author"),
 
     order: Literal["asc", "desc"] = Query("asc"),

@@ -14,7 +14,7 @@ if TEST_DATABASE_URL:
 
 from app import models
 from app.services import book_service
-from app.services.providers import cover_snapshot_service
+from app.services.providers import cover_snapshot_service, http_client
 from app.services.providers.cover_snapshot_service import persist_cover_result
 from app.services.providers.evidence_service import displayable_cover_candidates, latest_cover_evidence, update_cover_evidence_signature, update_metadata_evidence_signature
 from app.services.providers.metadata_snapshot_service import persist_provider_result
@@ -76,10 +76,10 @@ def test_complete_provider_response_survives_without_changing_comparison(db, boo
         class Response:
             status_code = 200
             def json(self): return payload
-        async def get(_self, _url, *, headers):
+        async def get(_self, _url, *, params=None, headers):
             seen.update(headers)
             return Response()
-        monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+        monkeypatch.setattr(http_client.httpx.AsyncClient, "get", get)
 
     fetched = asyncio.run(_fetch_provider_result(setting, provider, isbn, evidence_kind="metadata"))
     assert fetched.success
@@ -87,7 +87,7 @@ def test_complete_provider_response_survives_without_changing_comparison(db, boo
     snapshot = persist_provider_result(db, book.id, fetched)
     db.commit()
     assert snapshot.raw_json["_provider_evidence"] == {"schema_version": 1, "raw_response": payload}
-    assert set(snapshot.raw_json) == {"title", "subtitle", "author", "publisher", "page_count", "language", "year", "description", "isbn", "_provider_evidence"}
+    assert set(snapshot.raw_json) == {"title", "subtitle", "author", "publisher", "page_count", "language", "first_published_year", "edition_published_year", "description", "isbn", "_provider_evidence"}
     assert snapshot.raw_json["title"] == "The Lighthouse Stevensons"
     assert snapshot.raw_json["author"] == "Author"
     record = snapshot.normalized_records[0]
@@ -242,8 +242,8 @@ def test_refresh_downloads_every_emitted_variant_and_serves_local_candidates(db,
         class Response:
             status_code = 200
             def json(self): return {"book": {"title": "Book", "image": "https://covers.example/image.jpg", "image_original": "https://covers.example/original.jpg"}}
-        async def get(_self, _url, *, headers): return Response()
-        monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+        async def get(_self, _url, *, params=None, headers): return Response()
+        monkeypatch.setattr(http_client.httpx.AsyncClient, "get", get)
 
     provider_data = asyncio.run(provider.refresh_covers(book.isbn))
     assert [item["label"] for item in provider_data["cover_candidates"]] == labels

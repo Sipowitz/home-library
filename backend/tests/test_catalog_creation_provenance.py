@@ -64,7 +64,7 @@ def catalog_payload(*, isbn="9780306406157", selected_cover=True):
         "book": {
             "title": "Merged title", "author": "Merged author", "subtitle": "Merged subtitle",
             "publisher": "Merged publisher", "language": "en", "page_count": 321,
-            "year": 2001, "isbn": isbn, "description": "Merged description",
+            "edition_published_year": 2001, "isbn": isbn, "description": "Merged description",
             "cover_url": cover_url,
         },
         "provider_evidence": [
@@ -80,15 +80,15 @@ def catalog_payload(*, isbn="9780306406157", selected_cover=True):
 
 def test_catalog_merge_carries_unmerged_provider_evidence_and_real_cover_source():
     items = merge_and_rank_catalog_candidates([
-        {"provider": "future_alpha", "provider_book_id": "a", "title": "Alpha", "author": None, "publisher": None, "year": 2001, "isbns": ["9780306406157"], "cover_url": "https://covers.example.test/a.jpg", "position": 0, "priority": 1},
-        {"provider": "future_beta", "provider_book_id": "b", "title": None, "author": "Beta", "publisher": "Beta Press", "year": 2001, "isbns": ["9780306406157"], "cover_url": None, "position": 0, "priority": 2},
+        {"provider": "future_alpha", "provider_book_id": "a", "title": "Alpha", "author": None, "publisher": None, "edition_published_year": 2001, "isbns": ["9780306406157"], "cover_url": "https://covers.example.test/a.jpg", "position": 0, "priority": 1},
+        {"provider": "future_beta", "provider_book_id": "b", "title": None, "author": "Beta", "publisher": "Beta Press", "edition_published_year": 2001, "isbns": ["9780306406157"], "cover_url": None, "position": 0, "priority": 2},
     ], "Alpha", None)
 
     assert items[0]["title"] == "Alpha"
     assert items[0]["author"] == "Beta"
     assert items[0]["provider_evidence"] == [
-        {"provider": "future_alpha", "provider_book_id": "a", "title": "Alpha", "subtitle": None, "author": None, "publisher": None, "language": None, "page_count": None, "year": 2001, "isbn": None, "description": None, "cover_url": "https://covers.example.test/a.jpg"},
-        {"provider": "future_beta", "provider_book_id": "b", "title": None, "subtitle": None, "author": "Beta", "publisher": "Beta Press", "language": None, "page_count": None, "year": 2001, "isbn": None, "description": None, "cover_url": None},
+        {"provider": "future_alpha", "provider_book_id": "a", "title": "Alpha", "subtitle": None, "author": None, "publisher": None, "language": None, "page_count": None, "first_published_year": None, "edition_published_year": 2001, "isbn": None, "description": None, "cover_url": "https://covers.example.test/a.jpg"},
+        {"provider": "future_beta", "provider_book_id": "b", "title": None, "subtitle": None, "author": "Beta", "publisher": "Beta Press", "language": None, "page_count": None, "first_published_year": None, "edition_published_year": 2001, "isbn": None, "description": None, "cover_url": None},
     ]
     assert items[0]["selected_cover"] == {"provider": "future_alpha", "source_url": "https://covers.example.test/a.jpg", "label": "Catalog result"}
 

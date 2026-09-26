@@ -31,7 +31,7 @@ def test_normalizes_isbndb_book_and_preserves_both_image_variants(monkeypatch):
     monkeypatch.setattr(httpx.AsyncClient, "get", get)
     result = asyncio.run(provider().fetch_book_by_isbn("9780306406157"))
     assert result["author"] == "First, Second"
-    assert {key: result[key] for key in ("title", "publisher", "language", "page_count", "year", "description", "cover_url")} == {"title": "Example", "publisher": "Press", "language": "en", "page_count": 321, "year": 2001, "description": "Summary", "cover_url": "https://stable/image.jpg"}
+    assert {key: result[key] for key in ("title", "publisher", "language", "page_count", "first_published_year", "edition_published_year", "description", "cover_url")} == {"title": "Example", "publisher": "Press", "language": "en", "page_count": 321, "first_published_year": None, "edition_published_year": 2001, "description": "Summary", "cover_url": "https://stable/image.jpg"}
     assert "signed" not in result["cover_url"]
     assert result["cover_candidates"] == [
         {"provider": "isbndb", "label": "ISBNdb", "url": "https://stable/image.jpg"},

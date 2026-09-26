@@ -297,7 +297,7 @@ class EffectiveSeriesBook(BaseModel):
     author: str
     cover_url: Optional[str] = None
     isbn: Optional[str] = None
-    year: Optional[int] = None
+    edition_published_year: Optional[int] = None
     direct: bool
     publication_order: Optional[int] = None
     chronological_order: Optional[int] = None
@@ -376,7 +376,8 @@ class CatalogSearchCandidate(BaseModel):
     subtitle: Optional[str] = None
     author: Optional[str] = None
     publisher: Optional[str] = None
-    year: Optional[int] = None
+    first_published_year: Optional[int] = None
+    edition_published_year: Optional[int] = None
     language: Optional[str] = None
     page_count: Optional[int] = None
     description: Optional[str] = None
@@ -399,7 +400,8 @@ class CatalogProviderEvidence(BaseModel):
     publisher: Optional[str] = Field(default=None, max_length=1000)
     language: Optional[str] = Field(default=None, max_length=100)
     page_count: Optional[int] = Field(default=None, ge=0, le=1_000_000)
-    year: Optional[int] = Field(default=None, ge=-10_000, le=10_000)
+    first_published_year: Optional[int] = Field(default=None, ge=-10_000, le=10_000)
+    edition_published_year: Optional[int] = Field(default=None, ge=-10_000, le=10_000)
     isbn: Optional[str] = Field(default=None, max_length=32)
     description: Optional[str] = Field(default=None, max_length=100_000)
     cover_url: Optional[str] = Field(default=None, max_length=2048)
@@ -447,7 +449,8 @@ class BookBase(BaseModel):
 
     page_count: Optional[int] = None
 
-    year: Optional[int] = None
+    first_published_year: Optional[int] = None
+    edition_published_year: Optional[int] = None
 
     isbn: Optional[str] = None
 
@@ -518,7 +521,8 @@ class BookUpdate(BaseModel):
 
     page_count: Optional[int] = None
 
-    year: Optional[int] = None
+    first_published_year: Optional[int] = None
+    edition_published_year: Optional[int] = None
 
     isbn: Optional[str] = None
 
@@ -575,7 +579,8 @@ class CreateBookFromIsbnBook(BaseModel):
     publisher: Optional[str] = None
     language: Optional[str] = None
     page_count: Optional[int] = None
-    year: Optional[int] = None
+    first_published_year: Optional[int] = None
+    edition_published_year: Optional[int] = None
     isbn: str
     description: Optional[str] = None
     read: bool = False

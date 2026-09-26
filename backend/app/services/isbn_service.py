@@ -47,7 +47,8 @@ async def create_book_from_isbn(
     payload = {
         "title": provider_data.get("title"),
         "author": provider_data.get("author"),
-        "year": provider_data.get("year"),
+        "first_published_year": provider_data.get("first_published_year"),
+        "edition_published_year": provider_data.get("edition_published_year"),
         "description": provider_data.get(
             "description"
         ),

@@ -114,7 +114,8 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
         book_data.append({
             "archive_id": book_ids[book.id], "title": book.title, "author": book.author,
             "subtitle": book.subtitle, "publisher": book.publisher, "language": book.language,
-            "page_count": book.page_count, "year": book.year, "isbn": book.isbn,
+            "page_count": book.page_count, "first_published_year": book.first_published_year,
+            "edition_published_year": book.edition_published_year, "isbn": book.isbn,
             "description": book.description, "read": bool(book.read), "read_at": book.read_at,
             "is_checked_out": bool(book.is_checked_out),
             "category_archive_id": category_ids.get(book.category_id), "location_archive_id": location_ids.get(book.location_id),
@@ -144,7 +145,8 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
                     "archive_id": _archive_id(), "snapshot_archive_id": snapshot_id, "provider": record.provider,
                     "title": record.title, "subtitle": record.subtitle, "authors_json": record.authors_json,
                     "publisher": record.publisher, "language": record.language, "page_count": record.page_count,
-                    "description": record.description, "published_year": record.published_year, "subjects_json": record.subjects_json,
+                    "description": record.description, "published_year": record.published_year,
+                    "first_published_year": record.first_published_year, "edition_published_year": record.edition_published_year, "subjects_json": record.subjects_json,
                     "cover_candidates_json": record.cover_candidates_json, "normalizer_version": record.normalizer_version,
                     "normalized_at": record.normalized_at,
                 })

@@ -52,10 +52,10 @@ def test_rescan_is_sequential_preserves_books_and_history_and_reports_failures(d
     session.add(category); session.flush()
     books = [
         models.Book(owner_id=owner.id, title="First", author="Writer", isbn="9780306406157",
-            cover_url="/covers/objects/sha256/selected.jpg", year=2001, category_id=category.id),
+            cover_url="/covers/objects/sha256/selected.jpg", edition_published_year=2001, category_id=category.id),
         models.Book(owner_id=owner.id, title="No ISBN", author="Writer", category_id=category.id),
         models.Book(owner_id=owner.id, title="Third", author="Writer", isbn="9781861972712",
-            cover_url="/covers/objects/sha256/third.jpg", year=2003, category_id=category.id),
+            cover_url="/covers/objects/sha256/third.jpg", edition_published_year=2003, category_id=category.id),
     ]
     session.add_all(books); session.commit()
     first, no_isbn, third = books
@@ -63,7 +63,7 @@ def test_rescan_is_sequential_preserves_books_and_history_and_reports_failures(d
         candidates_json=[{"provider": "google_books", "label": "old", "source_url": "https://example.test/old",
             "url": "/covers/objects/sha256/old.jpg"}]))
     session.commit()
-    original = [(book.id, book.title, book.author, book.isbn, book.cover_url, book.year, book.category_id)
+    original = [(book.id, book.title, book.author, book.isbn, book.cover_url, book.edition_published_year, book.category_id)
         for book in books]
     calls = []
 
@@ -102,7 +102,7 @@ def test_rescan_is_sequential_preserves_books_and_history_and_reports_failures(d
         "provider_failures": 1,
     }
     assert summary["error_summary"] == "HTTP 429"
-    assert [(book.id, book.title, book.author, book.isbn, book.cover_url, book.year, book.category_id)
+    assert [(book.id, book.title, book.author, book.isbn, book.cover_url, book.edition_published_year, book.category_id)
         for book in session.query(models.Book).filter_by(owner_id=owner.id).order_by(models.Book.id)] == original
     assert session.query(models.ProviderMetadataSnapshot).count() == 0
     assert session.query(models.ProviderCoverSnapshot).filter_by(book_id=no_isbn.id).count() == 0

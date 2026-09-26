@@ -88,7 +88,7 @@ def paged_ids(db, user_id, sort, order, page_size=7, **filters):
     return result
 
 
-@pytest.mark.parametrize("sort", ["title", "author", "date_added", "year"])
+@pytest.mark.parametrize("sort", ["title", "author", "date_added", "edition_published_year"])
 @pytest.mark.parametrize("order", ["asc", "desc"])
 def test_duplicate_sort_values_have_stable_complete_pagination(db, users, sort, order):
     owner, _ = users
@@ -98,7 +98,7 @@ def test_duplicate_sort_values_have_stable_complete_pagination(db, users, sort, 
             models.Book(
                 title="Same title",
                 author="Same Author",
-                year=2024,
+                edition_published_year=2024,
                 date_added=timestamp,
                 owner_id=owner.id,
                 read=False,
@@ -248,7 +248,7 @@ def test_valid_sorts_and_unassigned_compatibility_filters(client, db, users):
 
     for sort in (
         "id", "title", "author", "publisher", "language", "page_count",
-        "year", "isbn", "read", "read_at", "date_added",
+        "first_published_year", "edition_published_year", "isbn", "read", "read_at", "date_added",
     ):
         for order in ("asc", "desc"):
             response = client.get(

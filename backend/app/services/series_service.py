@@ -298,7 +298,7 @@ def get_effective_books(db: Session, user_id: int, series_id: int):
     result = []
     for bid in book_ids:
         book, root_order = books[bid], root_orders.get(bid)
-        result.append({"book_id": bid, "title": book.title, "author": book.author, "cover_url": book.cover_url, "isbn": book.isbn, "year": book.year,
+        result.append({"book_id": bid, "title": book.title, "author": book.author, "cover_url": book.cover_url, "isbn": book.isbn, "edition_published_year": book.edition_published_year,
             "direct": True, "publication_order": publication.get(bid), "chronological_order": chronological.get(bid),
             "root_publication_order": root_order.publication_order if root_order else None, "root_chronological_order": root_order.chronological_order if root_order else None,
             "reading_order": reading.get(bid) if custom else publication.get(bid), "reading_order_custom": custom, "explicit_memberships": membership_map[bid]})

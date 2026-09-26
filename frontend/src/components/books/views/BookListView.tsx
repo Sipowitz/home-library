@@ -285,8 +285,7 @@ export function BookListView({
                   {categoryPath}
                 </div>
 
-                {/* YEAR */}
-                <div className="text-sm text-text-secondary">{book.year || "—"}</div>
+                <div className="text-sm text-text-secondary">{book.edition_published_year || book.first_published_year || "—"}</div>
 
                 {/* STATUS */}
                 <div>

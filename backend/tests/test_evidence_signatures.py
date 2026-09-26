@@ -4,7 +4,7 @@ from app.services.providers.evidence_signatures import (
 )
 
 def metadata(provider="google_books", **changes):
-    value = {"provider": provider, "title": "Café", "subtitle": "Sub", "author": "Author", "publisher": "Pub", "page_count": 10, "language": "en", "year": 2024, "description": "Line 1\nLine 2"}
+    value = {"provider": provider, "title": "Café", "subtitle": "Sub", "author": "Author", "publisher": "Pub", "page_count": 10, "language": "en", "first_published_year": 1950, "edition_published_year": 2024, "description": "Line 1\nLine 2"}
     value.update(changes)
     return value
 

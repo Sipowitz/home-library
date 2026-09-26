@@ -154,9 +154,9 @@ class GoogleBooksProvider(BookProvider):
                 ),
                 None,
             )
-            year = None
+            edition_published_year = None
             if isinstance(info.get("publishedDate"), str) and info["publishedDate"][:4].isdigit():
-                year = int(info["publishedDate"][:4])
+                edition_published_year = int(info["publishedDate"][:4])
             authors = info.get("authors")
             author_value = ", ".join(value for value in authors if isinstance(value, str)) if isinstance(authors, list) else None
             results.append(
@@ -165,7 +165,8 @@ class GoogleBooksProvider(BookProvider):
                     "subtitle": info.get("subtitle") if isinstance(info.get("subtitle"), str) else None,
                     "author": author_value or None,
                     "publisher": info.get("publisher") if isinstance(info.get("publisher"), str) else None,
-                    "year": year,
+                    "first_published_year": None,
+                    "edition_published_year": edition_published_year,
                     "isbn": preferred,
                     "isbns": isbns,
                     "cover_url": cover,
@@ -298,20 +299,20 @@ class GoogleBooksProvider(BookProvider):
             isbn,
         )
 
-        year = None
+        edition_published_year = None
 
         if book.get(
             "publishedDate"
         ):
             try:
-                year = int(
+                edition_published_year = int(
                     book.get(
                         "publishedDate"
                     )[:4]
                 )
 
             except Exception:
-                year = None
+                edition_published_year = None
 
         image_links = (
             book.get(
@@ -377,7 +378,8 @@ class GoogleBooksProvider(BookProvider):
                 "language"
             ),
 
-            "year": year,
+            "first_published_year": None,
+            "edition_published_year": edition_published_year,
 
             "description": book.get(
                 "description"

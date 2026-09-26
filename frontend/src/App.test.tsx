@@ -198,7 +198,7 @@ it("reconciles and reorders retained root book tiles", () => {
     books: [originalBook, untouchedBook],
     total: 42,
   };
-  const updated: Book = { id: originalBook.id, title: "New title", author: "New author", year: 2026, cover_url: "/covers/objects/sha256/new-cover.jpg" };
+  const updated: Book = { id: originalBook.id, title: "New title", author: "New author", edition_published_year: 2026, cover_url: "/covers/objects/sha256/new-cover.jpg" };
   const merged = { ...originalBook, ...updated };
 
   const reconciled = reconcileCollectionBrowseBook(browse, updated);
@@ -225,7 +225,7 @@ it("retains a matching Collection tile when search has surrounding whitespace", 
 it("reconciles a saved book in the current collection browse and retained root snapshot without refetching", async () => {
   api.root.mockReset(); api.collection.mockReset(); api.getBook.mockReset(); api.saveBook.mockReset();
   const stale: CollectionBrowseBook = { id: 94, title: "Old title", author: "Old author", cover_url: "/covers/old.jpg", read: false, publication_order: 1, chronological_order: 1, reading_order: 1 };
-  const updated: Book = { id: stale.id, title: "New title", author: "New author", year: 2026, cover_url: "/covers/objects/sha256/new-cover.jpg" };
+  const updated: Book = { id: stale.id, title: "New title", author: "New author", edition_published_year: 2026, cover_url: "/covers/objects/sha256/new-cover.jpg" };
   api.root.mockResolvedValue({ collection: null, items: [{ kind: "collection", collection: root }, { kind: "book", book: stale }], collections: [root], books: [stale], total: 20 });
   api.collection.mockResolvedValue({ collection: root, items: [], collections: [], books: [stale], total: 20 });
   api.getBook.mockResolvedValue(stale);

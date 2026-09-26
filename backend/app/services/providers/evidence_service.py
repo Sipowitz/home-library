@@ -8,7 +8,7 @@ from app.services.providers.cover_snapshot_service import source_url_for_candida
 from app.services.covers.download import download_candidate_cover
 from app.services.cover_storage import CoverUploadError, resolve_local_cover_path
 
-METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description", "isbn")
+METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "first_published_year", "edition_published_year", "description", "isbn")
 
 def normalized_book_isbn(book: models.Book) -> str | None:
     if not book.isbn:

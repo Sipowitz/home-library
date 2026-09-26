@@ -7,7 +7,7 @@ from collections import defaultdict
 from typing import Any, Iterable
 from urllib.parse import urlsplit, urlunsplit
 
-METADATA_FIELDS = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description")
+METADATA_FIELDS = ("title", "subtitle", "author", "publisher", "page_count", "language", "first_published_year", "edition_published_year", "description")
 
 def normalize_text(value: Any) -> str | None:
     if value is None:
@@ -33,7 +33,7 @@ def canonicalize_metadata_evidence(evidence: Iterable[dict[str, Any]]) -> list[d
         row = {"provider": normalize_text(item.get("provider"))}
         for field in METADATA_FIELDS:
             value = item.get(field)
-            row[field] = normalize_integer(value) if field in {"page_count", "year"} else normalize_text(value)
+            row[field] = normalize_integer(value) if field in {"page_count", "first_published_year", "edition_published_year"} else normalize_text(value)
         canonical.append(row)
     return sorted(canonical, key=lambda row: row["provider"] or "")
 

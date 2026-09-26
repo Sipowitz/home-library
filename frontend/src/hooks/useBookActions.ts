@@ -207,7 +207,8 @@ export function useBookActions({
       publisher: candidate.publisher ?? undefined,
       language: candidate.language ?? undefined,
       page_count: candidate.page_count ?? undefined,
-      year: candidate.year ?? undefined,
+      first_published_year: candidate.first_published_year ?? undefined,
+      edition_published_year: candidate.edition_published_year ?? undefined,
       isbn: candidate.isbn ?? "",
       description: candidate.description ?? undefined,
       cover_url: candidate.cover_url ?? "",
@@ -238,7 +239,8 @@ export function useBookActions({
 
       page_count: newBook.page_count ?? undefined,
 
-      year: newBook.year ?? undefined,
+      first_published_year: newBook.first_published_year ?? undefined,
+      edition_published_year: newBook.edition_published_year ?? undefined,
 
       isbn: newBook.isbn ?? "",
 

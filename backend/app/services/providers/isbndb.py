@@ -54,14 +54,14 @@ class ISBNdbProvider(BookProvider):
             self.record_request_failure("Malformed ISBNdb response", "provider_error")
             return None
         authors = book.get("authors") if isinstance(book.get("authors"), list) else []
-        date = book.get("date_published"); year = int(date[:4]) if isinstance(date, str) and date[:4].isdigit() else None
+        date = book.get("date_published"); edition_published_year = int(date[:4]) if isinstance(date, str) and date[:4].isdigit() else None
         image = book.get("image") if isinstance(book.get("image"), str) else None
         image_original = book.get("image_original") if isinstance(book.get("image_original"), str) else None
         cover_candidates = [
             {"provider": self.provider_name, "label": label, "url": url}
             for label, url in (("ISBNdb", image), ("ISBNdb Original", image_original)) if url
         ]
-        return {"title": book.get("title"), "subtitle": _subtitle_from_title_long(book.get("title"), book.get("title_long")), "author": ", ".join(a for a in authors if isinstance(a, str)) or None, "publisher": book.get("publisher"), "language": book.get("language"), "page_count": book.get("pages") if isinstance(book.get("pages"), int) else None, "year": year, "isbn": isbn, "description": book.get("synopsis"), "cover_url": image, "cover_candidates": cover_candidates, "provider": self.provider_name, "provider_book_id": book.get("isbn13") or book.get("isbn")}
+        return {"title": book.get("title"), "subtitle": _subtitle_from_title_long(book.get("title"), book.get("title_long")), "author": ", ".join(a for a in authors if isinstance(a, str)) or None, "publisher": book.get("publisher"), "language": book.get("language"), "page_count": book.get("pages") if isinstance(book.get("pages"), int) else None, "first_published_year": None, "edition_published_year": edition_published_year, "isbn": isbn, "description": book.get("synopsis"), "cover_url": image, "cover_candidates": cover_candidates, "provider": self.provider_name, "provider_book_id": book.get("isbn13") or book.get("isbn")}
 
     async def search_catalog(self, title: str, author: str | None, *, limit: int = 50):
         key = self._api_key()
@@ -106,7 +106,8 @@ class ISBNdbProvider(BookProvider):
                 "subtitle": _subtitle_from_title_long(book.get("title"), title_long),
                 "author": ", ".join(value for value in authors if isinstance(value, str)) or None,
                 "publisher": book.get("publisher") if isinstance(book.get("publisher"), str) else None,
-                "year": _catalog_year(book.get("date_published")),
+                "first_published_year": None,
+                "edition_published_year": _catalog_year(book.get("date_published")),
                 "isbn": next((value for value in isbns if len(value) == 13), None) or (isbns[0] if isbns else None),
                 "isbns": isbns,
                 "cover_url": book.get("image") if isinstance(book.get("image"), str) else None,

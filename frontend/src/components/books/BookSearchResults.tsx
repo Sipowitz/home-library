@@ -36,8 +36,8 @@ export function BookSearchResults({ items, visibleCount, onSelect, onShowMore }:
               {candidate.subtitle && <p className="truncate text-sm text-text-secondary">{candidate.subtitle}</p>}
               {candidate.author && <p className="truncate text-sm text-text-secondary">{candidate.author}</p>}
               <p className="mt-1 text-xs text-text-muted">
-                {[candidate.publisher, candidate.year].filter(Boolean).join(" · ")}
-                {candidate.isbn && `${candidate.publisher || candidate.year ? " · " : ""}ISBN ${candidate.isbn}`}
+                {[candidate.publisher, candidate.edition_published_year, candidate.first_published_year].filter(Boolean).join(" · ")}
+                {candidate.isbn && `${candidate.publisher || candidate.edition_published_year || candidate.first_published_year ? " · " : ""}ISBN ${candidate.isbn}`}
                 {!candidate.isbn && "ISBN unavailable"}
               </p>
               {candidate.sources.length > 0 && <p className="mt-1 text-xs text-text-muted">{candidate.sources.join(" · ")}</p>}

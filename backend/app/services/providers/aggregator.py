@@ -37,8 +37,8 @@ from app.services.providers.types import (
 # cover_candidates:
 #   → merged provider candidates
 #
-# year:
-#   → most common valid year
+# publication years:
+#   → most common valid value for each explicit semantic field
 #
 # isbn:
 #   → first non-empty value
@@ -265,8 +265,13 @@ def aggregate_metadata(
         for r in successful
     ]
 
-    years = [
-        r.get("year")
+    first_published_years = [
+        r.get("first_published_year")
+        for r in successful
+    ]
+
+    edition_published_years = [
+        r.get("edition_published_year")
         for r in successful
     ]
 
@@ -328,9 +333,8 @@ def aggregate_metadata(
             )
         ),
 
-        "year": most_common(
-            years
-        ),
+        "first_published_year": most_common(first_published_years),
+        "edition_published_year": most_common(edition_published_years),
 
         "isbn": first_non_empty(
             isbns

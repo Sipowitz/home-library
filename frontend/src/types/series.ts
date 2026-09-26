@@ -37,7 +37,7 @@ export type EffectiveSeriesBook = {
   author: string;
   cover_url: string | null;
   isbn: string | null;
-  year: number | null;
+  edition_published_year: number | null;
   direct: boolean;
   publication_order: number | null;
   chronological_order: number | null;

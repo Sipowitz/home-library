@@ -37,7 +37,8 @@ const FIELDS = [
   { key: "publisher", label: "Publisher" },
   { key: "page_count", label: "Page Count" },
   { key: "language", label: "Language" },
-  { key: "year", label: "Year" },
+  { key: "first_published_year", label: "First published" },
+  { key: "edition_published_year", label: "Edition published" },
   { key: "description", label: "Description" },
   { key: "isbn", label: "ISBN" },
 ];

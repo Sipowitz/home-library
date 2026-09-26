@@ -16,7 +16,7 @@ MAX_COVER_CANDIDATES = 20
 # provider bookkeeping are intentionally not evidence.
 METADATA_EVIDENCE_FIELDS = (
     "title", "subtitle", "author", "publisher", "language",
-    "page_count", "year", "description",
+    "page_count", "first_published_year", "edition_published_year", "description",
 )
 INVALID_COVER_URL_PATTERNS = ("dummyimage.com", "no+cover", "fallback-cover", "placeholder")
 
@@ -81,7 +81,8 @@ class ProviderMetadataPayload(StrictProviderModel):
     publisher: Optional[str] = Field(default=None, max_length=1000)
     language: Optional[str] = Field(default=None, max_length=100)
     page_count: Optional[int] = Field(default=None, ge=0, le=1_000_000)
-    year: Optional[int] = Field(default=None, ge=-10_000, le=10_000)
+    first_published_year: Optional[int] = Field(default=None, ge=-10_000, le=10_000)
+    edition_published_year: Optional[int] = Field(default=None, ge=-10_000, le=10_000)
     isbn: Optional[str] = Field(default=None, max_length=32)
     description: Optional[str] = Field(default=None, max_length=100_000)
     cover_url: Optional[str] = Field(default=None, max_length=2048)

@@ -35,12 +35,13 @@ def _isbn_identities(values: list[object]) -> set[str]:
     return result
 
 
-def _no_isbn_identity(candidate: dict) -> tuple[str, str, int] | None:
+def _no_isbn_identity(candidate: dict) -> tuple[str, str, int | None, int | None] | None:
     title = _text(candidate.get("title"))
     author = _text(candidate.get("author"))
-    year = candidate.get("year")
-    if title and author and isinstance(year, int):
-        return title, author, year
+    first_year = candidate.get("first_published_year")
+    edition_year = candidate.get("edition_published_year")
+    if title and author and (isinstance(first_year, int) or isinstance(edition_year, int)):
+        return title, author, first_year if isinstance(first_year, int) else None, edition_year if isinstance(edition_year, int) else None
     return None
 
 
@@ -52,7 +53,7 @@ def _provider_key(candidate: dict) -> str:
             candidate.get("provider_book_id") or candidate.get("position"),
             _text(candidate.get("title")),
             _text(candidate.get("author")),
-            candidate.get("year"),
+            candidate.get("first_published_year"), candidate.get("edition_published_year"),
         )
     )
 
@@ -63,7 +64,7 @@ def _catalog_provider_evidence(candidate: dict) -> dict:
         key: candidate.get(key)
         for key in (
             "provider", "provider_book_id", "title", "subtitle", "author",
-            "publisher", "language", "page_count", "year", "isbn",
+            "publisher", "language", "page_count", "first_published_year", "edition_published_year", "isbn",
             "description", "cover_url",
         )
     }
@@ -88,7 +89,7 @@ def _catalog_evidence_sort_key(candidate: dict) -> tuple:
         str(candidate.get("provider_book_id") or candidate.get("position") or ""),
         _text(candidate.get("title")),
         _text(candidate.get("author")),
-        str(candidate.get("year") or ""),
+        str(candidate.get("first_published_year") or ""), str(candidate.get("edition_published_year") or ""),
     )
 
 
@@ -160,7 +161,8 @@ def merge_and_rank_catalog_candidates(
             "subtitle": first_non_empty([item.get("subtitle") for item in group]),
             "author": longest_string([item.get("author") for item in group]),
             "publisher": first_non_empty([item.get("publisher") for item in group]),
-            "year": first_non_empty([item.get("year") for item in group]),
+            "first_published_year": first_non_empty([item.get("first_published_year") for item in group]),
+            "edition_published_year": first_non_empty([item.get("edition_published_year") for item in group]),
             "language": first_non_empty([item.get("language") for item in group]),
             "page_count": first_non_empty([item.get("page_count") for item in group]),
             "description": longest_string([item.get("description") for item in group]),
@@ -177,7 +179,7 @@ def merge_and_rank_catalog_candidates(
         }
         completeness = sum(
             bool(result.get(field))
-            for field in ("subtitle", "publisher", "year", "isbn", "cover_url")
+            for field in ("subtitle", "publisher", "first_published_year", "edition_published_year", "isbn", "cover_url")
         )
         result["_rank"] = (
             -int(_text(result["title"]) == query_title),
@@ -190,7 +192,7 @@ def merge_and_rank_catalog_candidates(
             result["_priority"],
             _text(result["title"]),
             _text(result["author"]),
-            str(result["year"] or ""),
+            str(result["first_published_year"] or ""), str(result["edition_published_year"] or ""),
             result["candidate_key"],
         )
         merged.append(result)

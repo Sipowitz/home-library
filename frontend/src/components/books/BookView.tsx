@@ -147,7 +147,8 @@ export function BookView({ book, locations, categories, onCollectionPathsChange 
       : FALLBACK_COVER;
 
   const heroFacts = ([
-    book.year ? { label: "Published", value: book.year, icon: CalendarDays } : null,
+    book.first_published_year ? { label: "First published", value: book.first_published_year, icon: CalendarDays } : null,
+    book.edition_published_year ? { label: "Edition published", value: book.edition_published_year, icon: CalendarDays } : null,
     book.publisher?.trim()
       ? { label: "Publisher", value: book.publisher, icon: Building2 }
       : null,

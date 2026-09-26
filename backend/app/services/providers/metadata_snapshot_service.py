@@ -4,7 +4,7 @@ from app.services.providers.types import ProviderResult, has_usable_metadata_evi
 
 NORMALIZER_VERSION = "v2"
 PROVIDER_EVIDENCE_KEY = "_provider_evidence"
-METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description", "isbn")
+METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "first_published_year", "edition_published_year", "description", "isbn")
 
 def metadata_projection(data: dict) -> dict:
     return {key: data.get(key) for key in METADATA_KEYS}
@@ -25,7 +25,9 @@ def persist_provider_result(db: Session, book_id: int, provider_result: Provider
     normalized = models.NormalizedMetadataRecord(snapshot_id=snapshot.id, provider=provider_result.provider,
         title=data.get("title"), subtitle=data.get("subtitle"), authors_json=[data["author"]] if data.get("author") else [],
         publisher=data.get("publisher"), language=data.get("language"), page_count=data.get("page_count"),
-        description=data.get("description"), published_year=data.get("year"), subjects_json=[],
+        description=data.get("description"), published_year=None,
+        first_published_year=data.get("first_published_year"),
+        edition_published_year=data.get("edition_published_year"), subjects_json=[],
         cover_candidates_json=[], normalizer_version=NORMALIZER_VERSION)
     db.add(normalized)
     db.flush()

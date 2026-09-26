@@ -97,7 +97,10 @@ class BookData(StrictModel):
     publisher: str | None = None
     language: str | None = None
     page_count: int | None = None
+    # Legacy archives may retain ambiguous year; restore deliberately ignores it.
     year: int | None = None
+    first_published_year: int | None = None
+    edition_published_year: int | None = None
     isbn: str | None = None
     description: str | None = None
     read: bool
@@ -146,6 +149,8 @@ class NormalizedRecordData(StrictModel):
     page_count: int | None = None
     description: str | None = None
     published_year: int | None = None
+    first_published_year: int | None = None
+    edition_published_year: int | None = None
     subjects_json: Any = None
     cover_candidates_json: Any = None
     normalizer_version: str

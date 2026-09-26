@@ -9,7 +9,7 @@ from app import database
 from app.main import app
 from app.routers import books as books_router
 from app.schemas import CatalogSearchRequest, CatalogSearchResponse
-from app.services.providers import manager
+from app.services.providers import manager, http_client
 from app.services.providers.catalog_search_service import merge_and_rank_catalog_candidates
 from app.services.providers.google_books import GOOGLE_BOOKS_URL, GoogleBooksProvider
 from app.services.providers.isbndb import ISBNDB_SEARCH_URL, ISBNdbProvider
@@ -26,7 +26,8 @@ def candidate(*, provider="google_books", key="one", position=0, title="The Book
         "subtitle": None,
         "author": author,
         "publisher": "Publisher",
-        "year": year,
+        "first_published_year": None,
+        "edition_published_year": year,
         "isbn": (isbns or [None])[0],
         "isbns": isbns or [],
         "cover_url": cover,
@@ -114,7 +115,7 @@ def test_isbndb_catalog_search_normalizes_one_title_scoped_request(monkeypatch):
         return Response()
 
     monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
-    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+    monkeypatch.setattr(http_client.httpx.AsyncClient, "get", get)
     result = asyncio.run(ISBNdbProvider(setting("isbndb")).search_catalog("The Book / One", "An Author"))
 
     assert calls == [(
@@ -128,7 +129,8 @@ def test_isbndb_catalog_search_normalizes_one_title_scoped_request(monkeypatch):
             "subtitle": "A Subtitle",
             "author": "An Author, Second Author",
             "publisher": "Press",
-            "year": 2001,
+            "first_published_year": None,
+            "edition_published_year": 2001,
             "isbn": "9780306406157",
             "isbns": ["9780306406157", "0306406152"],
             "cover_url": "https://images.example.test/book.jpg",
@@ -169,7 +171,7 @@ def test_isbndb_catalog_subtitle_uses_explicit_title_only(
         return Response()
 
     monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
-    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+    monkeypatch.setattr(http_client.httpx.AsyncClient, "get", get)
     result = asyncio.run(ISBNdbProvider(setting("isbndb")).search_catalog("Example", None))
 
     assert result[0]["title"] == expected_title
@@ -192,7 +194,7 @@ def test_isbndb_catalog_search_tolerates_missing_fields_and_missing_key(monkeypa
         return Response()
 
     monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
-    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+    monkeypatch.setattr(http_client.httpx.AsyncClient, "get", get)
     result = asyncio.run(ISBNdbProvider(setting("isbndb")).search_catalog("The Book", None))
     assert result[0]["isbn"] is None and result[0]["cover_url"] is None
 
@@ -201,6 +203,9 @@ def test_isbndb_catalog_429_and_network_failure_are_isolated(monkeypatch):
     class Response:
         status_code = 429
 
+        def json(self):
+            return {}
+
     calls = []
 
     async def limited(self, *_args, **_kwargs):
@@ -208,7 +213,7 @@ def test_isbndb_catalog_429_and_network_failure_are_isolated(monkeypatch):
         return Response()
 
     monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
-    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", limited)
+    monkeypatch.setattr(http_client.httpx.AsyncClient, "get", limited)
     provider = ISBNdbProvider(setting("isbndb"))
     assert asyncio.run(provider.search_catalog("The Book", None)) == []
     assert len(calls) == 1 and "429" in provider.last_error
@@ -218,7 +223,7 @@ def test_isbndb_catalog_429_and_network_failure_are_isolated(monkeypatch):
     async def offline(self, *_args, **_kwargs):
         raise httpx.ConnectError("offline")
 
-    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", offline)
+    monkeypatch.setattr(http_client.httpx.AsyncClient, "get", offline)
     provider = ISBNdbProvider(setting("isbndb"))
     assert asyncio.run(provider.search_catalog("The Book", None)) == []
     assert "Transport error" in provider.last_error

@@ -43,7 +43,8 @@ export type Book = {
 
   page_count?: number;
 
-  year?: number;
+  first_published_year?: number;
+  edition_published_year?: number;
 
   isbn?: string;
 

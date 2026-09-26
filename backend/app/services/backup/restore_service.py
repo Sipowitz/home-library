@@ -113,7 +113,8 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                     for candidate in item.uploaded_cover_candidates
                 ]
                 row = models.Book(owner_id=user_id, title=item.title, author=item.author, subtitle=item.subtitle,
-                    publisher=item.publisher, language=item.language, page_count=item.page_count, year=item.year,
+                    publisher=item.publisher, language=item.language, page_count=item.page_count,
+                    first_published_year=item.first_published_year, edition_published_year=item.edition_published_year,
                     isbn=item.isbn, description=item.description, read=item.read, read_at=item.read_at,
                     is_checked_out=item.is_checked_out,
                     location_id=location_map.get(item.location_archive_id), category_id=category_map.get(item.category_archive_id),
@@ -163,7 +164,8 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                 db.add(models.NormalizedMetadataRecord(snapshot_id=snapshot_map[item.snapshot_archive_id], provider=item.provider,
                     title=item.title, subtitle=item.subtitle, authors_json=item.authors_json, publisher=item.publisher,
                     language=item.language, page_count=item.page_count, description=item.description,
-                    published_year=item.published_year, subjects_json=item.subjects_json,
+                    published_year=item.published_year, first_published_year=item.first_published_year,
+                    edition_published_year=item.edition_published_year, subjects_json=item.subjects_json,
                     cover_candidates_json=item.cover_candidates_json, normalizer_version=item.normalizer_version,
                     normalized_at=item.normalized_at))
             for item in data.provider_cover_snapshots:

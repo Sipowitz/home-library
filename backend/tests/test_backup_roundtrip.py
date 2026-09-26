@@ -58,7 +58,7 @@ def populated(db):
     room = models.Location(name="Room", owner_id=source.id); db.add_all([child, room]); db.flush()
     cover = Path(settings.COVERS_DIR) / "uploaded" / "one.png"; cover.parent.mkdir(); Image.new("RGB", (8, 8), "red").save(cover)
     book = models.Book(owner_id=source.id, title="Complete", author="Author", subtitle="Subtitle", publisher="Publisher",
-        language="en", page_count=321, year=2025, isbn="9780306406157", description="Description", read=True,
+        language="en", page_count=321, first_published_year=1950, edition_published_year=2025, isbn="9780306406157", description="Description", read=True,
         read_at=datetime(2025, 1, 2, tzinfo=timezone.utc), category_id=child.id, location_id=room.id,
         cover_url="/covers/uploaded/one.png", uploaded_cover_candidates_json=[{"provider":"upload","label":"Custom Upload","url":"/covers/uploaded/one.png"}],
         date_added=datetime(2024, 1, 1, tzinfo=timezone.utc), last_metadata_refresh_at=datetime(2025, 2, 2, tzinfo=timezone.utc),

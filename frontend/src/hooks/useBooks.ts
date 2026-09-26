@@ -32,7 +32,8 @@ type BookCreateInput = {
 
   page_count?: number;
 
-  year?: number;
+  first_published_year?: number;
+  edition_published_year?: number;
 
   isbn?: string;
 
@@ -262,7 +263,8 @@ export function useBooks() {
 
       page_count: book.page_count,
 
-      year: book.year,
+      first_published_year: book.first_published_year,
+      edition_published_year: book.edition_published_year,
 
       isbn: book.isbn,
 

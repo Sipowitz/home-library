@@ -361,10 +361,9 @@ class Book(Base):
         nullable=True,
     )
 
-    year = Column(
-        Integer,
-        nullable=True,
-    )
+    first_published_year = Column(Integer, nullable=True)
+
+    edition_published_year = Column(Integer, nullable=True)
 
     isbn = Column(
         String,
@@ -672,6 +671,9 @@ class NormalizedMetadataRecord(Base):
         Integer,
         nullable=True,
     )
+
+    first_published_year = Column(Integer, nullable=True)
+    edition_published_year = Column(Integer, nullable=True)
 
     subjects_json = Column(
         JSONB,

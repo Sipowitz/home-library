@@ -74,7 +74,8 @@ export type CatalogSearchCandidate = {
   publisher: string | null;
   language: string | null;
   page_count: number | null;
-  year: number | null;
+  first_published_year?: number | null;
+  edition_published_year?: number | null;
   isbn: string | null;
   description: string | null;
   cover_url: string | null;
@@ -92,7 +93,8 @@ export type CatalogProviderEvidence = {
   publisher: string | null;
   language: string | null;
   page_count: number | null;
-  year: number | null;
+  first_published_year?: number | null;
+  edition_published_year?: number | null;
   isbn: string | null;
   description: string | null;
   cover_url: string | null;
@@ -121,7 +123,8 @@ type BookCreateInput = {
 
   page_count?: number;
 
-  year?: number;
+  first_published_year?: number;
+  edition_published_year?: number;
 
   isbn?: string;
 
@@ -160,7 +163,8 @@ type BookUpdateInput = {
 
   page_count?: number;
 
-  year?: number;
+  first_published_year?: number;
+  edition_published_year?: number;
 
   isbn?: string;
 

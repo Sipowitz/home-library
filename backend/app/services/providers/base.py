@@ -79,7 +79,7 @@ class BookProvider(ABC):
         data = await self.fetch_book_by_isbn(isbn, force_refresh=True)
         if data is None:
             return None
-        keys = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description")
+        keys = ("title", "subtitle", "author", "publisher", "page_count", "language", "first_published_year", "edition_published_year", "description")
         return {key: data.get(key) for key in keys}
 
     async def refresh_covers(self, isbn: str) -> dict | None:

@@ -26,7 +26,8 @@ SORT_COLUMNS = {
     "publisher": Book.publisher,
     "language": Book.language,
     "page_count": Book.page_count,
-    "year": Book.year,
+    "first_published_year": Book.first_published_year,
+    "edition_published_year": Book.edition_published_year,
     "isbn": Book.isbn,
     "read": Book.read,
     "read_at": Book.read_at,
@@ -561,7 +562,8 @@ def create_book(db: Session, user_id: int, data: dict):
 
     data.setdefault("read", False)
     data.setdefault("location_id", None)
-    data.setdefault("year", None)
+    data.setdefault("first_published_year", None)
+    data.setdefault("edition_published_year", None)
     data.setdefault("description", None)
     data.setdefault("isbn", None)
     data.setdefault("cover_url", None)
