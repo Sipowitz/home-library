@@ -61,7 +61,12 @@ def populated(db):
         language="en", page_count=321, year=2025, isbn="9780306406157", description="Description", read=True,
         read_at=datetime(2025, 1, 2, tzinfo=timezone.utc), category_id=child.id, location_id=room.id,
         cover_url="/covers/uploaded/one.png", uploaded_cover_candidates_json=[{"provider":"upload","label":"Custom Upload","url":"/covers/uploaded/one.png"}],
-        date_added=datetime(2024, 1, 1, tzinfo=timezone.utc), last_metadata_refresh_at=datetime(2025, 2, 2, tzinfo=timezone.utc))
+        date_added=datetime(2024, 1, 1, tzinfo=timezone.utc), last_metadata_refresh_at=datetime(2025, 2, 2, tzinfo=timezone.utc),
+        last_cover_refresh_at=datetime(2025, 2, 3, tzinfo=timezone.utc),
+        metadata_evidence_signature="metadata:v1:reviewed", metadata_evidence_changed_at=datetime(2025, 2, 4, tzinfo=timezone.utc),
+        metadata_review_signature="metadata:v1:reviewed", metadata_reviewed_at=datetime(2025, 2, 5, tzinfo=timezone.utc),
+        cover_evidence_signature="covers:v1:new", cover_evidence_changed_at=datetime(2025, 2, 6, tzinfo=timezone.utc),
+        cover_review_signature="covers:v1:old", cover_reviewed_at=datetime(2025, 2, 7, tzinfo=timezone.utc))
     other_book = models.Book(owner_id=other.id, title="Untouched", author="Other")
     db.add_all([book, other_book]); db.flush()
     series_root = models.Series(name="Discworld", node_type="series", author="Terry Pratchett", description="Universe", cover_url="/covers/uploaded/one.png", owner_id=source.id)
@@ -124,6 +129,11 @@ def test_populated_round_trip_remaps_ids_preserves_data_and_other_user(db):
     assert (restored.title, restored.subtitle, restored.page_count, restored.read) == ("Complete", "Subtitle", 321, True)
     assert restored.category.parent.name == "Parent" and restored.location.name == "Room"
     assert restored.metadata_snapshots[0].normalized_records[0].title == "Normalized"
+    assert restored.metadata_review_signature == restored.metadata_evidence_signature == "metadata:v1:reviewed"
+    assert restored.cover_evidence_signature == "covers:v1:new" and restored.cover_review_signature == "covers:v1:old"
+    assert restored.last_cover_refresh_at == datetime(2025, 2, 3, tzinfo=timezone.utc)
+    assert restored.metadata_reviewed_at == datetime(2025, 2, 5, tzinfo=timezone.utc)
+    assert restored.cover_reviewed_at == datetime(2025, 2, 7, tzinfo=timezone.utc)
     restored_series = db.query(models.Series).filter_by(owner_id=user_id).order_by(models.Series.id).all()
     assert [(row.name, row.parent.name if row.parent else None) for row in restored_series] == [("Discworld", None), ("Pratchett", None), ("City Watch", "Discworld")]
     assert restored_series[0].author == "Terry Pratchett" and restored_series[0].description == "Universe"
@@ -156,6 +166,12 @@ def test_checkout_state_round_trip_and_legacy_book_data(db, tmp_path):
     legacy = json.loads(entries["library.json"])
     for book in legacy["books"]:
         book.pop("is_checked_out")
+        for field in (
+            "last_cover_refresh_at", "metadata_evidence_signature", "metadata_evidence_changed_at",
+            "metadata_review_signature", "metadata_reviewed_at", "cover_evidence_signature",
+            "cover_evidence_changed_at", "cover_review_signature", "cover_reviewed_at",
+        ):
+            book.pop(field)
     entries["library.json"] = json.dumps(legacy).encode("utf-8")
     manifest = json.loads(entries["manifest.json"])
     library_entry = next(item for item in manifest["files"] if item["path"] == "library.json")
@@ -170,7 +186,11 @@ def test_checkout_state_round_trip_and_legacy_book_data(db, tmp_path):
     assert all(book.is_checked_out is False for book in old_session.library.books)
     db.commit()
     restore_user(db, user_id, old_session, publish_covers(old_session))
-    assert db.query(models.Book).filter_by(owner_id=user_id).one().is_checked_out is False
+    restored = db.query(models.Book).filter_by(owner_id=user_id).one()
+    assert restored.is_checked_out is False
+    assert restored.last_cover_refresh_at is None
+    assert restored.metadata_evidence_signature is None and restored.metadata_review_signature is None
+    assert restored.cover_evidence_signature is None and restored.cover_review_signature is None
     archive.unlink()
 
 
@@ -267,12 +287,14 @@ def test_provider_cover_snapshots_and_permanent_candidate_objects_round_trip(db,
             {"provider": "openlibrary", "label": "L", "source_url": "https://provider.example/legacy", "url": legacy_url},
             {"provider": "openlibrary", "label": "S", "source_url": "https://provider.example/uncached"},
         ]))
+    db.add(models.ProviderCoverSnapshot(book_id=book.id, provider="future_catalog", isbn_query=None,
+        candidates_json=[{"provider": "future_catalog", "label": "Catalog result", "source_url": "https://provider.example/catalog"}]))
     db.commit()
 
     archive, _ = create_backup(db, user_id, "source")
     db.rollback()
     session = validation_session(archive, user_id)
-    assert session.manifest.record_counts.provider_cover_snapshots == 2
+    assert session.manifest.record_counts.provider_cover_snapshots == 3
     assert {duplicate_digest, different_digest, legacy_digest}.issubset(session.cover_entries)
     assert len(session.cover_entries) == 4  # canonical/uploaded object plus three candidate objects
 
@@ -291,6 +313,9 @@ def test_provider_cover_snapshots_and_permanent_candidate_objects_round_trip(db,
             {"provider": "openlibrary", "label": "L", "source_url": "https://provider.example/legacy", "url": restored_legacy_url},
             {"provider": "openlibrary", "label": "S", "source_url": "https://provider.example/uncached"},
         ]
+        isbnless_snapshot = db.query(models.ProviderCoverSnapshot).filter_by(book_id=restored.id, provider="future_catalog").one()
+        assert isbnless_snapshot.isbn_query is None
+        assert isbnless_snapshot.candidates_json == [{"provider": "future_catalog", "label": "Catalog result", "source_url": "https://provider.example/catalog"}]
         assert (destination_root / restored.cover_url.removeprefix("/covers/")).read_bytes() == canonical_bytes
         assert (destination_root / duplicate_url.removeprefix("/covers/")).read_bytes() == duplicate_bytes
         assert (destination_root / different_url.removeprefix("/covers/")).read_bytes() == different_bytes

@@ -118,7 +118,16 @@ def restore_user(db: Session, user_id: int, session: ValidationSession, cover_ur
                     is_checked_out=item.is_checked_out,
                     location_id=location_map.get(item.location_archive_id), category_id=category_map.get(item.category_archive_id),
                     cover_url=_cover_url(item.cover, cover_urls), uploaded_cover_candidates_json=candidates,
-                    date_added=item.date_added, last_metadata_refresh_at=item.last_metadata_refresh_at)
+                    date_added=item.date_added, last_metadata_refresh_at=item.last_metadata_refresh_at,
+                    last_cover_refresh_at=item.last_cover_refresh_at,
+                    metadata_evidence_signature=item.metadata_evidence_signature,
+                    metadata_evidence_changed_at=item.metadata_evidence_changed_at,
+                    metadata_review_signature=item.metadata_review_signature,
+                    metadata_reviewed_at=item.metadata_reviewed_at,
+                    cover_evidence_signature=item.cover_evidence_signature,
+                    cover_evidence_changed_at=item.cover_evidence_changed_at,
+                    cover_review_signature=item.cover_review_signature,
+                    cover_reviewed_at=item.cover_reviewed_at)
                 db.add(row)
                 db.flush()
                 book_map[item.archive_id] = row.id

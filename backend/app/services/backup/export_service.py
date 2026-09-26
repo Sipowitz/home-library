@@ -120,6 +120,15 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
             "category_archive_id": category_ids.get(book.category_id), "location_archive_id": location_ids.get(book.location_id),
             "cover": _cover_reference(book.cover_url, objects), "uploaded_cover_candidates": candidates,
             "date_added": book.date_added, "last_metadata_refresh_at": book.last_metadata_refresh_at,
+            "last_cover_refresh_at": book.last_cover_refresh_at,
+            "metadata_evidence_signature": book.metadata_evidence_signature,
+            "metadata_evidence_changed_at": book.metadata_evidence_changed_at,
+            "metadata_review_signature": book.metadata_review_signature,
+            "metadata_reviewed_at": book.metadata_reviewed_at,
+            "cover_evidence_signature": book.cover_evidence_signature,
+            "cover_evidence_changed_at": book.cover_evidence_changed_at,
+            "cover_review_signature": book.cover_review_signature,
+            "cover_reviewed_at": book.cover_reviewed_at,
         })
         for snapshot in sorted(book.metadata_snapshots, key=lambda item: item.id):
             snapshot_id = _archive_id()

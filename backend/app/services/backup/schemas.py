@@ -109,6 +109,15 @@ class BookData(StrictModel):
     uploaded_cover_candidates: list[UploadedCoverCandidate] | None = None
     date_added: datetime | None = None
     last_metadata_refresh_at: datetime | None = None
+    last_cover_refresh_at: datetime | None = None
+    metadata_evidence_signature: str | None = None
+    metadata_evidence_changed_at: datetime | None = None
+    metadata_review_signature: str | None = None
+    metadata_reviewed_at: datetime | None = None
+    cover_evidence_signature: str | None = None
+    cover_evidence_changed_at: datetime | None = None
+    cover_review_signature: str | None = None
+    cover_reviewed_at: datetime | None = None
 
 
 class SnapshotData(StrictModel):
@@ -153,7 +162,7 @@ class ProviderCoverCandidateData(StrictModel):
 class ProviderCoverSnapshotData(StrictModel):
     book_archive_id: str
     provider: str
-    isbn_query: str
+    isbn_query: str | None = None
     candidates: list[ProviderCoverCandidateData]
     fetched_at: datetime
     created_at: datetime
