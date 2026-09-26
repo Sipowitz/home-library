@@ -180,6 +180,60 @@ def test_collection_browse_filters_recursively_deduplicates_and_sorts_series(db,
     assert [item["id"] for item in publication["books"]] == [gamma.id, alpha.id, beta.id]
 
 
+def test_collection_no_category_and_real_category_subtree_filters(db, library):
+    owner, _, books, _ = library
+    uncategorized, parent_book, child_book, _ = books
+    parent = models.Category(owner_id=owner.id, name="Parent")
+    db.add(parent); db.flush()
+    child = models.Category(owner_id=owner.id, name="Child", parent_id=parent.id)
+    db.add(child); db.flush()
+    parent_book.category_id = parent.id
+    child_book.category_id = child.id
+    db.commit()
+    collection = node(db, owner, "Collection")
+    for book in (uncategorized, parent_book, child_book):
+        series_service.add_membership(db, owner.id, collection.id, book.id)
+
+    no_category = series_service.browse_collection(db, owner.id, collection.id, category_id=-1)
+    assert [item["id"] for item in no_category["books"]] == [uncategorized.id]
+    assert no_category["total"] == 1
+    subtree = series_service.browse_collection(db, owner.id, collection.id, category_id=parent.id)
+    assert {item["id"] for item in subtree["books"]} == {parent_book.id, child_book.id}
+    assert subtree["total"] == 2
+    child_only = series_service.browse_collection(db, owner.id, collection.id, category_id=child.id)
+    assert [item["id"] for item in child_only["books"]] == [child_book.id]
+
+
+def test_series_order_is_global_before_pagination(db, library):
+    owner, _, _, _ = library
+    collection = node(db, owner, "Long Series")
+    books = [models.Book(title=f"Title {index:02}", author="Author", owner_id=owner.id)
+             for index in range(11)]
+    db.add_all(books); db.commit()
+    for book in books:
+        series_service.add_membership(db, owner.id, collection.id, book.id)
+
+    reading_ids = [book.id for book in reversed(books)]
+    publication_ids = [book.id for book in books[5:] + books[:5]]
+    chronological_ids = [book.id for book in books[::2] + books[1::2]]
+    series_service.replace_reading_order(db, owner.id, collection.id, reading_ids)
+    series_service.replace_root_order(db, owner.id, collection.id, "publication", publication_ids)
+    series_service.replace_root_order(db, owner.id, collection.id, "chronological", chronological_ids)
+
+    for mode, expected in (
+        ("reading", reading_ids),
+        ("publication", publication_ids),
+        ("chronological", chronological_ids),
+        ("alphabetical", [book.id for book in books]),
+    ):
+        full = series_service.browse_collection(db, owner.id, collection.id, sort=mode)
+        pages = [series_service.browse_collection(db, owner.id, collection.id, sort=mode, skip=skip, limit=4)
+                 for skip in (0, 4, 8)]
+        assert [item["id"] for item in full["books"]] == expected
+        assert [item["id"] for page in pages for item in page["books"]] == expected
+        assert all(page["total"] == len(books) for page in pages)
+
+
 def test_root_collection_browse_is_one_author_ordered_pageable_sequence(db, library):
     owner, _, fixture_books, _ = library
     for book in fixture_books:

@@ -22,12 +22,19 @@ config.set_main_option(
 target_metadata = Base.metadata
 
 
+def include_object(object_, name, type_, reflected, compare_to):
+    # The historical ISBNdb trial table is retained in existing databases but
+    # is no longer managed by the application models or future autogeneration.
+    return not (type_ == "table" and reflected and name == "isbndb_audit_results")
+
+
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
 
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        include_object=include_object,
         literal_binds=True,
         compare_type=True,
     )
@@ -47,6 +54,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            include_object=include_object,
             compare_type=True,
         )
 

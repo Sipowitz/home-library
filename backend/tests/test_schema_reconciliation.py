@@ -92,6 +92,26 @@ def test_fresh_database_reaches_head_and_is_clean():
     command.check(_config())
 
 
+def test_existing_historical_audit_rows_survive_upgrade_and_schema_check():
+    _reset_to("add_isbndb_trial_audit")
+    engine = _engine()
+    with engine.begin() as conn:
+        conn.execute(sa.text("INSERT INTO users (id, username, email, hashed_password) VALUES (1, 'owner', 'owner@example.test', 'h')"))
+        conn.execute(sa.text("INSERT INTO books (id, title, author, owner_id) VALUES (1, 'Book', 'Author', 1)"))
+        conn.execute(sa.text("INSERT INTO isbndb_audit_results (owner_id, book_id, isbn, status, raw_payload) "
+                             "VALUES (1, 1, '9780000000000', 'found', CAST(:payload AS jsonb))"),
+                     {"payload": '{"retained": true}'})
+    engine.dispose()
+
+    _upgrade_head()
+    engine = _engine()
+    with engine.connect() as conn:
+        row = conn.execute(sa.text("SELECT isbn, status, raw_payload FROM isbndb_audit_results")).one()
+        assert row == ("9780000000000", "found", {"retained": True})
+    engine.dispose()
+    command.check(_config())
+
+
 def test_security_migration_backfills_users_and_preserves_ownership():
     _reset_to("reconcile_legacy_library_schema")
     engine = _engine()

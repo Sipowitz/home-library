@@ -4,16 +4,19 @@ import { useEffect } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useBooks } from "./useBooks";
 import type { Location } from "../types/location";
+import type { Category } from "../types/category";
+import type { BrowseFilters } from "../utils/bookBrowse";
 
 const getBooks = vi.hoisted(() => vi.fn());
 const deleteBook = vi.hoisted(() => vi.fn());
 const updateBook = vi.hoisted(() => vi.fn());
 const locationContext = vi.hoisted(() => ({ locations: [] as Location[] }));
+const categoryContext = vi.hoisted(() => ({ categories: [] as Category[] }));
 
 vi.mock("../api/books", () => ({ getBooks, createBook: vi.fn(), createBookFromISBN: vi.fn(), deleteBook, updateBook }));
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ ready: true, token: "test-token" }) }));
 vi.mock("../context/LocationContext", () => ({ useLocations: () => locationContext }));
-vi.mock("../context/CategoryContext", () => ({ useCategories: () => ({ categories: [] }) }));
+vi.mock("../context/CategoryContext", () => ({ useCategories: () => categoryContext }));
 
 const page = (start: number) => ({
   items: Array.from({ length: 20 }, (_, index) => ({ id: start + index, title: `Book ${start + index}`, author: "Author", location_id: 1 })),
@@ -26,7 +29,17 @@ function Harness() {
   return <><div data-testid="book-count">{books.length}</div><div data-testid="later-book">{laterBook ? `${laterBook.id}:${laterBook.location_id}` : "missing"}</div>{hasMore && <button onClick={() => void loadMoreBooks()}>load more</button>}<button disabled={!laterBook} onClick={() => void saveBook({ ...laterBook!, location_id: 2 })}>save</button><button disabled={!laterBook} onClick={() => void removeBook(laterBook!.id)}>delete</button></>;
 }
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); locationContext.locations = []; categoryContext.categories = []; });
+
+function SaveFilterHarness({ activeFilters }: { activeFilters: BrowseFilters }) {
+  const { books, saveBook, updateFilters, loadMoreBooks } = useBooks();
+  useEffect(() => { updateFilters(activeFilters); }, [activeFilters]);
+  const first = books.find((book) => book.id === 1);
+  return <><span data-testid="filtered-ids">{books.map((book) => book.id).join(",")}</span>
+    <button disabled={!first} onClick={() => void saveBook(first!)}>save filtered book</button>
+    <button onClick={() => void loadMoreBooks()}>more filtered books</button>
+  </>;
+}
 
 function LocationFilterHarness({ locationId, nextLocationId }: { locationId: number; nextLocationId: number | null }) {
   const { books, saveBook, updateFilters } = useBooks();
@@ -110,6 +123,39 @@ it("merges an edited later-page book without resetting loaded pages or paginatio
   expect(screen.getByTestId("book-count").textContent).toBe("60");
   expect(screen.getByTestId("later-book").textContent).toBe("45:2");
   expect(getBooks).toHaveBeenCalledTimes(3);
+});
+
+it.each([
+  ["search", { search: "Needle" }, { title: "Changed title" }],
+  ["category", { categoryId: 1 }, { category_id: 2 }],
+  ["read", { read: false }, { read: true }],
+] as const)("removes a saved book that leaves the active %s filter and keeps the next offset", async (_name, activeFilters, changes) => {
+  categoryContext.categories = [
+    { id: 1, name: "One", parent_id: null, child_count: 0, stats: { total_books: 1, read_books: 0, unread_books: 1 } },
+    { id: 2, name: "Two", parent_id: null, child_count: 0, stats: { total_books: 0, read_books: 0, unread_books: 0 } },
+  ];
+  const items = Array.from({ length: 20 }, (_, index) => ({ id: index + 1, title: `Needle ${index + 1}`, author: `Author ${index + 1}`, category_id: 1, read: false, location_id: 1 }));
+  getBooks.mockResolvedValue({ items, total: 40 });
+  updateBook.mockResolvedValue({ ...items[0], ...changes });
+  render(<SaveFilterHarness activeFilters={activeFilters} />);
+  await waitFor(() => expect(screen.getByTestId("filtered-ids").textContent?.split(",")).toHaveLength(20));
+  await act(async () => { screen.getByRole("button", { name: "save filtered book" }).click(); });
+  expect(screen.getByTestId("filtered-ids").textContent?.split(",")).not.toContain("1");
+  await act(async () => { screen.getByRole("button", { name: "more filtered books" }).click(); });
+  const expectedFilters: BrowseFilters = activeFilters;
+  expect(getBooks).toHaveBeenLastCalledWith(19, 20, expectedFilters.search ?? "", null, expectedFilters.categoryId ?? null, expectedFilters.read);
+});
+
+it("removes a saved book that sorts beyond the loaded page and keeps pagination", async () => {
+  const items = page(1).items;
+  getBooks.mockResolvedValue({ items, total: 40 });
+  updateBook.mockResolvedValue({ ...items[0], author: "Author Zulu" });
+  render(<SaveFilterHarness activeFilters={{}} />);
+  await waitFor(() => expect(screen.getByTestId("filtered-ids").textContent?.split(",")).toHaveLength(20));
+  await act(async () => { screen.getByRole("button", { name: "save filtered book" }).click(); });
+  expect(screen.getByTestId("filtered-ids").textContent?.split(",")).not.toContain("1");
+  await act(async () => { screen.getByRole("button", { name: "more filtered books" }).click(); });
+  expect(getBooks).toHaveBeenLastCalledWith(19, 20, "", null, null, undefined);
 });
 
 it("removes only a deleted loaded book without resetting loaded pages or pagination", async () => {

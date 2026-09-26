@@ -4,8 +4,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const api = vi.hoisted(() => ({ root: vi.fn(), collection: vi.fn(), grouped: vi.fn(), getBook: vi.fn(), saveBook: vi.fn(), out: vi.fn(), takeOut: vi.fn(), preview: vi.fn(), confirmReturn: vi.fn(), reconcileCheckout: vi.fn() }));
 const feedback = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+const browseState = vi.hoisted(() => ({ filters: {} as { search?: string; categoryId?: number | null; locationId?: number | null; read?: boolean | null } }));
 vi.mock("./api/collections", () => ({ browseRootCollections: api.root, browseCollection: api.collection }));
-vi.mock("./hooks/useBooks", () => ({ useBooks: () => ({ books: [], loadMoreBooks: vi.fn(), hasMore: false, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: api.saveBook, reconcileCheckout: api.reconcileCheckout, updateFilters: vi.fn(), isLoading: false, loadError: null, filters: {} }) }));
+vi.mock("./hooks/useBooks", () => ({ useBooks: () => ({ books: [], loadMoreBooks: vi.fn(), hasMore: false, addBook: vi.fn(), addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: api.saveBook, reconcileCheckout: api.reconcileCheckout, updateFilters: vi.fn(), isLoading: false, loadError: null, filters: browseState.filters }) }));
 vi.mock("./context/LocationContext", () => ({ useLocations: () => ({ locations: [] }) }));
 vi.mock("./context/CategoryContext", () => ({ useCategories: () => ({ categories: [] }) }));
 vi.mock("./context/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: true, login: vi.fn(), logout: vi.fn() }) }));
@@ -41,7 +42,8 @@ const root: Series = { id: 1, owner_id: 1, name: "Root", node_type: "series", au
 const nested = { ...root, id: 2, name: "Nested", parent_id: 1 };
 
 beforeEach(() => {
-  api.out.mockResolvedValue([]);
+  browseState.filters = {};
+  api.out.mockReset().mockResolvedValue([]);
   api.getBook.mockReset();
   api.saveBook.mockReset();
   feedback.success.mockReset();
@@ -89,6 +91,91 @@ it("takes a book out and confirms return without resetting the library or scroll
   scrollTo.mockRestore();
 });
 
+it("ignores a root page from an old filter and allows the new filter to keep paging", async () => {
+  api.root.mockReset();
+  const stale = deferred<any>();
+  const oldBook = { id: 401, title: "Old book", author: "Author" };
+  const newBook = { id: 402, title: "New book", author: "Author" };
+  api.root.mockResolvedValueOnce({ collection: null, items: [{ kind: "book", book: oldBook }], books: [], collections: [], total: 3 })
+    .mockReturnValueOnce(stale.promise)
+    .mockResolvedValueOnce({ collection: null, items: [{ kind: "book", book: newBook }], books: [], collections: [], total: 2 })
+    .mockResolvedValueOnce({ collection: null, items: [{ kind: "book", book: { id: 403, title: "Newer book", author: "Author" } }], books: [], collections: [], total: 2 });
+  const view = render(<App />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Old book" })).toBeTruthy());
+  await waitFor(() => expect(screen.queryByText("Searching...")).toBeNull());
+  fireEvent.scroll(window);
+  await waitFor(() => expect(api.root).toHaveBeenCalledTimes(2));
+  browseState.filters = { search: "New" };
+  view.rerender(<App />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "New book" })).toBeTruthy());
+  await act(async () => stale.resolve({ collection: null, items: [{ kind: "book", book: { id: 404, title: "Stale book", author: "Author" } }], books: [], collections: [], total: 3 }));
+  expect(screen.queryByRole("button", { name: "Stale book" })).toBeNull();
+  fireEvent.scroll(window);
+  await waitFor(() => expect(api.root).toHaveBeenCalledTimes(4));
+  expect(api.root.mock.calls[3][0]).toEqual(expect.objectContaining({ search: "New", skip: 1 }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Newer book" })).toBeTruthy());
+});
+
+it("appends valid root pages once and advances the server offset past repeated IDs", async () => {
+  api.root.mockReset().mockResolvedValueOnce({ collection: null, items: [{ kind: "book", book: { id: 411, title: "First", author: "Author" } }], books: [], collections: [], total: 5 })
+    .mockResolvedValueOnce({ collection: null, items: [{ kind: "book", book: { id: 411, title: "First", author: "Author" } }, { kind: "book", book: { id: 412, title: "Second", author: "Author" } }], books: [], collections: [], total: 5 })
+    .mockResolvedValueOnce({ collection: null, items: [{ kind: "book", book: { id: 413, title: "Third", author: "Author" } }, { kind: "book", book: { id: 414, title: "Fourth", author: "Author" } }], books: [], collections: [], total: 5 });
+  render(<App />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "First" })).toBeTruthy());
+  await waitFor(() => expect(screen.queryByText("Searching...")).toBeNull());
+  fireEvent.scroll(window);
+  await waitFor(() => expect(api.root).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Second" })).toBeTruthy());
+  expect(screen.getAllByRole("button", { name: "First" })).toHaveLength(1);
+  fireEvent.scroll(window);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Fourth" })).toBeTruthy());
+  expect(api.root.mock.calls[2][0]).toEqual(expect.objectContaining({ skip: 3 }));
+});
+
+it("does not append a root page after entering a Collection", async () => {
+  api.root.mockReset(); api.collection.mockReset();
+  const pending = deferred<any>();
+  api.root.mockResolvedValueOnce({ collection: null, items: [{ kind: "collection", collection: root }], books: [], collections: [root], total: 2 })
+    .mockReturnValueOnce(pending.promise);
+  api.collection.mockResolvedValue({ collection: root, items: [], books: [{ id: 415, title: "Inside", author: "Author" }], collections: [], total: 1 });
+  render(<App />);
+  await waitFor(() => expect(screen.getByText("Root")).toBeTruthy());
+  await waitFor(() => expect(screen.queryByText("Searching...")).toBeNull());
+  fireEvent.scroll(window);
+  await waitFor(() => expect(api.root).toHaveBeenCalledTimes(2));
+  fireEvent.click(screen.getByText("Root"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Inside" })).toBeTruthy());
+  await act(async () => pending.resolve({ collection: null, items: [{ kind: "book", book: { id: 416, title: "Stale root", author: "Author" } }], books: [], collections: [], total: 2 }));
+  expect(screen.queryByRole("button", { name: "Stale root" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Inside" })).toBeTruthy();
+});
+
+it("discards a pending root page after checkout and clears its loading state", async () => {
+  api.root.mockReset(); api.getBook.mockReset();
+  const pending = deferred<any>();
+  const present = { id: 421, title: "Present book", author: "Author", location_id: 9, is_checked_out: false };
+  const out = { ...present, is_checked_out: true };
+  api.root.mockResolvedValueOnce({ collection: null, items: [{ kind: "book", book: present }], books: [], collections: [], total: 2 })
+    .mockReturnValueOnce(pending.promise)
+    .mockResolvedValueOnce({ collection: null, items: [], books: [], collections: [], total: 0 });
+  api.getBook.mockResolvedValue(present);
+  api.takeOut.mockResolvedValue(out);
+  api.out.mockResolvedValueOnce([]).mockResolvedValueOnce([out]);
+  render(<App />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Present book" })).toBeTruthy());
+  await waitFor(() => expect(screen.queryByText("Searching...")).toBeNull());
+  fireEvent.scroll(window);
+  await waitFor(() => expect(api.root).toHaveBeenCalledTimes(2));
+  fireEvent.click(screen.getByRole("button", { name: "Present book" }));
+  await waitFor(() => expect(screen.getByTestId("book-panel")).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Take Out" }));
+  await waitFor(() => expect(api.root).toHaveBeenCalledTimes(3));
+  await act(async () => pending.resolve({ collection: null, items: [{ kind: "book", book: present }], books: [], collections: [], total: 2 }));
+  await waitFor(() => expect(screen.queryByText("Searching...")).toBeNull());
+  expect(screen.getByRole("region", { name: "Out of Library" })).toBeTruthy();
+  expect(screen.getAllByRole("button", { name: /Present book/ })).toHaveLength(1);
+});
+
 it("shows an out book without an empty-shelf message in grouped browsing", async () => {
   const out = { id: 302, title: "Out title", author: "A Author", location_id: 9, is_checked_out: true };
   api.root.mockResolvedValue({ collection: null, collections: [], books: [], items: [], total: 0 });
@@ -100,7 +187,7 @@ it("shows an out book without an empty-shelf message in grouped browsing", async
   expect(screen.queryByText("Your library is empty.")).toBeNull();
 });
 
-it("reconciles every retained book projection without changing browse structure", () => {
+it("reconciles and reorders retained root book tiles", () => {
   const originalBook: CollectionBrowseBook = { id: 90, title: "Old title", author: "Old author", cover_url: "/covers/old.jpg", read: false, publication_order: 2, chronological_order: 4, reading_order: 3 };
   const untouchedBook: CollectionBrowseBook = { id: 91, title: "Untouched", author: "Author", cover_url: "/covers/keep.jpg", read: false, publication_order: 5, chronological_order: 6, reading_order: 7 };
   const collection = { ...root, id: 93, name: "Unchanged collection" };
@@ -117,9 +204,22 @@ it("reconciles every retained book projection without changing browse structure"
   const reconciled = reconcileCollectionBrowseBook(browse, updated);
 
   expect(reconciled.books).toEqual([merged, untouchedBook]);
-  expect(reconciled.items).toEqual([{ kind: "collection", collection }, { kind: "book", book: merged }, { kind: "book", book: untouchedBook }]);
+  expect(reconciled.items).toEqual([{ kind: "book", book: merged }, { kind: "book", book: untouchedBook }, { kind: "collection", collection }]);
   expect(reconciled.collections).toBe(browse.collections);
   expect(reconciled.total).toBe(42);
+});
+
+it("retains a matching Collection tile when search has surrounding whitespace", () => {
+  const originalBook: CollectionBrowseBook = { id: 95, title: "Old title", author: "Ada", read: false, publication_order: null, chronological_order: null, reading_order: null };
+  const browse: CollectionBrowseResult = {
+    collection: root, items: [], collections: [], books: [originalBook], total: 1,
+  };
+  const updated: Book = { id: originalBook.id, title: "Alpha", author: "Ada" };
+
+  const reconciled = reconcileCollectionBrowseBook(browse, updated, { search: "  Alpha  " });
+
+  expect(reconciled.books).toEqual([{ ...originalBook, ...updated }]);
+  expect(reconciled.total).toBe(1);
 });
 
 it("reconciles a saved book in the current collection browse and retained root snapshot without refetching", async () => {
@@ -153,6 +253,108 @@ it("reconciles a saved book in the current collection browse and retained root s
   expect(restored.getAttribute("data-cover")).toBe(updated.cover_url);
   expect(api.root).toHaveBeenCalledTimes(1);
   expect(api.collection).toHaveBeenCalledTimes(1);
+});
+
+it("removes a saved book that no longer matches Collection search without resetting browse", async () => {
+  api.root.mockReset(); api.getBook.mockReset(); api.saveBook.mockReset();
+  browseState.filters = { search: "Needle" };
+  const before = { id: 431, title: "Needle title", author: "Author", read: false };
+  const after = { ...before, title: "Changed title" };
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "book", book: before }], books: [], collections: [], total: 1 });
+  api.getBook.mockResolvedValue(before);
+  api.saveBook.mockResolvedValue(after);
+  render(<App />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Needle title" })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Needle title" }));
+  await waitFor(() => expect(screen.getByTestId("book-panel")).toBeTruthy());
+  fireEvent.click(screen.getByText("Edit selected book"));
+  fireEvent.click(screen.getByText("Save selected book"));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Needle title" })).toBeNull());
+  expect(screen.queryByRole("button", { name: "Changed title" })).toBeNull();
+  expect(api.root).toHaveBeenCalledTimes(1);
+});
+
+it("keeps root pagination aligned when an edited author moves past loaded tiles", async () => {
+  api.root.mockReset(); api.getBook.mockReset(); api.saveBook.mockReset();
+  const first = { id: 435, title: "First", author: "Ann Adams", read: false };
+  const second = { id: 436, title: "Second", author: "Ben Baker", read: false };
+  api.root.mockResolvedValueOnce({ collection: null, items: [{ kind: "book", book: first }, { kind: "book", book: second }], books: [], collections: [], total: 3 })
+    .mockResolvedValueOnce({ collection: null, items: [{ kind: "book", book: { id: 437, title: "Next", author: "Cal Clark" } }], books: [], collections: [], total: 3 });
+  api.getBook.mockResolvedValue(first);
+  api.saveBook.mockResolvedValue({ ...first, author: "Zoe Zulu" });
+  render(<App />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "First" })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "First" }));
+  await waitFor(() => expect(screen.getByTestId("book-panel")).toBeTruthy());
+  fireEvent.click(screen.getByText("Edit selected book"));
+  fireEvent.click(screen.getByText("Save selected book"));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "First" })).toBeNull());
+  fireEvent.scroll(window);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Next" })).toBeTruthy());
+  expect(api.root.mock.calls[1][0]).toEqual(expect.objectContaining({ skip: 1 }));
+});
+
+it("reorders saved Series tiles within loaded pages", async () => {
+  api.root.mockReset(); api.collection.mockReset(); api.getBook.mockReset(); api.saveBook.mockReset();
+  const first = { id: 441, title: "Alpha", author: "Author", read: false, reading_order: null, publication_order: null, chronological_order: null };
+  const second = { ...first, id: 442, title: "Beta" };
+  api.root.mockResolvedValue({ collection: null, items: [{ kind: "collection", collection: root }], books: [], collections: [], total: 1 });
+  api.collection.mockResolvedValue({ collection: root, items: [], books: [first, second], collections: [], total: 2 });
+  api.getBook.mockResolvedValue(second);
+  api.saveBook.mockResolvedValue({ ...second, title: "Aardvark" });
+  render(<App />);
+  await waitFor(() => expect(screen.getByText("Root")).toBeTruthy());
+  fireEvent.click(screen.getByText("Root"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Beta" })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "Beta" }));
+  await waitFor(() => expect(screen.getByTestId("book-panel")).toBeTruthy());
+  fireEvent.click(screen.getByText("Edit selected book"));
+  fireEvent.click(screen.getByText("Save selected book"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Aardvark" })).toBeTruthy());
+  expect(Array.from(screen.getByTestId("grid").querySelectorAll("button")).map((item) => item.textContent)).toEqual(["Aardvark", "Alpha"]);
+  expect(api.collection).toHaveBeenCalledTimes(1);
+});
+
+it("updates and filters an edited Out of Library card locally", async () => {
+  api.root.mockReset(); api.getBook.mockReset(); api.saveBook.mockReset(); api.out.mockReset();
+  browseState.filters = { search: "Needle" };
+  const before = { id: 451, title: "Needle out", author: "Author", location_id: 9, is_checked_out: true };
+  const updated = { ...before, title: "Needle updated", cover_url: "/new-cover.jpg" };
+  const noMatch = { ...updated, title: "Different title" };
+  api.root.mockResolvedValue({ collection: null, items: [], books: [], collections: [], total: 0 });
+  api.out.mockResolvedValueOnce([before]).mockResolvedValueOnce([updated]).mockResolvedValueOnce([]);
+  api.getBook.mockResolvedValueOnce(before).mockResolvedValueOnce(updated);
+  api.saveBook.mockResolvedValueOnce(updated).mockResolvedValueOnce(noMatch);
+  render(<App />);
+  await waitFor(() => expect(screen.getByRole("button", { name: /Needle out/ })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: /Needle out/ }));
+  await waitFor(() => expect(screen.getByTestId("book-panel")).toBeTruthy());
+  fireEvent.click(screen.getByText("Edit selected book"));
+  fireEvent.click(screen.getByText("Save selected book"));
+  await waitFor(() => expect(screen.getByRole("button", { name: /Needle updated/ })).toBeTruthy());
+  expect(screen.getByRole("region", { name: "Out of Library" }).querySelector("img")?.getAttribute("src")).toBe("/new-cover.jpg");
+  fireEvent.click(screen.getByText("Close selected book"));
+  fireEvent.click(screen.getByRole("button", { name: /Needle updated/ }));
+  await waitFor(() => expect(screen.getByTestId("book-panel")).toBeTruthy());
+  fireEvent.click(screen.getByText("Edit selected book"));
+  fireEvent.click(screen.getByText("Save selected book"));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Out of Library" })).toBeNull());
+  expect(api.root).toHaveBeenCalledTimes(1);
+});
+
+it("removes a deleted checked-out book from Out of Library immediately", async () => {
+  api.root.mockReset(); api.getBook.mockReset(); api.out.mockReset();
+  const out = { id: 461, title: "Gone out", author: "Author", location_id: 9, is_checked_out: true };
+  api.root.mockResolvedValue({ collection: null, items: [], books: [], collections: [], total: 0 });
+  api.out.mockResolvedValueOnce([out]).mockResolvedValueOnce([]);
+  api.getBook.mockResolvedValue(out);
+  render(<App />);
+  await waitFor(() => expect(screen.getByRole("button", { name: /Gone out/ })).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: /Gone out/ }));
+  await waitFor(() => expect(screen.getByTestId("book-panel")).toBeTruthy());
+  fireEvent.click(screen.getByText("Delete selected book"));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Out of Library" })).toBeNull());
+  expect(api.root).toHaveBeenCalledTimes(1);
 });
 
 it("keeps the source collection coherent until destination data is ready and ignores stale navigation", async () => {

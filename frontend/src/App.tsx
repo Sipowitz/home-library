@@ -39,28 +39,76 @@ import type { ReviewTarget } from "./components/settings/maintenance/Maintenance
 import type { ReviewIntent } from "./api/books";
 import { browseCollection, browseRootCollections, type CollectionBrowseBook, type CollectionBrowseResult } from "./api/collections";
 import type { Series } from "./types/series";
+import type { Category } from "./types/category";
+import type { Location } from "./types/location";
+import { authorSurname, bookMatchesFilters, compareBookSurnames, type BrowseFilters } from "./utils/bookBrowse";
+
+function compareCollectionBooks(a: CollectionBrowseBook, b: CollectionBrowseBook, collection: Series, sort: "reading" | "publication" | "chronological" | "alphabetical"): number {
+  if (collection.node_type !== "series") return compareBookSurnames(a, b);
+  const field = sort === "publication" ? "publication_order" : sort === "chronological" ? "chronological_order" : sort === "reading" ? "reading_order" : null;
+  if (field) {
+    const left = a[field]; const right = b[field];
+    if (left == null && right != null) return 1;
+    if (right == null && left != null) return -1;
+    if (left != null && right != null && left !== right) return left - right;
+  }
+  return a.title.toLocaleLowerCase().localeCompare(b.title.toLocaleLowerCase()) || a.id - b.id;
+}
+
+function compareRootItems(a: CollectionBrowseResult["items"][number], b: CollectionBrowseResult["items"][number]): number {
+  const aAuthorless = a.kind === "collection" && a.collection.author == null;
+  const bAuthorless = b.kind === "collection" && b.collection.author == null;
+  if (aAuthorless !== bAuthorless) return aAuthorless ? 1 : -1;
+  const surname = (item: typeof a) => authorSurname(item.kind === "book" ? item.book.author : item.collection.author ?? "");
+  return surname(a).localeCompare(surname(b))
+    || (aAuthorless && bAuthorless ? (a.kind === "collection" ? a.collection.name : "").localeCompare(b.kind === "collection" ? b.collection.name : "") : 0)
+    || (a.kind === "book" ? a.book.id : a.collection.id) - (b.kind === "book" ? b.book.id : b.collection.id)
+    || (a.kind === "book" ? 0 : a.collection.node_type === "group" ? 1 : 2) - (b.kind === "book" ? 0 : b.collection.node_type === "group" ? 1 : 2);
+}
 
 /**
- * The collection browser is a separate, retained projection of books. Keep its
- * loaded pages authoritative after an edit without changing their membership,
- * order, or pagination.
+ * Reconcile a saved book within the Collection pages already on screen.
  */
 export function reconcileCollectionBrowseBook(
   browse: CollectionBrowseResult,
   updatedBook: Book,
+  filters: BrowseFilters = {},
+  locations: Location[] = [],
+  categories: Category[] = [],
+  sort: "reading" | "publication" | "chronological" | "alphabetical" = "reading",
 ): CollectionBrowseResult {
+  const matches = !updatedBook.is_checked_out && bookMatchesFilters(updatedBook, filters, locations, categories, "trimmed");
   const reconcileBook = (book: CollectionBrowseBook): CollectionBrowseBook => (
     book.id === updatedBook.id ? { ...book, ...updatedBook } : book
   );
+  const hadBook = browse.books.some((book) => book.id === updatedBook.id)
+    || (browse.items ?? []).some((item) => item.kind === "book" && item.book.id === updatedBook.id);
+  const previous = browse.collection
+    ? browse.books.find((book) => book.id === updatedBook.id)
+    : (browse.items ?? []).find((item) => item.kind === "book" && item.book.id === updatedBook.id);
+  const loadedCount = browse.collection ? browse.books.length : (browse.items ?? []).length;
+  const last = browse.collection ? browse.books.at(-1) : (browse.items ?? []).at(-1);
+  const movedPastPage = Boolean(matches && previous && last && browse.total > loadedCount && (
+    browse.collection
+      ? compareCollectionBooks(reconcileBook(previous as CollectionBrowseBook), last as CollectionBrowseBook, browse.collection, sort) > 0
+      : compareRootItems({ kind: "book", book: reconcileBook((previous as { kind: "book"; book: CollectionBrowseBook }).book) }, last as CollectionBrowseResult["items"][number]) > 0
+  ));
+  const visible = matches && !movedPastPage;
+  const books = browse.books.filter((book) => visible || book.id !== updatedBook.id).map(reconcileBook);
+  const items = (browse.items ?? []).filter((item) => visible || item.kind !== "book" || item.book.id !== updatedBook.id)
+    .map((item) => item.kind === "book" ? { ...item, book: reconcileBook(item.book) } : item);
+
+  if (browse.collection) books.sort((a, b) => compareCollectionBooks(a, b, browse.collection!, sort));
+  else books.sort(compareBookSurnames);
+  if (!browse.collection) {
+    items.sort(compareRootItems);
+  }
 
   return {
     ...browse,
-    books: browse.books.map(reconcileBook),
-    items: browse.items.map((item) => (
-      item.kind === "book" && item.book.id === updatedBook.id
-        ? { ...item, book: reconcileBook(item.book) }
-        : item
-    )),
+    books,
+    items,
+    total: browse.total - (hadBook && !matches ? 1 : 0),
   };
 }
 
@@ -159,7 +207,8 @@ export default function App() {
   const collectionRequestGenerationRef = useRef(0);
   const collectionPageRequestGenerationRef = useRef(0);
   const bookOpenRequestGenerationRef = useRef(0);
-  const rootCollectionSnapshotRef = useRef<{ browse: CollectionBrowseResult; hasMore: boolean; key: string; scrollY: number } | null>(null);
+  const rootCollectionSnapshotRef = useRef<{ browse: CollectionBrowseResult; hasMore: boolean; nextSkip: number; key: string; scrollY: number } | null>(null);
+  const rootCollectionNextSkipRef = useRef(0);
   const pendingRootScrollRestoreRef = useRef<number | null>(null);
   const groupedRequestGenerationRef = useRef(0);
   const outRequestGenerationRef = useRef(0);
@@ -168,37 +217,76 @@ export default function App() {
     setGroupedRevision((revision) => revision + 1);
   }, []);
 
+  const invalidateCollectionPages = useCallback(() => {
+    collectionRequestGenerationRef.current += 1;
+    collectionPageRequestGenerationRef.current += 1;
+    setCollectionPageLoading(false);
+    if (collectionLoading) {
+      collectionBrowseKeyRef.current = null;
+      setCollectionLoading(false);
+      setCollectionRevision((revision) => revision + 1);
+    }
+  }, [collectionLoading]);
+
   const reconcileDeletedBook = useCallback((bookId: number) => {
+    invalidateCollectionPages();
+    if (!collectionPath.length && collectionBrowse?.items.some((item) => item.kind === "book" && item.book.id === bookId)) {
+      rootCollectionNextSkipRef.current = Math.max(0, rootCollectionNextSkipRef.current - 1);
+    }
+    outRequestGenerationRef.current += 1;
+    setOutBooks((items) => items.filter((book) => book.id !== bookId));
+    setOutRevision((revision) => revision + 1);
     const withoutBook = (browse: CollectionBrowseResult): CollectionBrowseResult => ({
       ...browse,
       items: (browse.items ?? []).filter((item) => item.kind !== "book" || item.book.id !== bookId),
       books: (browse.books ?? []).filter((book) => book.id !== bookId),
+      total: browse.total - ((browse.books ?? []).some((book) => book.id === bookId)
+        || (browse.items ?? []).some((item) => item.kind === "book" && item.book.id === bookId) ? 1 : 0),
     });
 
     setCollectionBrowse((current) => current ? withoutBook(current) : current);
 
     const snapshot = rootCollectionSnapshotRef.current;
     if (snapshot) {
+      const removed = snapshot.browse.items.some((item) => item.kind === "book" && item.book.id === bookId);
       rootCollectionSnapshotRef.current = {
         ...snapshot,
         browse: withoutBook(snapshot.browse),
+        nextSkip: snapshot.nextSkip - (removed ? 1 : 0),
       };
     }
-  }, []);
+  }, [collectionBrowse, collectionPath.length, invalidateCollectionPages]);
 
   const reconcileSavedBook = useCallback((updatedBook: Book) => {
+    invalidateCollectionPages();
+    const reconciledRoot = !collectionPath.length && collectionBrowse
+      ? reconcileCollectionBrowseBook(collectionBrowse, updatedBook, filters, locations, categories, collectionSort)
+      : null;
+    if (reconciledRoot && collectionBrowse!.items.some((item) => item.kind === "book" && item.book.id === updatedBook.id)
+      && !reconciledRoot.items.some((item) => item.kind === "book" && item.book.id === updatedBook.id)) {
+      rootCollectionNextSkipRef.current = Math.max(0, rootCollectionNextSkipRef.current - 1);
+    }
+    outRequestGenerationRef.current += 1;
+    setOutBooks((items) => items.flatMap((book) => book.id === updatedBook.id
+      ? updatedBook.is_checked_out && bookMatchesFilters(updatedBook, filters, locations, categories) ? [updatedBook] : []
+      : [book]));
+    if (updatedBook.is_checked_out) setOutRevision((revision) => revision + 1);
     setCollectionBrowse((current) => (
-      current ? reconcileCollectionBrowseBook(current, updatedBook) : current
+      current ? reconcileCollectionBrowseBook(current, updatedBook, filters, locations, categories, collectionSort) : current
     ));
 
     const snapshot = rootCollectionSnapshotRef.current;
     if (snapshot) {
+      const reconciled = reconcileCollectionBrowseBook(snapshot.browse, updatedBook, filters, locations, categories, collectionSort);
+      const removed = snapshot.browse.items.some((item) => item.kind === "book" && item.book.id === updatedBook.id)
+        && !reconciled.items.some((item) => item.kind === "book" && item.book.id === updatedBook.id);
       rootCollectionSnapshotRef.current = {
         ...snapshot,
-        browse: reconcileCollectionBrowseBook(snapshot.browse, updatedBook),
+        browse: reconciled,
+        nextSkip: snapshot.nextSkip - (removed ? 1 : 0),
       };
     }
-  }, []);
+  }, [categories, collectionBrowse, collectionPath.length, collectionSort, filters, invalidateCollectionPages, locations]);
 
   const {
     isFetching,
@@ -337,23 +425,30 @@ export default function App() {
     if (!groupByLocation && showCollections && viewMode === "grid") {
       const generation = ++collectionRequestGenerationRef.current;
       collectionPageRequestGenerationRef.current += 1;
+      setCollectionPageLoading(false);
+      setCollectionLoading(true);
       const desiredCount = Math.max(100, currentCollection ? collectionBrowse?.books.length ?? 0 : collectionBrowse?.items.length ?? 0);
       const requestPage = (skip: number) => currentCollection
         ? browseCollection(currentCollection.id, { ...collectionOptions(collectionPath), skip, limit: 100 })
         : browseRootCollections({ ...collectionOptions(collectionPath), skip, limit: 100 });
-      let result = await requestPage(0);
-      let loadedCount = currentCollection ? result.books.length : result.items.length;
-      while (loadedCount < desiredCount && loadedCount < result.total && generation === collectionRequestGenerationRef.current) {
-        const page = await requestPage(loadedCount);
-        if (currentCollection) result = { ...result, books: [...result.books, ...page.books] };
-        else result = { ...result, items: [...result.items, ...page.items] };
-        const nextCount = currentCollection ? result.books.length : result.items.length;
-        if (nextCount === loadedCount) break;
-        loadedCount = nextCount;
-      }
-      if (generation === collectionRequestGenerationRef.current) {
-        setCollectionBrowse(result);
-        setCollectionHasMore(loadedCount < result.total);
+      try {
+        let result = await requestPage(0);
+        let loadedCount = currentCollection ? result.books.length : result.items.length;
+        while (loadedCount < desiredCount && loadedCount < result.total && generation === collectionRequestGenerationRef.current) {
+          const page = await requestPage(loadedCount);
+          if (currentCollection) result = { ...result, books: [...result.books, ...page.books] };
+          else result = { ...result, items: [...result.items, ...page.items] };
+          const nextCount = currentCollection ? result.books.length : result.items.length;
+          if (nextCount === loadedCount) break;
+          loadedCount = nextCount;
+        }
+        if (generation === collectionRequestGenerationRef.current) {
+          setCollectionBrowse(result);
+          setCollectionHasMore(loadedCount < result.total);
+          if (!currentCollection) rootCollectionNextSkipRef.current = loadedCount;
+        }
+      } finally {
+        if (generation === collectionRequestGenerationRef.current) setCollectionLoading(false);
       }
     }
   }
@@ -448,12 +543,21 @@ export default function App() {
   }, [collectionBrowse, collectionPath.length]);
 
   useEffect(() => {
-    if (groupByLocation) return;
+    if (groupByLocation) {
+      collectionRequestGenerationRef.current += 1;
+      collectionPageRequestGenerationRef.current += 1;
+      collectionBrowseKeyRef.current = null;
+      setCollectionLoading(false);
+      setCollectionPageLoading(false);
+      return;
+    }
     if ((!showCollections || viewMode !== "grid") && !currentCollection) {
       collectionRequestGenerationRef.current += 1;
       collectionPageRequestGenerationRef.current += 1;
       collectionBrowseKeyRef.current = null;
       rootCollectionSnapshotRef.current = null;
+      rootCollectionNextSkipRef.current = 0;
+      setCollectionLoading(false);
       setCollectionPageLoading(false);
       setCollectionBrowse(null);
       setCollectionHasMore(false);
@@ -473,22 +577,39 @@ export default function App() {
       collectionBrowseKeyRef.current = browseKey;
       setCollectionBrowse(result);
       const loadedCount = currentCollection ? result.books.length : result.items.length;
+      if (!currentCollection) rootCollectionNextSkipRef.current = loadedCount;
       setCollectionHasMore(loadedCount < result.total);
     }).catch((error) => { if (!cancelled && generation === collectionRequestGenerationRef.current) { console.error("Failed to browse collections", error); setCollectionBrowse(null); setCollectionHasMore(false); } }).finally(() => { if (!cancelled && generation === collectionRequestGenerationRef.current) setCollectionLoading(false); });
     return () => { cancelled = true; };
   }, [collectionRevision, collectionSort, currentCollection?.id, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode, showCollections, viewMode, groupByLocation]);
 
   const loadMoreRootCollectionItems = useCallback(() => {
-    if (collectionLoading || !collectionHasMore || !collectionBrowse) return;
-    setCollectionLoading(true);
-    const options = { search: filters.search, categoryId: filters.categoryId, locationId: filters.locationId, read: filters.read, rootMode: rootCollectionMode, skip: collectionBrowse.items.length };
+    if (collectionLoading || collectionPageLoading || !collectionHasMore || !collectionBrowse) return;
+    const browseKey = collectionBrowseKey([]);
+    const generation = collectionRequestGenerationRef.current;
+    const pageGeneration = ++collectionPageRequestGenerationRef.current;
+    const skip = rootCollectionNextSkipRef.current;
+    setCollectionPageLoading(true);
+    const options = { search: filters.search, categoryId: filters.categoryId, locationId: filters.locationId, read: filters.read, rootMode: rootCollectionMode, skip };
     void browseRootCollections(options).then((result) => {
-      setCollectionBrowse((current) => current ? { ...result, items: [...current.items, ...result.items] } : result);
-      setCollectionHasMore(collectionBrowse.items.length + result.items.length < result.total);
+      if (generation !== collectionRequestGenerationRef.current || pageGeneration !== collectionPageRequestGenerationRef.current || collectionBrowseKeyRef.current !== browseKey) return;
+      setCollectionBrowse((current) => {
+        if (!current) return result;
+        const seen = new Set(current.items.map((item) => `${item.kind}:${item.kind === "book" ? item.book.id : item.collection.id}`));
+        const newItems = result.items.filter((item) => {
+          const key = `${item.kind}:${item.kind === "book" ? item.book.id : item.collection.id}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        return { ...result, items: [...current.items, ...newItems] };
+      });
+      rootCollectionNextSkipRef.current = skip + result.items.length;
+      setCollectionHasMore(skip + result.items.length < result.total);
     }).catch((error) => {
-      console.error("Failed to load more root collection items", error);
-    }).finally(() => setCollectionLoading(false));
-  }, [collectionBrowse, collectionHasMore, collectionLoading, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode]);
+      if (generation === collectionRequestGenerationRef.current && pageGeneration === collectionPageRequestGenerationRef.current) console.error("Failed to load more root collection items", error);
+    }).finally(() => { if (pageGeneration === collectionPageRequestGenerationRef.current) setCollectionPageLoading(false); });
+  }, [collectionBrowse, collectionHasMore, collectionLoading, collectionPageLoading, filters.categoryId, filters.locationId, filters.read, filters.search, rootCollectionMode]);
 
   const loadMoreCollectionBooks = useCallback(() => {
     if (!currentCollection || collectionLoading || collectionPageLoading || !collectionHasMore || !collectionBrowse) return;
@@ -523,6 +644,7 @@ export default function App() {
     const browseKey = JSON.stringify({ collectionId: nextPath.at(-1)?.id ?? null, ...options });
     const generation = ++collectionRequestGenerationRef.current;
     collectionPageRequestGenerationRef.current += 1;
+    setCollectionLoading(false);
     setCollectionPageLoading(false);
     const rootSnapshot = nextPath.length === 0 ? rootCollectionSnapshotRef.current : null;
     if (rootSnapshot?.key === browseKey) {
@@ -532,6 +654,7 @@ export default function App() {
       setCollectionSort(nextSort);
       setCollectionPath(nextPath);
       setCollectionBrowse(rootSnapshot.browse);
+      rootCollectionNextSkipRef.current = rootSnapshot.nextSkip;
       setCollectionHasMore(rootSnapshot.hasMore);
       return;
     }
@@ -545,6 +668,7 @@ export default function App() {
       setCollectionPath(nextPath);
       setCollectionBrowse(result);
       const loadedCount = nextCollection ? result.books.length : result.items.length;
+      if (!nextCollection) rootCollectionNextSkipRef.current = loadedCount;
       setCollectionHasMore(loadedCount < result.total);
     }).catch((error) => {
       if (generation === collectionRequestGenerationRef.current) console.error("Failed to navigate collections", error);
@@ -556,6 +680,7 @@ export default function App() {
       rootCollectionSnapshotRef.current = {
         browse: collectionBrowse,
         hasMore: collectionHasMore,
+        nextSkip: rootCollectionNextSkipRef.current,
         key: collectionBrowseKey([]),
         scrollY: window.scrollY,
       };

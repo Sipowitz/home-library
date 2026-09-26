@@ -347,7 +347,9 @@ def browse_collection(
     if search:
         term = f"%{search.strip()}%"
         query = query.filter(or_(models.Book.title.ilike(term), models.Book.author.ilike(term)))
-    if category_id is not None:
+    if category_id == -1:
+        query = query.filter(models.Book.category_id.is_(None))
+    elif category_id is not None:
         category_ids = _owned_subtree_ids(db, models.Category, user_id, category_id)
         query = query.filter(models.Book.category_id.in_(category_ids)) if category_ids else query.filter(False)
     if location_id is not None:
@@ -405,8 +407,7 @@ def browse_collection(
         return {"collection": None, "items": items, "total": db.query(ordering).count()}
 
     # Root Library books must retain the same ordering as /books. Keep the
-    # existing level-browse query ordering for Groups; Series ordering is
-    # applied below only when browsing inside a Series.
+    # existing level-browse query ordering for Groups.
     if collection.node_type == "group":
         # The membership join can include the same book through several
         # descendants. Deduplicate before applying PostgreSQL's surname
@@ -414,9 +415,11 @@ def browse_collection(
         distinct_ids = query.with_entities(models.Book.id).distinct().subquery()
         query = db.query(models.Book).filter(models.Book.id.in_(db.query(distinct_ids.c.id)))
         query = apply_book_ordering(query)
+        books = query.offset(skip).limit(limit).all()
     else:
-        query = query.order_by(models.Book.title, models.Book.id)
-    books = query.offset(skip).limit(limit).all()
+        # Preserve the Series' Python casefold/tie-break ordering across page
+        # boundaries by sorting the complete filtered result before slicing.
+        books = query.all()
     root = _root(db, collection) if collection is not None else None
     root_orders = {} if root is None else {item.book_id: item for item in db.query(models.BookSeriesOrdering).filter_by(series_id=root.id)}
     reading = {} if collection is None else {item.book_id: item.position for item in db.query(models.BookSeriesReadingOrder).filter_by(series_id=collection.id)}
@@ -433,4 +436,5 @@ def browse_collection(
             results.sort(key=lambda item: (item[field] is None, item[field] if item[field] is not None else 0, item["title"].casefold(), item["id"]))
         else:
             results.sort(key=lambda item: (item["title"].casefold(), item["id"]))
+        results = results[skip:skip + limit]
     return {"collection": collection, "collections": children if not active_filter else [], "books": results, "total": total}
