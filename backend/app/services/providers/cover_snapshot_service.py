@@ -2,7 +2,7 @@
 from sqlalchemy.orm import Session
 from app import models
 from app.services.covers.download import download_permanent_cover
-from app.services.providers.types import ProviderResult
+from app.services.providers.types import ProviderResult, has_usable_cover_evidence
 
 
 def source_url_for_candidate(candidate: dict) -> str | None:
@@ -17,7 +17,7 @@ async def cache_provider_cover_candidates(provider_result: ProviderResult) -> No
     Individual image failures are intentionally non-fatal: provider evidence is
     still persisted, but an unavailable image has no browser-displayable URL.
     """
-    if not provider_result.success or provider_result.data is None:
+    if not provider_result.success or not has_usable_cover_evidence(provider_result.data):
         return
     preserved_candidates = []
     for candidate in provider_result.data.get("cover_candidates", []) or []:
@@ -61,7 +61,7 @@ def extract_cover_candidates(data: dict | None, provider: str) -> list[dict]:
     return candidates
 
 def persist_cover_result(db: Session, book_id: int, provider_result: ProviderResult):
-    if not provider_result.success or provider_result.data is None:
+    if not provider_result.success or not has_usable_cover_evidence(provider_result.data):
         return None
     snapshot = models.ProviderCoverSnapshot(book_id=book_id, provider=provider_result.provider,
         isbn_query=provider_result.isbn, candidates_json=extract_cover_candidates(provider_result.data, provider_result.provider))

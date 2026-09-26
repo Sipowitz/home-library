@@ -16,6 +16,7 @@ from app.services.providers.isbndb import ISBNdbProvider
 
 from app.services.providers.types import (
     ProviderResult,
+    has_usable_provider_evidence,
 )
 
 from app.services.isbn_validation import normalize_isbn
@@ -65,17 +66,23 @@ async def _fetch_provider_result(
             else await provider.fetch_book_by_isbn(isbn)
         )
 
+        usable = has_usable_provider_evidence(result, evidence_kind=evidence_kind)
+        no_match = result is not None and not usable
         provider_result = ProviderResult(
             provider=setting.provider_name,
-            success=result is not None,
+            success=usable,
             isbn=isbn,
             duration_ms=int(
                 (time.perf_counter() - start)
                 * 1000
             ),
-            data=result,
-            raw_response=getattr(provider, "raw_response", None) if evidence_kind == "metadata" and result is not None else None,
-            error=getattr(provider, "last_error", None),
+            data=result if usable else None,
+            raw_response=getattr(provider, "raw_response", None) if evidence_kind == "metadata" and usable else None,
+            error=(
+                getattr(provider, "last_error", None)
+                or ("No usable provider evidence" if no_match else None)
+            ),
+            outcome="success" if usable else "no_match" if no_match else "failure",
         )
 
         logger.info(
@@ -96,6 +103,7 @@ async def _fetch_provider_result(
             ),
             data=None,
             error=f"Provider exception ({type(exc).__name__})",
+            outcome="failure",
         )
 
         logger.exception(

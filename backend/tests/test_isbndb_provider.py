@@ -7,6 +7,7 @@ import pytest
 
 from app.services.providers.isbndb import ISBNdbProvider
 from app.services.providers import manager
+from app.services.providers.types import has_usable_provider_evidence
 
 
 class Setting:
@@ -35,6 +36,7 @@ def test_normalizes_isbndb_book_and_preserves_both_image_variants(monkeypatch):
         {"provider": "isbndb", "label": "ISBNdb", "url": "https://stable/image.jpg"},
         {"provider": "isbndb", "label": "ISBNdb Original", "url": "https://signed/original.jpg"},
     ]
+    assert has_usable_provider_evidence(result)
 
 
 def test_original_image_is_a_candidate_even_without_primary_image(monkeypatch):

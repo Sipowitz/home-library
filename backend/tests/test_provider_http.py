@@ -7,8 +7,10 @@ import pytest
 
 from app.services.providers import google_books, http_client, manager
 from app.services.providers.aggregator import aggregate_metadata
+from app.services.providers.base import BookProvider
 from app.services.providers.google_books import GoogleBooksProvider
 from app.services.providers.openlibrary import OpenLibraryProvider
+from app.services.providers.types import has_usable_provider_evidence
 
 
 ISBN = "9780306406157"
@@ -257,6 +259,79 @@ def test_openlibrary_cover_id_generates_exactly_three_id_based_candidates():
     assert f"/isbn/{ISBN}-" not in str(result["cover_candidates"])
 
 
+def test_openlibrary_missing_author_remains_missing_provider_metadata():
+    FakeAsyncClient.events = [response(200, {"docs": [{"title": "OpenLibrary title"}]})]
+
+    result = asyncio.run(provider_case(OpenLibraryProvider).fetch_book_by_isbn(ISBN))
+
+    assert result is not None
+    assert result["author"] is None
+
+
+def test_openlibrary_supplied_authors_remain_normalized_provider_metadata():
+    FakeAsyncClient.events = [response(200, openlibrary_payload())]
+
+    result = asyncio.run(provider_case(OpenLibraryProvider).fetch_book_by_isbn(ISBN))
+
+    assert result is not None
+    assert result["author"] == "Author"
+
+
+def test_common_contract_accepts_sparse_metadata_and_cover_only_evidence():
+    assert has_usable_provider_evidence({"title": "Sparse"}, evidence_kind="metadata")
+    assert has_usable_provider_evidence(
+        {"cover_candidates": [{"provider": "future_provider", "label": "cover", "url": "https://example.test/cover.jpg"}]},
+        evidence_kind="covers",
+    )
+    assert not has_usable_provider_evidence(
+        {"cover_url": "https://dummyimage.com/300x400/placeholder"}, evidence_kind="covers",
+    )
+    assert not has_usable_provider_evidence({"isbn": ISBN}, evidence_kind="metadata")
+
+
+def test_base_cover_refresh_preserves_a_provider_cover_url_without_candidates():
+    class CoverOnlyProvider(BookProvider):
+        provider_name = "future_provider"
+
+        async def fetch_book_by_isbn(self, _isbn, *, force_refresh=False):
+            assert force_refresh
+            return {"cover_url": "https://example.test/cover.jpg"}
+
+        async def search_catalog(self, _title, _author, *, limit=50):
+            return []
+
+    result = asyncio.run(CoverOnlyProvider().refresh_covers(ISBN))
+
+    assert result == {"cover_candidates": [{
+        "provider": "future_provider", "label": "Primary cover", "url": "https://example.test/cover.jpg",
+    }]}
+    assert has_usable_provider_evidence(result, evidence_kind="covers")
+
+
+def test_manager_marks_empty_adapter_result_as_no_match_without_provider_specific_logic(monkeypatch):
+    class EmptyProvider:
+        provider_name = "future_provider"
+        last_error = None
+        raw_response = None
+
+        def __init__(self, _setting):
+            pass
+
+        async def refresh_metadata(self, _isbn):
+            return {"title": None, "subtitle": None, "author": None, "publisher": None,
+                    "page_count": None, "language": None, "year": None, "description": None}
+
+    configured = setting("future_provider")
+    monkeypatch.setattr(manager, "_get_enabled_providers", lambda _db: iter([(configured, EmptyProvider(configured))]))
+
+    result = asyncio.run(manager.fetch_all_metadata_results(object(), ISBN))[0]
+
+    assert result.success is False
+    assert result.outcome == "no_match"
+    assert result.data is None
+    assert result.error == "No usable provider evidence"
+
+
 def test_openlibrary_missing_cover_id_produces_no_cover_candidates_or_url():
     FakeAsyncClient.events = [response(200, openlibrary_payload())]
 
@@ -477,6 +552,7 @@ def test_all_provider_results_still_collects_all_known_providers(monkeypatch):
         "openlibrary",
     ]
     assert all(result.success for result in results)
+    assert all(has_usable_provider_evidence(result.data) for result in results)
     assert aggregated["title"] == "Google title"
     assert len(FakeAsyncClient.calls) == 2
 

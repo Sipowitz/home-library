@@ -740,6 +740,8 @@ async def create_book_from_isbn_endpoint(
                     ),
 
                     error=result_payload.error,
+
+                    outcome=result_payload.outcome,
                 )
             )
 

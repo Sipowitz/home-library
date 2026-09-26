@@ -45,4 +45,6 @@ export interface ProviderResult {
   data: Record<string, any> | null;
 
   error: string | null;
+
+  outcome?: "success" | "no_match" | "failure" | null;
 }

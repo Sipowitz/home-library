@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_core import PydanticCustomError
 
-from typing import Optional, Any
+from typing import Any, Literal, Mapping, Optional
 
 from app.schemas import CreateBookFromIsbnBook
 from app.services.isbn_validation import normalize_isbn_value
@@ -9,6 +9,59 @@ from app.services.isbn_validation import normalize_isbn_value
 
 MAX_PROVIDER_RESULTS = 5
 MAX_COVER_CANDIDATES = 20
+
+# A provider need not supply every normalized field.  One meaningful textual
+# or numeric metadata value is enough for metadata evidence; a non-empty cover
+# URL/candidate is enough for cover evidence.  The ISBN query itself and
+# provider bookkeeping are intentionally not evidence.
+METADATA_EVIDENCE_FIELDS = (
+    "title", "subtitle", "author", "publisher", "language",
+    "page_count", "year", "description",
+)
+INVALID_COVER_URL_PATTERNS = ("dummyimage.com", "no+cover", "fallback-cover", "placeholder")
+
+
+def _meaningful_value(value: object) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    return value is not None
+
+
+def _usable_cover_url(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value.strip())
+        and not any(pattern in value.casefold() for pattern in INVALID_COVER_URL_PATTERNS)
+    )
+
+
+def has_usable_metadata_evidence(data: Mapping[str, Any] | None) -> bool:
+    return bool(data) and any(_meaningful_value(data.get(field)) for field in METADATA_EVIDENCE_FIELDS)
+
+
+def has_usable_cover_evidence(data: Mapping[str, Any] | None) -> bool:
+    if not data:
+        return False
+    if _usable_cover_url(data.get("cover_url")):
+        return True
+    candidates = data.get("cover_candidates")
+    return isinstance(candidates, list) and any(
+        isinstance(candidate, Mapping) and _usable_cover_url(candidate.get("url"))
+        for candidate in candidates
+    )
+
+
+def has_usable_provider_evidence(
+    data: Mapping[str, Any] | None,
+    *,
+    evidence_kind: Literal["metadata", "covers"] | None = None,
+) -> bool:
+    """Apply the common provider-result contract without provider-specific rules."""
+    if evidence_kind == "metadata":
+        return has_usable_metadata_evidence(data)
+    if evidence_kind == "covers":
+        return has_usable_cover_evidence(data)
+    return has_usable_metadata_evidence(data) or has_usable_cover_evidence(data)
 
 
 class StrictProviderModel(BaseModel):
@@ -67,6 +120,11 @@ class ProviderResult(BaseModel):
 
     error: Optional[str] = None
 
+    # `success` remains the compatibility flag consumed by existing callers.
+    # `outcome` distinguishes an upstream failure from a valid response with
+    # no usable normalized evidence.
+    outcome: Literal["success", "no_match", "failure"] | None = None
+
 
 # -------------------
 # 📦 FRONTEND PAYLOAD TYPES
@@ -86,6 +144,8 @@ class ProviderResultPayload(StrictProviderModel):
     ] = None
 
     error: Optional[str] = Field(default=None, max_length=1000)
+
+    outcome: Literal["success", "no_match", "failure"] | None = None
 
     @field_validator("isbn", mode="before")
     @classmethod

@@ -121,7 +121,7 @@ class OpenLibraryProvider(BookProvider):
             "author": (
                 ", ".join(authors)
                 if authors
-                else "Unknown Author"
+                else None
             ),
 
             "publisher": (

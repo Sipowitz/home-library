@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from app import models
-from app.services.providers.types import ProviderResult
+from app.services.providers.types import ProviderResult, has_usable_metadata_evidence
 
 NORMALIZER_VERSION = "v2"
 PROVIDER_EVIDENCE_KEY = "_provider_evidence"
@@ -10,8 +10,8 @@ def metadata_projection(data: dict) -> dict:
     return {key: data.get(key) for key in METADATA_KEYS}
 
 def persist_provider_result(db: Session, book_id: int, provider_result: ProviderResult):
-    """Persist successful metadata evidence only; successful empty evidence is retained."""
-    if not provider_result.success or provider_result.data is None:
+    """Persist only usable normalized metadata; cover-only evidence belongs elsewhere."""
+    if not provider_result.success or not has_usable_metadata_evidence(provider_result.data):
         return None
     data = metadata_projection(provider_result.data)
     raw_json = dict(data)

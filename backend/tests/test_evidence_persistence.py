@@ -153,15 +153,15 @@ def test_refresh_signature_timestamps_and_review_values(db, book):
     assert book.metadata_evidence_signature != signature and book.metadata_evidence_changed_at == first + timedelta(days=2)
     assert book.metadata_review_signature == "metadata:v1:reviewed"
 
-def test_failure_is_non_destructive_and_successful_empty_is_persisted(db, book):
+def test_failure_and_empty_result_are_non_destructive(db, book):
     persist_provider_result(db, book.id, result({"title": "Old"})); update_metadata_evidence_signature(db, book)
     old = book.metadata_evidence_signature
     assert persist_provider_result(db, book.id, result(None, success=False)) is None
     update_metadata_evidence_signature(db, book)
     assert book.metadata_evidence_signature == old
-    assert persist_provider_result(db, book.id, result({})) is not None
+    assert persist_provider_result(db, book.id, result({})) is None
     update_metadata_evidence_signature(db, book)
-    assert book.metadata_evidence_signature != old
+    assert book.metadata_evidence_signature == old
 
 def test_old_isbn_evidence_is_excluded_after_isbn_change(db, book):
     persist_provider_result(db, book.id, result({"title": "Old ISBN"})); update_metadata_evidence_signature(db, book)
@@ -180,12 +180,15 @@ def test_cover_evidence_is_independent_of_active_and_manual_covers(db, book):
     assert book.cover_evidence_signature == signature
 
 
-def test_newer_empty_openlibrary_cover_snapshot_supersedes_old_candidates(db, book):
+def test_empty_cover_result_does_not_supersede_existing_usable_candidates(db, book):
     old_candidates = [{"provider": "openlibrary", "label": "L", "url": "https://covers.openlibrary.org/b/isbn/9780306406157-L.jpg"}]
     persist_cover_result(db, book.id, result({"cover_candidates": old_candidates}, provider="openlibrary"))
     persist_cover_result(db, book.id, result({"cover_candidates": []}, provider="openlibrary"))
 
-    assert latest_cover_evidence(db, book) == []
+    assert latest_cover_evidence(db, book) == [{
+        "provider": "openlibrary", "label": "L",
+        "source_url": old_candidates[0]["url"], "url": old_candidates[0]["url"],
+    }]
 
 
 def test_refresh_persists_provider_source_url_and_permanent_url(db, book, monkeypatch):

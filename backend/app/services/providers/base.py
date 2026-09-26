@@ -6,6 +6,7 @@ from app.services.providers.http_client import (
     DEFAULT_TIMEOUT_SECONDS,
     get_json,
 )
+from app.services.providers.types import has_usable_cover_evidence
 
 
 class BookProvider(ABC):
@@ -78,4 +79,11 @@ class BookProvider(ABC):
         data = await self.fetch_book_by_isbn(isbn, force_refresh=True)
         if data is None:
             return None
-        return {"cover_candidates": data.get("cover_candidates", []) or []}
+        candidates = data.get("cover_candidates", []) or []
+        if not candidates and has_usable_cover_evidence({"cover_url": data.get("cover_url")}):
+            candidates = [{
+                "provider": self.provider_name,
+                "label": "Primary cover",
+                "url": data["cover_url"],
+            }]
+        return {"cover_candidates": candidates}
