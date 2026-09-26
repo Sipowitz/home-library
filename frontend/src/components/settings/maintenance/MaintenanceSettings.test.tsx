@@ -61,6 +61,20 @@ it("shows a failed rescan without leaving the action disabled", async () => {
   expect((screen.getByRole("button", { name: "Rescan All Cover Art" }) as HTMLButtonElement).disabled).toBe(false);
 });
 
+it("renders dynamic provider diagnostics only for books requiring attention", async () => {
+  maintenanceApi.getActiveMaintenanceJob.mockResolvedValueOnce({
+    ...runningRescan, status: "completed", processed: 342,
+    provider_summary: { future_provider: { success: 5, no_match: 2, failure: 1 } },
+    items: [{ book_id: 4, title: "Needs attention", author: "Writer", status: "partial", changed: false,
+      provider_results: [{ provider: "future_provider", outcome: "failure", diagnostic: "rate_limited", error: "HTTP 429" }] }],
+  });
+  render(<MaintenanceSettings active onReview={vi.fn()} onReviewSequenceComplete={vi.fn()} />);
+  await waitFor(() => expect(screen.getByText(/future_provider — 5 success/)).toBeTruthy());
+  fireEvent.click(screen.getByText("Books requiring attention"));
+  expect(screen.getByText(/Needs attention/)).toBeTruthy();
+  expect(screen.getByText(/future_provider — failure \(rate_limited\)/)).toBeTruthy();
+});
+
 it("handles rescan start failure and leaves metadata refresh available", async () => {
   maintenanceApi.rescanAllCoverArt.mockRejectedValue(new Error("unavailable"));
   maintenanceApi.startMaintenanceRefresh.mockResolvedValue({ ...runningRescan, kind: "metadata_refresh" });

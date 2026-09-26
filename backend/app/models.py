@@ -111,6 +111,7 @@ class MaintenanceJobItem(Base):
     status = Column(String(16), nullable=False, default="pending")
     changed = Column(Boolean, nullable=False, default=False)
     error_summary = Column(String, nullable=True)
+    provider_results = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     job = relationship("MaintenanceJob", back_populates="items")

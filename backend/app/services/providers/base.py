@@ -18,11 +18,13 @@ class BookProvider(ABC):
     ):
         self.settings = settings
         self.last_error: str | None = None
+        self.last_diagnostic: str | None = None
         # Successful response body for the current metadata lookup only.
         self.raw_response: dict | None = None
 
-    def record_request_failure(self, detail: str) -> None:
+    def record_request_failure(self, detail: str, diagnostic: str = "provider_error") -> None:
         self.last_error = detail
+        self.last_diagnostic = diagnostic
 
     def get_timeout_seconds(self) -> float:
         value = getattr(self.settings, "timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
@@ -37,13 +39,18 @@ class BookProvider(ABC):
         url: str,
         *,
         params: dict | None = None,
+        headers: dict[str, str] | None = None,
+        not_found_as_empty: bool = False,
     ) -> dict | None:
         self.last_error = None
+        self.last_diagnostic = None
         return await get_json(
             url,
             params=params,
+            headers=headers,
             timeout_seconds=self.get_timeout_seconds(),
             max_retries=self.get_max_retries(),
+            not_found_as_empty=not_found_as_empty,
             on_failure=self.record_request_failure,
         )
 

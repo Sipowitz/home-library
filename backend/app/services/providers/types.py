@@ -127,6 +127,8 @@ class ProviderResult(BaseModel):
     # no usable normalized evidence.
     outcome: Literal["success", "no_match", "failure"] | None = None
 
+    diagnostic: Literal["rate_limited", "timeout", "authentication", "configuration", "server_error", "transport", "provider_error"] | None = None
+
 
 # -------------------
 # 📦 FRONTEND PAYLOAD TYPES
@@ -148,6 +150,8 @@ class ProviderResultPayload(StrictProviderModel):
     error: Optional[str] = Field(default=None, max_length=1000)
 
     outcome: Literal["success", "no_match", "failure"] | None = None
+
+    diagnostic: Optional[str] = Field(default=None, max_length=64)
 
     @field_validator("isbn", mode="before")
     @classmethod

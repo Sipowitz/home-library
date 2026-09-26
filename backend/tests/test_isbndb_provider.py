@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from app.services.providers.isbndb import ISBNdbProvider
+from app.services.providers import http_client
 from app.services.providers import manager
 from app.services.providers.types import has_usable_provider_evidence
 
@@ -107,10 +108,24 @@ def test_rate_limit_retries_without_real_sleep(monkeypatch):
     async def get(self, *args, **kwargs): calls.append(1); return Response(429)
     async def sleep(delay): sleeps.append(delay)
     monkeypatch.setattr(httpx.AsyncClient, "get", get)
-    monkeypatch.setattr("app.services.providers.isbndb.asyncio.sleep", sleep)
+    monkeypatch.setattr(http_client.asyncio, "sleep", sleep)
     tested = provider(); assert asyncio.run(tested.fetch_book_by_isbn("9780306406157")) is None
-    assert len(calls) == 2 and sleeps == [0.5]
+    assert len(calls) == 2 and sleeps == [0.25]
     assert "429" in tested.last_error
+
+
+def test_catalog_search_uses_configured_shared_retries(monkeypatch):
+    calls = []
+    monkeypatch.setenv("ISBNDB_API_KEY", "test-key")
+    async def get(self, *args, **kwargs):
+        calls.append(1)
+        return Response(503) if len(calls) == 1 else Response(200, {"books": []})
+    async def no_wait(_delay):
+        return None
+    monkeypatch.setattr(httpx.AsyncClient, "get", get)
+    monkeypatch.setattr(http_client.asyncio, "sleep", no_wait)
+    assert asyncio.run(provider().search_catalog("Example", None)) == []
+    assert len(calls) == 2
 
 
 def test_server_and_network_failures_are_provider_local(monkeypatch):

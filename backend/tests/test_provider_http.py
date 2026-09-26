@@ -55,11 +55,11 @@ def openlibrary_payload_with_cover(cover_id=12345):
     }
 
 
-def response(status_code, payload=None, content=None):
+def response(status_code, payload=None, content=None, headers=None):
     request = httpx.Request("GET", "https://provider.example.test/books")
     if content is not None:
-        return httpx.Response(status_code, content=content, request=request)
-    return httpx.Response(status_code, json=payload, request=request)
+        return httpx.Response(status_code, content=content, headers=headers, request=request)
+    return httpx.Response(status_code, json=payload, headers=headers, request=request)
 
 
 class FakeAsyncClient:
@@ -205,6 +205,24 @@ def test_backoff_is_bounded_and_only_occurs_between_attempts(fake_http):
     asyncio.run(provider_case(GoogleBooksProvider, retries=3).fetch_book_by_isbn(ISBN))
 
     assert fake_http == [0.25, 0.5, 1.0]
+
+
+def test_retry_after_is_bounded_and_malformed_values_fall_back(fake_http):
+    FakeAsyncClient.events = [response(429, headers={"Retry-After": "999"}), response(200, google_payload())]
+    assert asyncio.run(provider_case(GoogleBooksProvider, retries=1).fetch_book_by_isbn(ISBN)) is not None
+    assert fake_http == [http_client.MAX_RETRY_AFTER_SECONDS]
+
+    google_books.cache.clear()
+    FakeAsyncClient.events = [response(429, headers={"Retry-After": "not-a-delay"}), response(200, google_payload())]
+    assert asyncio.run(provider_case(GoogleBooksProvider, retries=1).fetch_book_by_isbn(ISBN)) is not None
+    assert fake_http[-1] == 0.25
+
+
+def test_timeout_is_classified_separately_from_transport():
+    FakeAsyncClient.events = [httpx.ReadTimeout("timeout", request=httpx.Request("GET", "https://example.test"))]
+    result = asyncio.run(manager._fetch_provider_result(setting("google_books"), provider_case(GoogleBooksProvider), ISBN))
+    assert result.outcome == "failure"
+    assert result.diagnostic == "timeout"
 
 
 def test_google_api_key_is_passed_as_a_parameter_and_not_returned_or_logged(caplog):

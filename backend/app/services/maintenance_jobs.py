@@ -15,6 +15,11 @@ from app.services.cover_cache_cleanup import clean_cover_cache, empty_counts
 
 _tasks: dict[int, asyncio.Task] = {}
 
+
+def _provider_outcome(result) -> str:
+    """Accept legacy ProviderResult fixtures/rows that predate explicit outcomes."""
+    return result.outcome or ("success" if result.success else "failure")
+
 def recover_interrupted_jobs():
     db = SessionLocal()
     try:
@@ -68,15 +73,32 @@ def _cleanup_counts(job: models.MaintenanceJob) -> dict[str, int] | None:
 def serialize(job: models.MaintenanceJob, db: Session):
     current = db.query(models.Book.title).join(models.MaintenanceJobItem, models.MaintenanceJobItem.book_id == models.Book.id).filter(models.MaintenanceJobItem.job_id == job.id, models.MaintenanceJobItem.status == "running").first()
     data = {**{c.name: getattr(job, c.name) for c in models.MaintenanceJob.__table__.columns}, "current_title": current[0] if current else None}
+    item_rows = db.query(models.MaintenanceJobItem, models.Book.title, models.Book.author).join(
+        models.Book, models.Book.id == models.MaintenanceJobItem.book_id
+    ).filter(models.MaintenanceJobItem.job_id == job.id).order_by(models.MaintenanceJobItem.id).all()
+    items = []
+    provider_summary: dict[str, dict[str, int]] = {}
+    for item, title, author in item_rows:
+        provider_results = item.provider_results if isinstance(item.provider_results, list) else []
+        safe_results = [result for result in provider_results if isinstance(result, dict) and isinstance(result.get("provider"), str)]
+        for result in safe_results:
+            summary = provider_summary.setdefault(result["provider"], {"success": 0, "no_match": 0, "failure": 0})
+            outcome = result.get("outcome")
+            if outcome in summary:
+                summary[outcome] += 1
+        items.append({"book_id": item.book_id, "title": title, "author": author, "status": item.status,
+            "changed": item.changed, "error_summary": item.error_summary, "provider_results": safe_results})
+    data["items"] = items
+    data["provider_summary"] = provider_summary
     if job.kind == "cover_cache":
-        items = db.query(models.MaintenanceJobItem).filter_by(job_id=job.id).all()
+        cache_items = db.query(models.MaintenanceJobItem).filter_by(job_id=job.id).all()
         data["cover_cache_counts"] = {
             "total_considered": job.total,
-            "cached": sum(item.status == "succeeded" and item.changed for item in items),
-            "already_local": sum(item.status == "succeeded" and not item.changed for item in items),
-            "no_cover": sum(item.error_summary == "no_cover" for item in items),
-            "failed": sum(item.status == "failed" for item in items),
-            "skipped": sum(item.status == "skipped" and item.error_summary != "no_cover" for item in items),
+            "cached": sum(item.status == "succeeded" and item.changed for item in cache_items),
+            "already_local": sum(item.status == "succeeded" and not item.changed for item in cache_items),
+            "no_cover": sum(item.error_summary == "no_cover" for item in cache_items),
+            "failed": sum(item.status == "failed" for item in cache_items),
+            "skipped": sum(item.status == "skipped" and item.error_summary != "no_cover" for item in cache_items),
         }
     if job.kind == "cover_rescan":
         counts = {"books_processed": job.processed, "skipped_no_isbn": 0, "provider_lookups": 0,
@@ -206,8 +228,8 @@ async def run_job(job_id: int):
             before = book.metadata_evidence_signature if job.kind == "metadata_refresh" else book.cover_evidence_signature
             try:
                 results = await (refresh_book_metadata(db, book.id) if job.kind == "metadata_refresh" else refresh_book_covers(db, book.id))
-                successes = sum(1 for result in results if result.success)
-                failures = len(results) - successes
+                successes = sum(1 for result in results if _provider_outcome(result) == "success")
+                failures = sum(1 for result in results if _provider_outcome(result) == "failure")
                 db.refresh(book)
                 item.changed = before != (book.metadata_evidence_signature if job.kind == "metadata_refresh" else book.cover_evidence_signature)
                 item.status = "partial" if successes and failures else ("succeeded" if successes else "failed")
@@ -215,6 +237,12 @@ async def run_job(job_id: int):
                 elif item.status == "succeeded": job.succeeded += 1; job.changed += int(item.changed); job.unchanged += int(not item.changed)
                 else: job.failed += 1
                 item.error_summary = "; ".join((r.error or "provider failed") for r in results if not r.success)[:1000] or None
+                item.provider_results = [{
+                    "provider": result.provider,
+                    "outcome": _provider_outcome(result),
+                    "diagnostic": result.diagnostic,
+                    "error": (result.error or None)[:1000] if result.error else None,
+                } for result in results]
                 if job.kind == "cover_rescan":
                     candidates = [candidate for result in results if result.success and result.data
                         for candidate in result.data.get("cover_candidates", []) or [] if isinstance(candidate, dict)]

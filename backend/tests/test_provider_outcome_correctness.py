@@ -15,6 +15,7 @@ if TEST_DATABASE_URL:
     require_disposable_database(TEST_DATABASE_URL)
 
 from app import models
+from app.schemas import MaintenanceJobResponse
 from app.services import maintenance_jobs
 from app.services.providers import refresh_metadata_service
 from app.services.providers.types import ProviderResult
@@ -92,3 +93,31 @@ def test_no_match_never_creates_all_null_metadata_snapshot_and_bulk_is_partial(d
     assert item.status == "partial"
     assert "No usable provider evidence" in item.error_summary
     assert "HTTP 429" in item.error_summary
+    assert item.provider_results == [
+        {"provider": "google_books", "outcome": "success", "diagnostic": None, "error": None},
+        {"provider": "openlibrary", "outcome": "no_match", "diagnostic": None, "error": "No usable provider evidence"},
+        {"provider": "isbndb", "outcome": "failure", "diagnostic": None, "error": "Quota or rate limit exceeded (HTTP 429)"},
+    ]
+    serialized = maintenance_jobs.serialize(completed, session)
+    assert serialized["provider_summary"]["isbndb"]["failure"] == 1
+    assert MaintenanceJobResponse.model_validate(serialized).items[0].provider_results[2].provider == "isbndb"
+
+
+def test_maintenance_details_accept_future_provider_names_and_legacy_rows(db):
+    session, _factory = db
+    owner = models.User(username="details-owner", email="details@example.test", hashed_password="x")
+    session.add(owner); session.flush()
+    book = models.Book(owner_id=owner.id, title="Future", author="Provider")
+    session.add(book); session.flush()
+    job = models.MaintenanceJob(owner_id=owner.id, kind="metadata_refresh", status="completed", total=1, processed=1)
+    session.add(job); session.flush()
+    session.add(models.MaintenanceJobItem(job_id=job.id, book_id=book.id, status="skipped", error_summary="no_isbn"))
+    session.commit()
+    legacy = maintenance_jobs.serialize(job, session)
+    assert legacy["items"][0]["provider_results"] == []
+
+    legacy_item = job.items[0]
+    legacy_item.provider_results = [{"provider": "future_provider", "outcome": "failure", "diagnostic": "transport", "error": "Transport error"}]
+    session.commit()
+    details = maintenance_jobs.serialize(job, session)
+    assert details["provider_summary"] == {"future_provider": {"success": 0, "no_match": 0, "failure": 1}}

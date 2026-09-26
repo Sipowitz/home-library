@@ -16,7 +16,7 @@ if TEST_DATABASE_URL:
 
 from app import models
 from app.services import maintenance_jobs
-from app.services.providers import manager, refresh_cover_service, cover_snapshot_service
+from app.services.providers import manager, refresh_cover_service, cover_snapshot_service, http_client
 from app.services.providers.types import ProviderResult
 from app.services.provider_settings_service import ensure_default_provider_settings
 
@@ -163,7 +163,7 @@ def test_rescan_uses_stored_isbndb_key_without_changing_canonical_cover(db, monk
     async def store(source):
         return f"/covers/objects/sha256/{source.rsplit('/', 1)[-1]}.jpg"
 
-    monkeypatch.setattr("app.services.providers.isbndb.httpx.AsyncClient.get", get)
+    monkeypatch.setattr(http_client.httpx.AsyncClient, "get", get)
     monkeypatch.setattr(cover_snapshot_service, "download_permanent_cover", store)
     monkeypatch.setattr(maintenance_jobs, "SessionLocal", session_factory)
 

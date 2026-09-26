@@ -83,6 +83,7 @@ async def _fetch_provider_result(
                 or ("No usable provider evidence" if no_match else None)
             ),
             outcome="success" if usable else "no_match" if no_match else "failure",
+            diagnostic=None if usable or no_match else getattr(provider, "last_diagnostic", None) or "provider_error",
         )
 
         logger.info(
@@ -104,6 +105,7 @@ async def _fetch_provider_result(
             data=None,
             error=f"Provider exception ({type(exc).__name__})",
             outcome="failure",
+            diagnostic="provider_error",
         )
 
         logger.exception(

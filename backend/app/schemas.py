@@ -867,12 +867,31 @@ class MaintenanceJobResponse(BaseModel):
     cover_cache_counts: Optional[dict[str, int]] = None
     cover_cache_cleanup_counts: Optional[dict[str, int]] = None
     cover_rescan_counts: Optional[dict[str, int]] = None
+    items: list["MaintenanceJobItemResponse"] = Field(default_factory=list)
+    provider_summary: dict[str, dict[str, int]] = Field(default_factory=dict)
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class MaintenanceProviderResultResponse(BaseModel):
+    provider: str
+    outcome: Literal["success", "no_match", "failure"]
+    diagnostic: Optional[str] = None
+    error: Optional[str] = None
+
+
+class MaintenanceJobItemResponse(BaseModel):
+    book_id: int
+    title: Optional[str] = None
+    author: Optional[str] = None
+    status: str
+    changed: bool
+    error_summary: Optional[str] = None
+    provider_results: list[MaintenanceProviderResultResponse] = Field(default_factory=list)
 
 
 # -------------------

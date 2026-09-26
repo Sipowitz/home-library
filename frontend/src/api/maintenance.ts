@@ -40,6 +40,8 @@ export type MaintenanceJob = {
   cover_cache_counts?: { total_considered: number; cached: number; already_local: number; no_cover: number; failed: number; skipped: number } | null;
   cover_cache_cleanup_counts?: { candidate_scanned: number; candidate_retained: number; candidate_deleted: number; candidate_skipped: number; candidate_failed: number; staging_scanned: number; staging_retained: number; staging_deleted: number; staging_skipped: number; staging_failed: number } | null;
   cover_rescan_counts?: { books_processed: number; skipped_no_isbn: number; provider_lookups: number; candidates_discovered: number; candidates_stored: number; failed_downloads: number; provider_failures: number } | null;
+  provider_summary?: Record<string, { success: number; no_match: number; failure: number }>;
+  items?: Array<{ book_id: number; title?: string | null; author?: string | null; status: string; changed: boolean; error_summary?: string | null; provider_results: Array<{ provider: string; outcome: "success" | "no_match" | "failure"; diagnostic?: string | null; error?: string | null }> }>;
 };
 
 export async function startMaintenanceRefresh(kind: "metadata" | "covers") {
