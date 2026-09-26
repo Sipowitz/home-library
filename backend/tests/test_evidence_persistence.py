@@ -87,7 +87,7 @@ def test_complete_provider_response_survives_without_changing_comparison(db, boo
     snapshot = persist_provider_result(db, book.id, fetched)
     db.commit()
     assert snapshot.raw_json["_provider_evidence"] == {"schema_version": 1, "raw_response": payload}
-    assert set(snapshot.raw_json) == {"title", "subtitle", "author", "publisher", "page_count", "language", "year", "description", "_provider_evidence"}
+    assert set(snapshot.raw_json) == {"title", "subtitle", "author", "publisher", "page_count", "language", "year", "description", "isbn", "_provider_evidence"}
     assert snapshot.raw_json["title"] == "The Lighthouse Stevensons"
     assert snapshot.raw_json["author"] == "Author"
     record = snapshot.normalized_records[0]

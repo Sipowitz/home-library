@@ -23,7 +23,7 @@ type Props = {
   canAddReview: boolean;
   onReset: () => void;
   onISBNChange: (value: string) => void;
-  onCatalogCandidateSelected?: (candidate: BookDraft) => void;
+  onCatalogCandidateSelected?: (candidate: CatalogSearchCandidate) => void;
   isFetching: boolean;
   embedded?: boolean;
 };
@@ -110,15 +110,7 @@ export function AddBookForm({
   function handleCatalogSelection(candidate: CatalogSearchCandidate) {
     clearCatalogSearch();
     setCatalogSelected(true);
-    onCatalogCandidateSelected?.({
-      title: candidate.title,
-      author: candidate.author ?? "",
-      subtitle: candidate.subtitle ?? undefined,
-      publisher: candidate.publisher ?? undefined,
-      year: candidate.year ?? undefined,
-      isbn: candidate.isbn ?? "",
-      cover_url: candidate.cover_url ?? "",
-    });
+    onCatalogCandidateSelected?.(candidate);
   }
 
   function errorMessage(err: any) {

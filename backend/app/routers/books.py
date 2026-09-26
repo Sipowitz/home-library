@@ -26,6 +26,7 @@ from ..services.providers.manager import (
 from ..services.providers.types import (
     ProviderResult,
     CreateBookWithMetadataRequest,
+    has_usable_provider_evidence,
 )
 
 from ..services.providers.metadata_snapshot_service import (
@@ -93,6 +94,75 @@ def clean_input(data: dict) -> dict:
         )
 
     return cleaned
+
+
+async def _persist_creation_provider_results(
+    db: Session,
+    book: models.Book,
+    provider_results: list[ProviderResult],
+) -> None:
+    """Persist normalized provider evidence without changing the canonical Book."""
+    for provider_result in provider_results:
+        try:
+            persist_provider_result(
+                db=db,
+                book_id=book.id,
+                provider_result=provider_result,
+            )
+            await cache_provider_cover_candidates(provider_result)
+            persist_cover_result(
+                db=db,
+                book_id=book.id,
+                provider_result=provider_result,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Failed to persist provider result during book creation: %s",
+                exc,
+            )
+
+
+def _catalog_provider_results(
+    provider_evidence: list[schemas.CatalogProviderEvidence],
+    isbn: str | None,
+) -> list[ProviderResult]:
+    results = []
+    for evidence in provider_evidence:
+        data = evidence.model_dump()
+        if evidence.cover_url:
+            data["cover_candidates"] = [{
+                "provider": evidence.provider,
+                "label": "Catalog result",
+                "url": evidence.cover_url,
+            }]
+        usable = has_usable_provider_evidence(data)
+        results.append(ProviderResult(
+            provider=evidence.provider,
+            success=usable,
+            isbn=isbn,
+            duration_ms=0,
+            data=data if usable else None,
+            error=None if usable else "No usable catalog provider evidence",
+            outcome="success" if usable else "no_match",
+        ))
+    return results
+
+
+def _selected_cached_catalog_cover(
+    provider_results: list[ProviderResult],
+    selected_cover: schemas.CatalogSelectedCover | None,
+) -> str | None:
+    if selected_cover is None:
+        return None
+    for result in provider_results:
+        if result.provider != selected_cover.provider:
+            continue
+        for candidate in (result.data or {}).get("cover_candidates", []):
+            if candidate.get("source_url") == selected_cover.source_url:
+                url = candidate.get("url")
+                if isinstance(url, str) and url.startswith("/covers/objects/sha256/"):
+                    return url
+    return None
 
 
 def get_db():
@@ -649,6 +719,58 @@ def create_book(
 
 
 # -------------------
+# ➕ CREATE FROM CATALOG
+# -------------------
+
+@router.post(
+    "/from-catalog",
+    response_model=schemas.BookResponse,
+)
+async def create_book_from_catalog_endpoint(
+    payload: schemas.CreateBookFromCatalogRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if payload.selected_cover and not any(
+        evidence.provider == payload.selected_cover.provider
+        and evidence.cover_url == payload.selected_cover.source_url
+        for evidence in payload.provider_evidence
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="Selected catalog cover is not present in its provider evidence",
+        )
+
+    # Catalog cover URLs are source evidence, not canonical Book URLs.  The
+    # selected one is promoted only after the existing permanent cache stores
+    # its bytes successfully.
+    book_data = clean_input(payload.book.model_dump())
+    book_data["cover_url"] = None
+    created_book = book_service.create_book(db, current_user.id, book_data)
+
+    provider_results = _catalog_provider_results(payload.provider_evidence, created_book.isbn)
+    await _persist_creation_provider_results(db, created_book, provider_results)
+
+    selected_cover_url = _selected_cached_catalog_cover(
+        provider_results, payload.selected_cover,
+    )
+    if selected_cover_url is not None:
+        created_book.cover_url = selected_cover_url
+
+    update_metadata_evidence_signature(db, created_book)
+    update_cover_evidence_signature(db, created_book)
+    db.commit()
+
+    # The user-selected catalog values and cover stay canonical.  This merely
+    # collects fresh ISBN evidence through the established best-effort path.
+    if created_book.isbn:
+        background_tasks.add_task(refresh_created_book_metadata, created_book.id)
+
+    return created_book
+
+
+# -------------------
 # ➕ CREATE FROM ISBN
 # -------------------
 
@@ -719,49 +841,23 @@ async def create_book_from_isbn_endpoint(
     # 📦 PERSIST SNAPSHOTS
     # -------------------
 
-    for result_payload in (
-        payload.provider_results
-    ):
-        try:
-            provider_result = (
-                ProviderResult(
-                    provider=result_payload.provider,
-
-                    success=result_payload.success,
-
-                    isbn=result_payload.isbn,
-
-                    duration_ms=result_payload.duration_ms,
-
-                    data=(
-                        result_payload.data.model_dump()
-                        if result_payload.data is not None
-                        else None
-                    ),
-
-                    error=result_payload.error,
-
-                    outcome=result_payload.outcome,
-                )
-            )
-
-            persist_provider_result(
-                db=db,
-                book_id=created_book.id,
-                provider_result=provider_result,
-            )
-
-            await cache_provider_cover_candidates(provider_result)
-
-            persist_cover_result(
-                db=db, book_id=created_book.id, provider_result=provider_result,
-            )
-
-        except Exception as exc:
-            logger.exception(
-                "Failed to persist provider result during book creation: %s",
-                exc,
-            )
+    provider_results = [
+        ProviderResult(
+            provider=result_payload.provider,
+            success=result_payload.success,
+            isbn=result_payload.isbn,
+            duration_ms=result_payload.duration_ms,
+            data=(
+                result_payload.data.model_dump()
+                if result_payload.data is not None
+                else None
+            ),
+            error=result_payload.error,
+            outcome=result_payload.outcome,
+        )
+        for result_payload in payload.provider_results
+    ]
+    await _persist_creation_provider_results(db, created_book, provider_results)
 
     update_metadata_evidence_signature(db, created_book)
     update_cover_evidence_signature(db, created_book)
@@ -784,7 +880,7 @@ async def create_book_from_isbn_endpoint(
     "/{book_id}",
     response_model=schemas.BookResponse,
 )
-def update_book(
+async def update_book(
     book_id: int,
 
     updated: schemas.BookUpdate,
@@ -795,11 +891,23 @@ def update_book(
         get_current_user
     ),
 ):
-    data = clean_input(
-        updated.model_dump(
-            exclude_unset=True
-        )
-    )
+    catalog_evidence = updated.catalog_provider_evidence
+    catalog_selected_cover = updated.catalog_selected_cover
+    if catalog_selected_cover and not any(
+        evidence.provider == catalog_selected_cover.provider
+        and evidence.cover_url == catalog_selected_cover.source_url
+        for evidence in (catalog_evidence or [])
+    ):
+        raise HTTPException(status_code=422, detail="Selected catalog cover is not present in its provider evidence")
+
+    data = clean_input(updated.model_dump(
+        exclude_unset=True,
+        exclude={"catalog_provider_evidence", "catalog_selected_cover"},
+    ))
+    # A catalog source URL is evidence only.  It can become canonical only
+    # after the shared permanent cache has produced a local object.
+    if catalog_selected_cover:
+        data.pop("cover_url", None)
 
     book = book_service.update_book(
         db,
@@ -813,6 +921,16 @@ def update_book(
             status_code=404,
             detail="Book not found",
         )
+
+    if catalog_evidence is not None:
+        provider_results = _catalog_provider_results(catalog_evidence, book.isbn)
+        await _persist_creation_provider_results(db, book, provider_results)
+        selected_cover_url = _selected_cached_catalog_cover(provider_results, catalog_selected_cover)
+        if catalog_selected_cover and selected_cover_url is not None:
+            book.cover_url = selected_cover_url
+        update_metadata_evidence_signature(db, book)
+        update_cover_evidence_signature(db, book)
+        db.commit()
 
     return book
 

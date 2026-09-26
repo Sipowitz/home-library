@@ -8,7 +8,7 @@ from app.services.providers.cover_snapshot_service import source_url_for_candida
 from app.services.covers.download import download_candidate_cover
 from app.services.cover_storage import CoverUploadError, resolve_local_cover_path
 
-METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description")
+METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description", "isbn")
 
 def normalized_book_isbn(book: models.Book) -> str | None:
     if not book.isbn:
@@ -20,10 +20,9 @@ def normalized_book_isbn(book: models.Book) -> str | None:
 
 def latest_metadata_evidence(db: Session, book: models.Book) -> list[dict]:
     isbn = normalized_book_isbn(book)
-    if not isbn:
-        return []
     rows = (db.query(models.ProviderMetadataSnapshot)
-        .filter(models.ProviderMetadataSnapshot.book_id == book.id, models.ProviderMetadataSnapshot.isbn_query == isbn)
+        .filter(models.ProviderMetadataSnapshot.book_id == book.id)
+        .filter(models.ProviderMetadataSnapshot.isbn_query == isbn if isbn else models.ProviderMetadataSnapshot.isbn_query.is_(None))
         .order_by(models.ProviderMetadataSnapshot.provider.asc(), models.ProviderMetadataSnapshot.fetched_at.desc(), models.ProviderMetadataSnapshot.id.desc()).all())
     latest = {}
     for row in rows:
@@ -32,10 +31,9 @@ def latest_metadata_evidence(db: Session, book: models.Book) -> list[dict]:
 
 def latest_cover_snapshots(db: Session, book: models.Book) -> dict[str, models.ProviderCoverSnapshot]:
     isbn = normalized_book_isbn(book)
-    if not isbn:
-        return {}
     rows = (db.query(models.ProviderCoverSnapshot)
-        .filter(models.ProviderCoverSnapshot.book_id == book.id, models.ProviderCoverSnapshot.isbn_query == isbn)
+        .filter(models.ProviderCoverSnapshot.book_id == book.id)
+        .filter(models.ProviderCoverSnapshot.isbn_query == isbn if isbn else models.ProviderCoverSnapshot.isbn_query.is_(None))
         .order_by(models.ProviderCoverSnapshot.provider.asc(), models.ProviderCoverSnapshot.fetched_at.desc(), models.ProviderCoverSnapshot.id.desc()).all())
     latest = {}
     for row in rows:

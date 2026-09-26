@@ -597,7 +597,7 @@ class ProviderCoverSnapshot(Base):
     id = Column(Integer, primary_key=True)
     book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
     provider = Column(String, nullable=False, index=True)
-    isbn_query = Column(String, nullable=False, index=True)
+    isbn_query = Column(String, nullable=True, index=True)
     candidates_json = Column(JSONB, nullable=False)
     fetched_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

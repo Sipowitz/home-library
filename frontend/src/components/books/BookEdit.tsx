@@ -28,7 +28,7 @@ import { ActionButton } from "../ui/ActionButton";
 import { fetchMetadataCandidates } from "../../api/metadataCandidates";
 
 import { getBook, getCoverCandidates, refreshMetadata, searchCatalogBooks, selectCoverCandidate } from "../../api/books";
-import type { CatalogSearchCandidate, CoverCandidate, CoverRefreshResponse, ReviewIntent } from "../../api/books";
+import type { CatalogEditEvidence, CatalogSearchCandidate, CoverCandidate, CoverRefreshResponse, ReviewIntent } from "../../api/books";
 
 import toast from "react-hot-toast";
 import { usePreferencesContext } from "../../context/PreferencesContext";
@@ -45,7 +45,7 @@ type Props = {
 
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 
-  onSave: (reviewIntent?: ReviewIntent) => void;
+  onSave: (reviewIntent?: ReviewIntent, catalogEvidence?: CatalogEditEvidence) => void;
 
 
   onDelete: () => void;
@@ -87,22 +87,16 @@ function mergeProviderResults(
   return Array.from(merged.values());
 }
 
-function catalogResultAsProviderResult(candidate: CatalogSearchCandidate): ProviderResult {
-  return {
-    provider: candidate.sources[0] || "catalog_search",
+function catalogEvidenceProviderResults(candidate: CatalogSearchCandidate): ProviderResult[] {
+  return candidate.provider_evidence.map((evidence) => ({
+    provider: evidence.provider,
     success: true,
-    isbn: candidate.isbn?.trim() || "",
+    isbn: candidate.isbn,
     duration_ms: 0,
-    data: {
-      title: candidate.title,
-      subtitle: candidate.subtitle,
-      author: candidate.author,
-      publisher: candidate.publisher,
-      year: candidate.year,
-      cover_url: candidate.cover_url,
-    },
+    data: { ...evidence },
     error: null,
-  };
+    outcome: "success",
+  }));
 }
 
 export function BookEdit({
@@ -126,8 +120,10 @@ export function BookEdit({
   const [catalogSearching, setCatalogSearching] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [temporaryLookupIsbn, setTemporaryLookupIsbn] = useState<string | null>(null);
-  const [catalogProviderResult, setCatalogProviderResult] = useState<ProviderResult | null>(null);
+  const [catalogCandidate, setCatalogCandidate] = useState<CatalogSearchCandidate | null>(null);
+  const [catalogProviderResults, setCatalogProviderResults] = useState<ProviderResult[]>([]);
   const [catalogCoverCandidate, setCatalogCoverCandidate] = useState<CoverCandidate | null>(null);
+  const [selectedCatalogCover, setSelectedCatalogCover] = useState<CatalogEditEvidence["selected_cover"]>(null);
   const currentBookId = useRef(editData?.id);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -147,8 +143,10 @@ export function BookEdit({
     setCatalogSearching(false);
     setCatalogError(null);
     setTemporaryLookupIsbn(null);
-    setCatalogProviderResult(null);
+    setCatalogCandidate(null);
+    setCatalogProviderResults([]);
     setCatalogCoverCandidate(null);
+    setSelectedCatalogCover(null);
     setCoverModalOpen(false);
   }, [editData?.id]);
 
@@ -303,8 +301,10 @@ export function BookEdit({
     setCatalogItems(null);
     setCatalogError(null);
     setTemporaryLookupIsbn(null);
-    setCatalogProviderResult(null);
+    setCatalogCandidate(null);
+    setCatalogProviderResults([]);
     setCatalogCoverCandidate(null);
+    setSelectedCatalogCover(null);
   }
 
   async function handleRefreshMetadata(lookupIsbn?: string) {
@@ -369,22 +369,22 @@ export function BookEdit({
   async function selectCatalogEdition(candidate: CatalogSearchCandidate) {
     const lookupIsbn = candidate.isbn?.trim();
     setShowEditionPicker(false);
+    setCatalogCandidate(candidate);
+    setCatalogProviderResults(catalogEvidenceProviderResults(candidate));
+    setSelectedCatalogCover(null);
+    setCatalogCoverCandidate(candidate.selected_cover ? {
+      provider: candidate.selected_cover.provider,
+      label: candidate.selected_cover.label,
+      url: candidate.selected_cover.source_url,
+    } : null);
 
     if (lookupIsbn) {
-      setCatalogProviderResult(null);
-      setCatalogCoverCandidate(null);
       setTemporaryLookupIsbn(lookupIsbn);
       await handleRefreshMetadata(lookupIsbn);
       return;
     }
 
     setTemporaryLookupIsbn(null);
-    setCatalogProviderResult(catalogResultAsProviderResult(candidate));
-    setCatalogCoverCandidate(candidate.cover_url ? {
-      provider: candidate.sources[0] || "catalog_search",
-      label: "Catalog result",
-      url: candidate.cover_url,
-    } : null);
     setMetadataReviewPending(false);
     setShowMetadataPanel(true);
   }
@@ -561,7 +561,13 @@ export function BookEdit({
 
           <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
             <ActionButton variant="danger" onClick={onDelete}><Trash2 size={15} /> Delete Book</ActionButton>
-            <ActionButton variant="primary" onClick={() => onSave({ mark_metadata_reviewed: metadataReviewPending, mark_cover_reviewed: coverReviewPending })}><Save size={15} /> Save Changes</ActionButton>
+            <ActionButton variant="primary" onClick={() => onSave(
+              { mark_metadata_reviewed: metadataReviewPending, mark_cover_reviewed: coverReviewPending },
+              catalogCandidate ? {
+                provider_evidence: catalogCandidate.provider_evidence,
+                selected_cover: selectedCatalogCover,
+              } : undefined,
+            )}><Save size={15} /> Save Changes</ActionButton>
           </div>
         </div>
       </div>
@@ -604,7 +610,7 @@ export function BookEdit({
           isRefreshing={isRefreshing}
           coverUrl={editData?.cover_url}
           lookupIsbn={temporaryLookupIsbn ?? undefined}
-          initialProviderResults={catalogProviderResult ? [catalogProviderResult] : undefined}
+          initialProviderResults={catalogProviderResults.length ? catalogProviderResults : undefined}
           onApplySelectedMetadata={(selections) => {
             setEditData({
               ...editData!,
@@ -646,6 +652,12 @@ export function BookEdit({
           });
         }}
         onSelectCover={async (cover) => {
+          const isSelectedCatalogCover = Boolean(
+            catalogCandidate?.selected_cover
+            && cover.provider === catalogCandidate.selected_cover.provider
+            && cover.url === catalogCandidate.selected_cover.source_url,
+          );
+          setSelectedCatalogCover(isSelectedCatalogCover ? catalogCandidate!.selected_cover : null);
           if (cover.url.startsWith("/covers/candidate-cache/")) {
             const promoted = await selectCoverCandidate(editData!.id, cover);
             setEditData({ ...editData!, cover_url: promoted.url });

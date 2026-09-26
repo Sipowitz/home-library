@@ -383,6 +383,44 @@ class CatalogSearchCandidate(BaseModel):
     isbn: Optional[str] = None
     cover_url: Optional[str] = None
     sources: List[str] = Field(default_factory=list)
+    provider_evidence: List["CatalogProviderEvidence"] = Field(default_factory=list, max_length=100)
+    selected_cover: Optional["CatalogSelectedCover"] = None
+
+
+class CatalogProviderEvidence(BaseModel):
+    """Normalized fields from one catalog provider result, never merged values."""
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1, max_length=64)
+    provider_book_id: Optional[str] = Field(default=None, max_length=500)
+    title: Optional[str] = Field(default=None, max_length=1000)
+    subtitle: Optional[str] = Field(default=None, max_length=1000)
+    author: Optional[str] = Field(default=None, max_length=2000)
+    publisher: Optional[str] = Field(default=None, max_length=1000)
+    language: Optional[str] = Field(default=None, max_length=100)
+    page_count: Optional[int] = Field(default=None, ge=0, le=1_000_000)
+    year: Optional[int] = Field(default=None, ge=-10_000, le=10_000)
+    isbn: Optional[str] = Field(default=None, max_length=32)
+    description: Optional[str] = Field(default=None, max_length=100_000)
+    cover_url: Optional[str] = Field(default=None, max_length=2048)
+
+    @field_validator("isbn", mode="before")
+    @classmethod
+    def validate_isbn(cls, value):
+        if value is None:
+            return None
+        try:
+            return normalize_isbn_value(value)
+        except (TypeError, ValueError) as exc:
+            raise PydanticCustomError("invalid_isbn", "Invalid ISBN") from exc
+
+
+class CatalogSelectedCover(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1, max_length=64)
+    source_url: str = Field(min_length=1, max_length=2048)
+    label: str = Field(default="Catalog result", min_length=1, max_length=100)
 
 
 class CatalogSearchResponse(BaseModel):
@@ -458,6 +496,15 @@ class BookCreate(BookBase):
     pass
 
 
+class CreateBookFromCatalogRequest(BaseModel):
+    """Selected catalog values plus the separate evidence behind that selection."""
+    model_config = ConfigDict(extra="forbid")
+
+    book: BookCreate
+    provider_evidence: List[CatalogProviderEvidence] = Field(default_factory=list, max_length=100)
+    selected_cover: Optional[CatalogSelectedCover] = None
+
+
 class BookUpdate(BaseModel):
     title: Optional[str] = None
 
@@ -493,6 +540,11 @@ class BookUpdate(BaseModel):
 
     mark_metadata_reviewed: bool = False
     mark_cover_reviewed: bool = False
+
+    # Catalog search is draft-only until the normal Book save.  These fields
+    # are evidence transport, not canonical Book fields.
+    catalog_provider_evidence: Optional[List[CatalogProviderEvidence]] = Field(default=None, max_length=100)
+    catalog_selected_cover: Optional[CatalogSelectedCover] = None
 
     @field_validator("title", "author", mode="before")
     @classmethod

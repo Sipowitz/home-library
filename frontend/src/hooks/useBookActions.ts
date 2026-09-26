@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import { previewBookByISBN } from "../api/books";
-import type { ReviewIntent } from "../api/books";
+import type { CatalogEditEvidence, CatalogSearchCandidate, CreateBookFromCatalogPayload, ReviewIntent } from "../api/books";
 
 import { fetchProviderResultsByISBN } from "../api/providerResults";
 
@@ -30,9 +30,11 @@ type Params = {
     allow_duplicate?: boolean;
   }) => Promise<Book>;
 
+  addBookFromCatalog?: (payload: CreateBookFromCatalogPayload) => Promise<Book>;
+
   removeBook: (id: number) => Promise<void>;
 
-  saveBook: (b: Book, reviewIntent?: ReviewIntent) => Promise<Book>;
+  saveBook: (b: Book, reviewIntent?: ReviewIntent, catalogEvidence?: CatalogEditEvidence) => Promise<Book>;
 
   setSelectedBook: (b: Book | null) => void;
 
@@ -54,6 +56,7 @@ export function useBookActions({
   setNewBook,
   addBook,
   addBookFromISBN,
+  addBookFromCatalog,
   removeBook,
   saveBook,
   setSelectedBook,
@@ -72,6 +75,7 @@ export function useBookActions({
   // -------------------
 
   const [providerResults, setProviderResults] = useState<ProviderResult[]>([]);
+  const [catalogCandidate, setCatalogCandidate] = useState<CatalogSearchCandidate | null>(null);
 
   const lookupRequestIdRef = useRef(0);
 
@@ -96,6 +100,7 @@ export function useBookActions({
 
     setIsFetching(false);
     setProviderResults([]);
+    setCatalogCandidate(null);
     setDraftOrigin("manual");
     setNewBook(isbn ? { isbn } : {});
   }
@@ -103,6 +108,7 @@ export function useBookActions({
   function handleAddBookISBNChange(value: string) {
     const isbn = value.trim();
     setDraftOrigin("manual");
+    setCatalogCandidate(null);
 
     if (
       activeLookupISBNRef.current !== null &&
@@ -186,20 +192,24 @@ export function useBookActions({
     }
   }
 
-  function handleCatalogCandidateSelected(candidate: BookDraft) {
+  function handleCatalogCandidateSelected(candidate: CatalogSearchCandidate) {
     lookupRequestIdRef.current += 1;
     activeLookupISBNRef.current = null;
     inFlightISBNRef.current = null;
     setIsFetching(false);
     setProviderResults([]);
+    setCatalogCandidate(candidate);
     setDraftOrigin("catalog-search");
     setNewBook({
       title: candidate.title ?? "",
       author: candidate.author ?? "",
       subtitle: candidate.subtitle ?? undefined,
       publisher: candidate.publisher ?? undefined,
+      language: candidate.language ?? undefined,
+      page_count: candidate.page_count ?? undefined,
       year: candidate.year ?? undefined,
       isbn: candidate.isbn ?? "",
+      description: candidate.description ?? undefined,
       cover_url: candidate.cover_url ?? "",
       read: false,
       date_added: new Date().toISOString(),
@@ -253,10 +263,7 @@ export function useBookActions({
     if (!draftBook) return;
 
     if (draftOrigin === "catalog-search") {
-      const book: Partial<Book> = { ...draftBook };
-      delete book.id;
-      delete book.date_added;
-      const created = await addBook(book);
+      const created = await createBookFromCatalogMatch(draftBook);
       setProviderResults([]);
       resetAddBook();
       reconcileGroupedBooks?.();
@@ -302,6 +309,17 @@ export function useBookActions({
     });
   }
 
+  async function createBookFromCatalogMatch(draftBook: Book) {
+    if (!catalogCandidate) throw new Error("Select a catalog result before adding the book");
+    const { id: _id, date_added: _dateAdded, cover_url: _coverUrl, ...book } = draftBook;
+    if (!addBookFromCatalog) throw new Error("Catalog creation is unavailable");
+    return addBookFromCatalog({
+      book,
+      provider_evidence: catalogCandidate.provider_evidence,
+      selected_cover: catalogCandidate.selected_cover,
+    });
+  }
+
   // -------------------
   // ❌ DELETE
   // -------------------
@@ -327,7 +345,7 @@ export function useBookActions({
   // 💾 SAVE
   // -------------------
 
-  async function handleSave(reviewIntent: ReviewIntent = {}) {
+  async function handleSave(reviewIntent: ReviewIntent = {}, catalogEvidence?: CatalogEditEvidence) {
     if (!editData) return;
 
     const payload = {
@@ -347,7 +365,9 @@ export function useBookActions({
         delete (payload as any).last_metadata_refresh_at;
         delete (payload as any).category;
 
-        const created = payload.isbn && draftOrigin !== "catalog-search"
+        const created = draftOrigin === "catalog-search"
+          ? await createBookFromCatalogMatch(payload)
+          : payload.isbn
           ? await addBookFromISBN({
               book: payload,
 
@@ -392,7 +412,7 @@ export function useBookActions({
     // ✏️ UPDATE EXISTING
     // -------------------
 
-    const updated = await saveBook(payload as Book, reviewIntent);
+    const updated = await saveBook(payload as Book, reviewIntent, catalogEvidence);
 
     reconcileSavedBook?.(updated);
 

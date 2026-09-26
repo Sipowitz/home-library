@@ -50,10 +50,16 @@ const editions = [
   {
     candidate_key: "without-isbn", title: "Edition without ISBN", subtitle: null, author: "A. Author",
     publisher: "Publisher", year: 2000, isbn: null, cover_url: "https://example.test/catalog-cover.jpg", sources: ["openlibrary"],
+    language: null, page_count: null, description: null,
+    provider_evidence: [{ provider: "openlibrary", provider_book_id: "ol-1", title: "Edition without ISBN", subtitle: null, author: "A. Author", publisher: "Publisher", language: null, page_count: null, year: 2000, isbn: null, description: null, cover_url: "https://example.test/catalog-cover.jpg" }],
+    selected_cover: { provider: "openlibrary", source_url: "https://example.test/catalog-cover.jpg", label: "Catalog result" },
   },
   {
     candidate_key: "with-isbn", title: "Edition with ISBN", subtitle: "Selected edition", author: "A. Author",
     publisher: "Publisher", year: 2001, isbn: "9780306406157", cover_url: "https://example.test/cover.jpg", sources: ["google_books", "openlibrary"],
+    language: null, page_count: null, description: null,
+    provider_evidence: [{ provider: "google_books", provider_book_id: "gb-1", title: "Edition with ISBN", subtitle: "Selected edition", author: "A. Author", publisher: "Publisher", language: null, page_count: null, year: 2001, isbn: "9780306406157", description: null, cover_url: "https://example.test/cover.jpg" }],
+    selected_cover: { provider: "google_books", source_url: "https://example.test/cover.jpg", label: "Catalog result" },
   },
 ];
 

@@ -57,6 +57,41 @@ def _provider_key(candidate: dict) -> str:
     )
 
 
+def _catalog_provider_evidence(candidate: dict) -> dict:
+    """Keep one provider's normalized catalog result separate from merged display data."""
+    return {
+        key: candidate.get(key)
+        for key in (
+            "provider", "provider_book_id", "title", "subtitle", "author",
+            "publisher", "language", "page_count", "year", "isbn",
+            "description", "cover_url",
+        )
+    }
+
+
+def _selected_cover(group: list[dict], cover_url: str | None) -> dict | None:
+    if not cover_url:
+        return None
+    source = next((item for item in group if item.get("cover_url") == cover_url), None)
+    if not source:
+        return None
+    return {
+        "provider": source["provider"],
+        "source_url": cover_url,
+        "label": "Catalog result",
+    }
+
+
+def _catalog_evidence_sort_key(candidate: dict) -> tuple:
+    return (
+        str(candidate.get("provider") or ""),
+        str(candidate.get("provider_book_id") or candidate.get("position") or ""),
+        _text(candidate.get("title")),
+        _text(candidate.get("author")),
+        str(candidate.get("year") or ""),
+    )
+
+
 def merge_and_rank_catalog_candidates(
     candidates: list[dict],
     title: str,
@@ -112,6 +147,7 @@ def merge_and_rank_catalog_candidates(
             None,
         ) or (isbns[0] if isbns else None)
         no_isbn_identity = group[0]["_no_isbn_identity"]
+        cover_url = first_valid_cover([item.get("cover_url") for item in group])
         result = {
             "candidate_key": (
                 f"isbn:{preferred}"
@@ -129,8 +165,13 @@ def merge_and_rank_catalog_candidates(
             "page_count": first_non_empty([item.get("page_count") for item in group]),
             "description": longest_string([item.get("description") for item in group]),
             "isbn": preferred,
-            "cover_url": first_valid_cover([item.get("cover_url") for item in group]),
+            "cover_url": cover_url,
             "sources": sorted({item["provider"] for item in group}),
+            "provider_evidence": [
+                _catalog_provider_evidence(item)
+                for item in sorted(group, key=_catalog_evidence_sort_key)
+            ],
+            "selected_cover": _selected_cover(group, cover_url),
             "_position": min(item.get("position", 0) for item in group),
             "_priority": min(item.get("priority", 0) for item in group),
         }

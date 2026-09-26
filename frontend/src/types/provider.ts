@@ -36,7 +36,7 @@ export interface ProviderResult {
 
   success: boolean;
 
-  isbn: string;
+  isbn: string | null;
 
   duration_ms: number;
 

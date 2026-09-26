@@ -92,8 +92,18 @@ it("reconciles the authoritative saved book into retained collection browse stat
   await waitFor(() => expect(reconcileSavedBook).toHaveBeenCalledWith(updated));
 });
 
-it("adds an ISBN-bearing catalog candidate directly through normal creation", async () => {
+const catalogCandidate = (overrides: Record<string, unknown> = {}) => ({
+  candidate_key: "catalog:one", title: "Catalog book", subtitle: null, author: "Author",
+  publisher: null, language: null, page_count: null, year: null, isbn: "9780306406157",
+  description: null, cover_url: null, sources: ["future_provider"],
+  provider_evidence: [{ provider: "future_provider", provider_book_id: "one", title: "Catalog book", subtitle: null, author: "Author", publisher: null, language: null, page_count: null, year: null, isbn: "9780306406157", description: null, cover_url: null }],
+  selected_cover: null,
+  ...overrides,
+});
+
+it("adds an ISBN-bearing catalog candidate through provenance-aware creation", async () => {
   const addBook = vi.fn().mockResolvedValue({ id: 42, title: "Catalog book", author: "Author", isbn: "9780306406157" });
+  const addBookFromCatalog = vi.fn().mockResolvedValue({ id: 42, title: "Catalog book", author: "Author", isbn: "9780306406157" });
   const addBookFromISBN = vi.fn();
   const setEditing = vi.fn();
   const setEditData = vi.fn();
@@ -102,11 +112,11 @@ it("adds an ISBN-bearing catalog candidate directly through normal creation", as
     const [newBook, setNewBook] = useState<BookDraft>({});
     const [editData, setEditData] = useState<Book | null>(null);
     const actions = useBookActions({
-      newBook, setNewBook, addBook, addBookFromISBN, removeBook: vi.fn(), saveBook: vi.fn(),
+      newBook, setNewBook, addBook, addBookFromISBN, addBookFromCatalog, removeBook: vi.fn(), saveBook: vi.fn(),
       setSelectedBook: vi.fn(), setEditData, setEditing, editData,
     });
     return <>
-      <button onClick={() => actions.handleCatalogCandidateSelected({ title: "Catalog book", author: "Author", isbn: "9780306406157" })}>Select catalog</button>
+      <button onClick={() => actions.handleCatalogCandidateSelected(catalogCandidate())}>Select catalog</button>
       <button onClick={() => void actions.handleAddBook()}>Add to Library</button>
       <span>{newBook.title || "Add flow reset"}</span>
     </>;
@@ -116,30 +126,38 @@ it("adds an ISBN-bearing catalog candidate directly through normal creation", as
   fireEvent.click(screen.getByRole("button", { name: "Select catalog" }));
   fireEvent.click(screen.getByRole("button", { name: "Add to Library" }));
 
-  await waitFor(() => expect(addBook).toHaveBeenCalledWith(expect.objectContaining({ isbn: "9780306406157" })));
+  await waitFor(() => expect(addBookFromCatalog).toHaveBeenCalledWith(expect.objectContaining({ book: expect.objectContaining({ isbn: "9780306406157" }) })));
+  expect(addBook).not.toHaveBeenCalled();
   expect(addBookFromISBN).not.toHaveBeenCalled();
   expect(setEditing).not.toHaveBeenCalledWith(true);
   expect(setEditData).not.toHaveBeenCalled();
   await waitFor(() => expect(screen.getByText("Add flow reset")).toBeTruthy());
 });
 
-it("adds an ISBN-less catalog candidate directly through normal creation", async () => {
+it("adds an ISBN-less catalog candidate through provenance-aware creation", async () => {
   const addBook = vi.fn().mockResolvedValue({ id: 44, title: "Older book", author: "Author", isbn: "" });
+  const addBookFromCatalog = vi.fn().mockResolvedValue({ id: 44, title: "Older book", author: "Author", isbn: "" });
   const setEditing = vi.fn();
   const setEditData = vi.fn();
   function Harness() {
     const [newBook, setNewBook] = useState<BookDraft>({});
     const actions = useBookActions({
-      newBook, setNewBook, addBook, addBookFromISBN: vi.fn(), removeBook: vi.fn(), saveBook: vi.fn(),
+      newBook, setNewBook, addBook, addBookFromISBN: vi.fn(), addBookFromCatalog, removeBook: vi.fn(), saveBook: vi.fn(),
       setSelectedBook: vi.fn(), setEditData, setEditing, editData: null,
     });
-    return <><button onClick={() => actions.handleCatalogCandidateSelected({ title: "Older book", author: "Author", isbn: "" })}>Select ISBN-less catalog</button><button onClick={() => void actions.handleAddBook()}>Add to Library</button></>;
+    const selected = catalogCandidate({
+      title: "Older book",
+      isbn: null,
+      provider_evidence: [{ provider: "future_provider", provider_book_id: "two", title: "Older book", subtitle: null, author: "Author", publisher: null, language: null, page_count: null, year: null, isbn: null, description: null, cover_url: null }],
+    });
+    return <><button onClick={() => actions.handleCatalogCandidateSelected(selected)}>Select ISBN-less catalog</button><button onClick={() => void actions.handleAddBook()}>Add to Library</button></>;
   }
 
   render(<Harness />);
   fireEvent.click(screen.getByRole("button", { name: "Select ISBN-less catalog" }));
   fireEvent.click(screen.getByRole("button", { name: "Add to Library" }));
-  await waitFor(() => expect(addBook).toHaveBeenCalledWith(expect.objectContaining({ isbn: "", title: "Older book" })));
+  await waitFor(() => expect(addBookFromCatalog).toHaveBeenCalledWith(expect.objectContaining({ book: expect.objectContaining({ isbn: "", title: "Older book" }) })));
+  expect(addBook).not.toHaveBeenCalled();
   expect(setEditing).not.toHaveBeenCalledWith(true);
   expect(setEditData).not.toHaveBeenCalled();
 });

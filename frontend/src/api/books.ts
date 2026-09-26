@@ -72,10 +72,36 @@ export type CatalogSearchCandidate = {
   subtitle: string | null;
   author: string | null;
   publisher: string | null;
+  language: string | null;
+  page_count: number | null;
   year: number | null;
   isbn: string | null;
+  description: string | null;
   cover_url: string | null;
   sources: string[];
+  provider_evidence: CatalogProviderEvidence[];
+  selected_cover: CatalogSelectedCover | null;
+};
+
+export type CatalogProviderEvidence = {
+  provider: string;
+  provider_book_id: string | null;
+  title: string | null;
+  subtitle: string | null;
+  author: string | null;
+  publisher: string | null;
+  language: string | null;
+  page_count: number | null;
+  year: number | null;
+  isbn: string | null;
+  description: string | null;
+  cover_url: string | null;
+};
+
+export type CatalogSelectedCover = {
+  provider: string;
+  source_url: string;
+  label: string;
 };
 
 export type CatalogSearchResponse = {
@@ -110,6 +136,17 @@ type BookCreateInput = {
   category_id?: number | null;
 };
 
+export type CreateBookFromCatalogPayload = {
+  book: BookCreateInput;
+  provider_evidence: CatalogProviderEvidence[];
+  selected_cover: CatalogSelectedCover | null;
+};
+
+export type CatalogEditEvidence = {
+  provider_evidence: CatalogProviderEvidence[];
+  selected_cover: CatalogSelectedCover | null;
+};
+
 type BookUpdateInput = {
   title?: string;
 
@@ -139,6 +176,8 @@ type BookUpdateInput = {
 
   mark_metadata_reviewed?: boolean;
   mark_cover_reviewed?: boolean;
+  catalog_provider_evidence?: CatalogProviderEvidence[];
+  catalog_selected_cover?: CatalogSelectedCover | null;
 };
 
 type CreateBookFromISBNPayload = {
@@ -267,6 +306,13 @@ export async function createBookFromISBN(
 ): Promise<Book> {
   const res = await client.post("/books/from-isbn", payload);
 
+  return res.data;
+}
+
+export async function createBookFromCatalog(
+  payload: CreateBookFromCatalogPayload,
+): Promise<Book> {
+  const res = await client.post("/books/from-catalog", payload);
   return res.data;
 }
 

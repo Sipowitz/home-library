@@ -4,7 +4,7 @@ from app.services.providers.types import ProviderResult, has_usable_metadata_evi
 
 NORMALIZER_VERSION = "v2"
 PROVIDER_EVIDENCE_KEY = "_provider_evidence"
-METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description")
+METADATA_KEYS = ("title", "subtitle", "author", "publisher", "page_count", "language", "year", "description", "isbn")
 
 def metadata_projection(data: dict) -> dict:
     return {key: data.get(key) for key in METADATA_KEYS}

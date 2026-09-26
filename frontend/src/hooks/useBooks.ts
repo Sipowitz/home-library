@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   getBooks,
   createBook,
+  createBookFromCatalog,
   createBookFromISBN,
   deleteBook,
   updateBook,
@@ -13,7 +14,7 @@ import { useLocations } from "../context/LocationContext";
 import { useCategories } from "../context/CategoryContext";
 
 import type { Book } from "../types/book";
-import type { ReviewIntent } from "../api/books";
+import type { CatalogEditEvidence, CreateBookFromCatalogPayload, ReviewIntent } from "../api/books";
 
 import type { ProviderResult } from "../types/provider";
 import { authorSurname, bookMatchesFilters, compareBookSurnames, type BrowseFilters } from "../utils/bookBrowse";
@@ -212,6 +213,21 @@ export function useBooks() {
     return data;
   }
 
+  async function addBookFromCatalog(payload: CreateBookFromCatalogPayload) {
+    const data = await createBookFromCatalog({
+      ...payload,
+      book: {
+        ...payload.book,
+        location_id: payload.book.location_id ?? null,
+        category_id: payload.book.category_id ?? null,
+      },
+    });
+
+    await loadBooks(true);
+    notifyStatsUpdate();
+    return data;
+  }
+
   // -------------------
   // ❌ DELETE
   // -------------------
@@ -232,7 +248,7 @@ export function useBooks() {
   // 💾 SAVE
   // -------------------
 
-  async function saveBook(book: Book, reviewIntent: ReviewIntent = {}) {
+  async function saveBook(book: Book, reviewIntent: ReviewIntent = {}, catalogEvidence?: CatalogEditEvidence) {
     const updated = await updateBook(book.id, {
       title: book.title,
 
@@ -261,6 +277,10 @@ export function useBooks() {
       category_id: book.category_id ?? null,
 
       ...reviewIntent,
+      ...(catalogEvidence ? {
+        catalog_provider_evidence: catalogEvidence.provider_evidence,
+        catalog_selected_cover: catalogEvidence.selected_cover,
+      } : {}),
     });
 
     // The update response is authoritative for this book. Merge it into the
@@ -319,6 +339,7 @@ export function useBooks() {
     hasMore,
     addBook,
     addBookFromISBN,
+    addBookFromCatalog,
     removeBook,
     saveBook,
     updateBookInState,

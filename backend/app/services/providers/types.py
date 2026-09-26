@@ -109,7 +109,9 @@ class ProviderResult(BaseModel):
 
     success: bool
 
-    isbn: str
+    # Catalog evidence can be attached to an ISBN-less Book.  ISBN lookups
+    # still always supply this value.
+    isbn: Optional[str] = None
 
     duration_ms: int
 
