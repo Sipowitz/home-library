@@ -34,6 +34,32 @@ export function AuthProvider({ children }: Props) {
 
   const initializedRef = useRef(false);
 
+  function clearAuthentication() {
+    localStorage.removeItem("token");
+    setTokenState(null);
+    setUser(null);
+  }
+
+  async function loadUserForToken(candidateToken: string) {
+    try {
+      const response = await client.get<AuthUser>("/auth/me");
+      if (localStorage.getItem("token") !== candidateToken) return;
+      setTokenState(candidateToken);
+      setUser(response.data);
+    } catch (error: any) {
+      if (localStorage.getItem("token") !== candidateToken) return;
+      if (error?.response?.status === 401) {
+        clearAuthentication();
+        return;
+      }
+
+      // A temporary backend or network failure does not prove the persisted
+      // bearer token is invalid. Keep it and allow the next request to retry.
+      setTokenState(candidateToken);
+      setUser(null);
+    }
+  }
+
   // -------------------
   // 🔥 INIT FROM STORAGE
   // -------------------
@@ -53,18 +79,7 @@ export function AuthProvider({ children }: Props) {
         return;
       }
 
-      try {
-        const response = await client.get<AuthUser>("/auth/me");
-
-        setTokenState(stored);
-        setUser(response.data);
-      } catch {
-        console.warn("Stored token invalid. Logging out.");
-
-        localStorage.removeItem("token");
-
-        setTokenState(null);
-      }
+      await loadUserForToken(stored);
 
       setReady(true);
     }
@@ -88,6 +103,24 @@ export function AuthProvider({ children }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.storageArea !== localStorage || event.key !== "token") return;
+      if (!event.newValue) {
+        setTokenState(null);
+        setUser(null);
+        return;
+      }
+
+      setTokenState(event.newValue);
+      setUser(null);
+      void loadUserForToken(event.newValue);
+    }
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   // -------------------
   // 🔐 LOGIN
   // -------------------
@@ -95,17 +128,15 @@ export function AuthProvider({ children }: Props) {
     localStorage.setItem("token", token);
 
     setTokenState(token);
-    client.get<AuthUser>("/auth/me").then((response) => setUser(response.data));
+    setUser(null);
+    void loadUserForToken(token);
   }
 
   // -------------------
   // 🚪 LOGOUT
   // -------------------
   function logout(): void {
-    localStorage.removeItem("token");
-
-    setTokenState(null);
-    setUser(null);
+    clearAuthentication();
   }
 
   if (!ready) {

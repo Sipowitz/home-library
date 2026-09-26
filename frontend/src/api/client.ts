@@ -29,6 +29,7 @@ client.interceptors.request.use(
       config.headers = config.headers || {};
 
       (config.headers as any)["Authorization"] = `Bearer ${token}`;
+      (config as any).__authToken = token;
     }
 
     return config;
@@ -51,7 +52,9 @@ client.interceptors.response.use(
     }
 
     if (err.response?.status === 401) {
-      if (!handlingUnauthorized) {
+      const requestToken = err.config?.__authToken;
+      const currentToken = localStorage.getItem("token");
+      if (requestToken && requestToken === currentToken && !handlingUnauthorized) {
         handlingUnauthorized = true;
 
         console.warn("Session expired. Logging out.");
