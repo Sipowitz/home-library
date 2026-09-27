@@ -82,6 +82,10 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
 
   const [validatingBackup, setValidatingBackup] = useState(false);
 
+  const [creatingBackup, setCreatingBackup] = useState(false);
+
+  const backupInFlightRef = useRef(false);
+
   const [validationToken, setValidationToken] = useState<string | null>(null);
 
   const [validationSummary, setValidationSummary] = useState<BackupValidationSummary | null>(null);
@@ -106,6 +110,9 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
   // -------------------
 
   async function handleBackup() {
+    if (backupInFlightRef.current) return;
+    backupInFlightRef.current = true;
+    setCreatingBackup(true);
     try {
       const res = await client.get("/backup/export", {
         responseType: "blob",
@@ -142,6 +149,9 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
       console.error("Backup failed", err);
 
       toast.error("Backup failed");
+    } finally {
+      backupInFlightRef.current = false;
+      setCreatingBackup(false);
     }
   }
 
@@ -414,6 +424,7 @@ export function SettingsModal({ isOpen, onClose, onReviewBook, onReviewSequenceC
                   </div>
 
                   <BackupSettings
+                    creatingBackup={creatingBackup}
                     restoring={restoring}
                     validating={validatingBackup}
                     fileInputRef={fileInputRef}

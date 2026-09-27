@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { ActionButton } from "../../../ui/ActionButton";
+
 type Props = {
   open: boolean;
 
@@ -102,42 +104,22 @@ export function TreeInputModal({
           "
         />
 
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={onCancel}
-            className="
-              px-4 py-2
-
-              rounded-xl
-
-              bg-control text-text-secondary
-              hover:bg-surface-raised hover:text-text-primary
-
-              transition
-            "
-          >
-            Cancel
-          </button>
-
-          <button
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <ActionButton
             onClick={() => {
               if (value.trim()) {
                 onConfirm(value.trim());
               }
             }}
-            className="
-              px-4 py-2
-
-              rounded-xl
-
-              bg-purple-600
-              hover:bg-purple-500
-
-              transition
-            "
+            variant="primary"
+            className="w-full sm:w-auto"
           >
             {confirmText}
-          </button>
+          </ActionButton>
+
+          <ActionButton onClick={onCancel} variant="tertiary" className="w-full sm:w-auto">
+            Cancel
+          </ActionButton>
         </div>
       </div>
     </div>

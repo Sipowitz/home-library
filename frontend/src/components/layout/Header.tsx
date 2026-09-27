@@ -16,10 +16,22 @@ export function Header({ libraryName, onOpenSettings, onLogout }: Props) {
       </h1>
 
       <div className="flex shrink-0 gap-3">
-        <ActionButton variant="icon" size="icon" onClick={onOpenSettings}>
+        <ActionButton
+          variant="icon"
+          size="icon"
+          onClick={onOpenSettings}
+          aria-label="Open settings"
+          title="Open settings"
+        >
           <Settings size={20} />
         </ActionButton>
-        <ActionButton variant="icon" size="icon" onClick={onLogout}>
+        <ActionButton
+          variant="icon"
+          size="icon"
+          onClick={onLogout}
+          aria-label="Log out"
+          title="Log out"
+        >
           <LogOut size={20} />
         </ActionButton>
       </div>

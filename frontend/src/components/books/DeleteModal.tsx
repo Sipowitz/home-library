@@ -51,7 +51,7 @@ export function DeleteModal({ open, book, hasCollections, openedInCollection, on
           </p>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
           <ActionButton
             onClick={() => void handleDelete()}
             variant="dangerStrong"

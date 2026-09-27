@@ -1,3 +1,5 @@
+import { ActionButton } from "../../../ui/ActionButton";
+
 type Props = {
   open: boolean;
 
@@ -65,45 +67,18 @@ export function TreeConfirmModal({
 
         <p className="text-sm text-text-muted mt-3 leading-relaxed">{message}</p>
 
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={onCancel}
-            className="
-              px-4 py-2
-
-              rounded-xl
-
-              bg-control text-text-secondary
-              hover:bg-surface-raised hover:text-text-primary
-
-              transition
-            "
-          >
-            Cancel
-          </button>
-
-          <button
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <ActionButton
             onClick={onConfirm}
-            className={`
-              px-4 py-2
-              rounded-xl
-              transition
-
-              ${
-                danger
-                  ? `
-                    bg-red-600
-                    hover:bg-red-500
-                  `
-                  : `
-                    bg-purple-600
-                    hover:bg-purple-500
-                  `
-              }
-            `}
+            variant={danger ? "dangerStrong" : "primary"}
+            className="w-full sm:w-auto"
           >
             {confirmText}
-          </button>
+          </ActionButton>
+
+          <ActionButton onClick={onCancel} variant="tertiary" className="w-full sm:w-auto">
+            Cancel
+          </ActionButton>
         </div>
       </div>
     </div>

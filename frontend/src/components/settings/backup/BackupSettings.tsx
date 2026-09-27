@@ -1,4 +1,5 @@
 import React from "react";
+import { Loader2 } from "lucide-react";
 
 import { usePreferences } from "../../../hooks/usePreferences";
 
@@ -6,6 +7,8 @@ import { formatDateTime } from "../../../utils/dateFormatters";
 import { ActionButton } from "../../ui/ActionButton";
 
 type Props = {
+  creatingBackup: boolean;
+
   restoring: boolean;
 
   validating: boolean;
@@ -22,6 +25,7 @@ type Props = {
 };
 
 export function BackupSettings({
+  creatingBackup,
   restoring,
   validating,
   fileInputRef,
@@ -62,16 +66,20 @@ export function BackupSettings({
       {/* DOWNLOAD */}
       <ActionButton
         onClick={onBackup}
+        disabled={creatingBackup}
+        aria-busy={creatingBackup}
         variant="secondary"
         className="mb-3 w-full"
       >
-        Download Backup
+        {creatingBackup && <Loader2 className="animate-spin" size={16} aria-hidden="true" />}
+        {creatingBackup ? "Creating backup…" : "Download Backup"}
       </ActionButton>
+      {creatingBackup && <p role="status" aria-live="polite" className="sr-only">Creating backup…</p>}
 
       {/* RESTORE */}
       <ActionButton
         onClick={() => fileInputRef.current?.click()}
-        disabled={restoring || validating}
+        disabled={creatingBackup || restoring || validating}
         variant="primary"
         className="mb-2 w-full"
       >
@@ -89,6 +97,7 @@ export function BackupSettings({
         type="file"
         accept=".lbak,application/vnd.library-app.backup+zip"
         className="hidden"
+        disabled={creatingBackup}
         onChange={(e) => {
           const file = e.target.files?.[0];
 

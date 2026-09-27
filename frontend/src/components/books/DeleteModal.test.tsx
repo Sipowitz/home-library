@@ -35,3 +35,11 @@ it("uses Library-not-Collection wording only when opened inside a Collection", (
   expect(screen.getByText("This will delete the book from your Library, not just remove it from this Collection.")).toBeTruthy();
   expect(screen.queryByText("This will also remove it from any Collections it belongs to.")).toBeNull();
 });
+
+it("uses the standard mobile-stacked confirmation action row", () => {
+  render(<DeleteModal open book={{ id: 4, title: "Responsive" }} hasCollections={false} openedInCollection={false} onClose={vi.fn()} onDelete={vi.fn()} />);
+
+  const actionRow = screen.getByRole("button", { name: "Delete" }).parentElement;
+  expect(actionRow?.classList.contains("flex-col-reverse")).toBe(true);
+  expect(actionRow?.classList.contains("sm:flex-row")).toBe(true);
+});

@@ -75,21 +75,21 @@ export function ConfirmDeleteModal({
           </div>
         )}
 
-        <div className="flex gap-3">
-          <ActionButton
-            onClick={onCancel}
-            variant="tertiary"
-            className="flex-1"
-          >
-            {cancelText}
-          </ActionButton>
-
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
           <ActionButton
             onClick={onConfirm}
             variant={danger ? "dangerStrong" : "primary"}
             className="flex-1"
           >
             {confirmText}
+          </ActionButton>
+
+          <ActionButton
+            onClick={onCancel}
+            variant="tertiary"
+            className="flex-1"
+          >
+            {cancelText}
           </ActionButton>
         </div>
       </div>
