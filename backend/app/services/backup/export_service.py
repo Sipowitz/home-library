@@ -17,6 +17,7 @@ from ...core.config import settings
 from .archive import inspect_archive, validate_image
 from .errors import BackupError
 from .schemas import FORMAT, FORMAT_VERSION, LibraryData, Manifest, ManifestFile, RecordCounts
+from ..providers.cover_snapshot_service import source_url_for_candidate, valid_provider_source_url
 
 
 def _archive_id() -> str:
@@ -153,9 +154,16 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
         for snapshot in sorted(book.cover_snapshots, key=lambda item: item.id):
             snapshot_candidates = []
             for candidate in snapshot.candidates_json or []:
-                if not isinstance(candidate, dict) or not isinstance(candidate.get("source_url"), str):
+                if not isinstance(candidate, dict):
+                    raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Provider cover candidate provenance is invalid")
+                source_url = source_url_for_candidate(candidate)
+                if source_url is None:
                     raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Provider cover candidate provenance is invalid")
                 url = candidate.get("url")
+                # A remote URL in the legacy `url` field is provenance, not a
+                # display object.  It must never be packaged as a second cover.
+                if valid_provider_source_url(url) is not None:
+                    url = None
                 # Package existing legacy cache bytes as a normal cover object;
                 # restore publishes them to permanent SHA-256 storage.
                 if isinstance(url, str) and url.startswith("/covers/candidate-cache/"):
@@ -164,7 +172,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
                 else:
                     cover = _cover_reference(url, objects) if isinstance(url, str) else None
                 snapshot_candidates.append({"provider": str(candidate.get("provider") or snapshot.provider),
-                    "label": candidate.get("label"), "source_url": candidate["source_url"], "cover": cover})
+                    "label": candidate.get("label"), "source_url": source_url, "cover": cover})
             cover_snapshots.append({"book_archive_id": book_ids[book.id], "provider": snapshot.provider,
                 "isbn_query": snapshot.isbn_query, "candidates": snapshot_candidates,
                 "fetched_at": snapshot.fetched_at, "created_at": snapshot.created_at})

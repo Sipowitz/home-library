@@ -3,6 +3,8 @@
 Set TEST_DATABASE_URL to a dedicated disposable database before running.
 The suite refuses to run without that variable and never targets library_db by default.
 """
+import hashlib
+import json
 import os
 from pathlib import Path
 from urllib.parse import urlparse
@@ -90,6 +92,63 @@ def test_fresh_database_reaches_head_and_is_clean():
     assert fks[0]["options"]["ondelete"] == "SET NULL"
     engine.dispose()
     command.check(_config())
+
+
+def test_cover_provenance_migration_normalizes_only_trustworthy_legacy_urls(tmp_path, monkeypatch):
+    _reset_to("split_book_publication_years")
+    async def no_network(*_args, **_kwargs):
+        raise AssertionError("migration must not contact a provider")
+
+    monkeypatch.setattr("app.services.covers.download.download_candidate_cover", no_network)
+    monkeypatch.setattr("app.services.covers.download.download_permanent_cover", no_network)
+    sentinel = tmp_path / "cover-file-must-not-change"
+    sentinel.write_bytes(b"cover bytes")
+    sentinel_digest = hashlib.sha256(sentinel.read_bytes()).hexdigest()
+    legacy_url = "https://covers.openlibrary.org/b/id/12345-L.jpg"
+    current_local_url = "/covers/objects/sha256/aa/" + "a" * 64 + ".jpg"
+    candidates = [
+        {"provider": "openlibrary", "label": "L", "url": legacy_url, "extra": {"keep": True}},
+        {"provider": "google_books", "label": "Current", "source_url": "https://books.example/current.jpg"},
+        {"provider": "google_books", "label": "Permanent", "source_url": "https://books.example/permanent.jpg", "url": current_local_url},
+        {"provider": "local", "label": "Local", "url": "/covers/uploaded/local.jpg"},
+        {"provider": "bad", "label": "Empty", "url": ""},
+        {"provider": "bad", "label": "Scheme", "url": "ftp://example.test/a.jpg"},
+        {"provider": "bad", "label": "Malformed", "url": "https:///missing-host.jpg"},
+        {"provider": "bad", "label": "Typed", "url": 3},
+        {"provider": "bad", "label": "Missing"},
+    ]
+    engine = _engine()
+    with engine.begin() as conn:
+        conn.execute(sa.text(
+            "INSERT INTO users (id, username, email, hashed_password, is_active, is_admin) "
+            "VALUES (1, 'owner', 'owner@example.test', 'h', true, false)"
+        ))
+        conn.execute(sa.text(
+            "INSERT INTO books (id, title, author, owner_id, cover_url) "
+            "VALUES (1, 'Book', 'Author', 1, '/covers/uploaded/canonical.jpg')"
+        ))
+        conn.execute(sa.text(
+            "INSERT INTO provider_cover_snapshots (book_id, provider, isbn_query, candidates_json) "
+            "VALUES (1, 'openlibrary', '9780306406157', CAST(:candidates AS jsonb))"
+        ), {"candidates": json.dumps(candidates)})
+    engine.dispose()
+
+    command.upgrade(_config(), "norm_cover_provenance")
+
+    engine = _engine()
+    with engine.connect() as conn:
+        migrated = conn.execute(sa.text(
+            "SELECT candidates_json FROM provider_cover_snapshots WHERE book_id = 1"
+        )).scalar_one()
+        assert conn.execute(sa.text("SELECT cover_url FROM books WHERE id = 1")).scalar_one() == "/covers/uploaded/canonical.jpg"
+    engine.dispose()
+    assert migrated[0] == {
+        "provider": "openlibrary", "label": "L", "source_url": legacy_url, "extra": {"keep": True},
+    }
+    assert migrated[1] == candidates[1]
+    assert migrated[2] == candidates[2]
+    assert migrated[3:] == candidates[3:]
+    assert hashlib.sha256(sentinel.read_bytes()).hexdigest() == sentinel_digest
 
 
 def test_existing_historical_audit_rows_survive_upgrade_and_schema_check():

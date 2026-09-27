@@ -1,14 +1,34 @@
 """Independent persistence for successful external-provider cover evidence."""
+from urllib.parse import urlsplit
+
 from sqlalchemy.orm import Session
 from app import models
 from app.services.covers.download import download_permanent_cover
 from app.services.providers.types import ProviderResult, has_usable_cover_evidence
 
 
+def valid_provider_source_url(value: object) -> str | None:
+    """Return a conservative, non-local provider source URL, without I/O."""
+    if not isinstance(value, str) or not value or any(char.isspace() for char in value):
+        return None
+    try:
+        parsed = urlsplit(value)
+        # Accessing these properties also detects malformed bracketed hosts and ports.
+        host = parsed.hostname
+        parsed.port
+    except ValueError:
+        return None
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc or not host:
+        return None
+    return value
+
+
 def source_url_for_candidate(candidate: dict) -> str | None:
-    """Return provider provenance for both Stage 1B and legacy candidate shapes."""
-    source_url = candidate.get("source_url") or candidate.get("url")
-    return source_url if isinstance(source_url, str) and source_url else None
+    """Return valid provenance from current or legacy provider-candidate shapes."""
+    return (
+        valid_provider_source_url(candidate.get("source_url"))
+        or valid_provider_source_url(candidate.get("url"))
+    )
 
 
 async def cache_provider_cover_candidates(provider_result: ProviderResult) -> None:

@@ -333,6 +333,55 @@ def test_provider_cover_snapshots_and_permanent_candidate_objects_round_trip(db,
         archive.unlink()
 
 
+def test_backup_canonicalizes_legacy_remote_provider_provenance_without_network(db, monkeypatch):
+    user_id, _other_id, canonical_bytes = populated(db)
+    book = db.query(models.Book).filter_by(owner_id=user_id).one()
+    legacy_url = "https://covers.openlibrary.org/b/id/12345-L.jpg"
+    book_cover_before = book.cover_url
+    db.add(models.ProviderCoverSnapshot(
+        book_id=book.id,
+        provider="openlibrary",
+        isbn_query=book.isbn,
+        candidates_json=[{"provider": "openlibrary", "label": "L", "url": legacy_url}],
+    ))
+    db.commit()
+
+    async def no_network(_source):
+        raise AssertionError("backup must not contact a provider")
+
+    monkeypatch.setattr("app.services.providers.cover_snapshot_service.download_permanent_cover", no_network)
+    archive, _ = create_backup(db, user_id, "source")
+    try:
+        session = validation_session(archive, user_id)
+        candidate = session.library.provider_cover_snapshots[0].candidates[0]
+        assert candidate.provider == "openlibrary"
+        assert candidate.label == "L"
+        assert candidate.source_url == legacy_url
+        assert candidate.cover is None
+        db.refresh(book)
+        assert book.cover_url == book_cover_before
+        assert (Path(settings.COVERS_DIR) / "uploaded" / "one.png").read_bytes() == canonical_bytes
+    finally:
+        archive.unlink(missing_ok=True)
+
+
+def test_backup_rejects_unconvertible_legacy_provider_provenance(db):
+    user_id, _other_id, _canonical_bytes = populated(db)
+    book = db.query(models.Book).filter_by(owner_id=user_id).one()
+    db.add(models.ProviderCoverSnapshot(
+        book_id=book.id,
+        provider="openlibrary",
+        isbn_query=book.isbn,
+        candidates_json=[{"provider": "openlibrary", "label": "L", "url": "/covers/candidate-cache/not-provenance.jpg"}],
+    ))
+    db.commit()
+
+    with pytest.raises(BackupError) as raised:
+        create_backup(db, user_id, "source")
+    assert raised.value.code == "BACKUP_REFERENCE_INVALID"
+    assert raised.value.detail["message"] == "Provider cover candidate provenance is invalid"
+
+
 @pytest.mark.parametrize("reference_kind,relative", [
     ("book", Path("candidate-cache") / "aa" / ("a" * 64 + ".png")),
     ("candidate", Path("staging") / "temporary.png"),
