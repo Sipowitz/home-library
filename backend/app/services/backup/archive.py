@@ -118,7 +118,7 @@ def _read_entry(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
     return data
 
 
-def inspect_archive(path: Path) -> tuple[Manifest, LibraryData, dict[str, str]]:
+def inspect_archive(path: Path, *, validate_cover_images: bool = True) -> tuple[Manifest, LibraryData, dict[str, str]]:
     try:
         with zipfile.ZipFile(path, "r") as zf:
             infos = zf.infolist()
@@ -185,13 +185,14 @@ def inspect_archive(path: Path) -> tuple[Manifest, LibraryData, dict[str, str]]:
                 item = declared[name]
                 if item.sha256 != digest or item.media_type != media_type:
                     raise BackupError(400, "BACKUP_CHECKSUM_MISMATCH", "Cover declaration does not match its reference")
-                temp = path.parent / f"image-{secrets.token_hex(8)}"
-                try:
-                    with zf.open(names[name]) as source, temp.open("wb") as target:
-                        shutil.copyfileobj(source, target)
-                    validate_image(temp, media_type)
-                finally:
-                    temp.unlink(missing_ok=True)
+                if validate_cover_images:
+                    temp = path.parent / f"image-{secrets.token_hex(8)}"
+                    try:
+                        with zf.open(names[name]) as source, temp.open("wb") as target:
+                            shutil.copyfileobj(source, target)
+                        validate_image(temp, media_type)
+                    finally:
+                        temp.unlink(missing_ok=True)
                 cover_entries[digest] = name
             declared_covers = {name for name in declared if name.startswith("covers/")}
             if declared_covers != set(cover_entries.values()) or counts.cover_files != len(cover_entries):

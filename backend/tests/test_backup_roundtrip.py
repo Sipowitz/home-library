@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
@@ -27,6 +27,7 @@ from app.core.config import settings
 from app.database import Base
 from app.services.backup.archive import ValidationSession, inspect_archive, sha256_file
 from app.services.backup.errors import BackupError
+from app.services.backup import export_service
 from app.services.backup.export_service import create_backup
 from app.services.backup.restore_service import restore_user
 from app.services.backup import restore_service
@@ -380,6 +381,122 @@ def test_backup_rejects_unconvertible_legacy_provider_provenance(db):
         create_backup(db, user_id, "source")
     assert raised.value.code == "BACKUP_REFERENCE_INVALID"
     assert raised.value.detail["message"] == "Provider cover candidate provenance is invalid"
+
+
+def test_export_memoizes_content_analysis_but_checks_each_local_reference(db, monkeypatch):
+    user_id, _other_id, _cover = populated(db)
+    analyses = 0
+    local_paths = 0
+    real_analyze = export_service._analyze_local_cover
+    real_local_path = export_service._local_path
+
+    def count_analysis(path):
+        nonlocal analyses
+        analyses += 1
+        return real_analyze(path)
+
+    def count_local_path(*args, **kwargs):
+        nonlocal local_paths
+        local_paths += 1
+        return real_local_path(*args, **kwargs)
+
+    monkeypatch.setattr(export_service, "_analyze_local_cover", count_analysis)
+    monkeypatch.setattr(export_service, "_local_path", count_local_path)
+    archive, _ = create_backup(db, user_id, "source")
+    try:
+        # The book cover, upload candidate, and series cover use the same file.
+        assert analyses == 1
+        assert local_paths >= 3
+    finally:
+        archive.unlink(missing_ok=True)
+
+
+def test_export_distinct_paths_validate_independently_and_deduplicate_content(db, monkeypatch):
+    user_id, _other_id, contents = populated(db)
+    second_url = write_local_cover(Path(settings.COVERS_DIR), Path("uploaded") / "same-bytes.png", contents)
+    db.add(models.Book(owner_id=user_id, title="Second", author="Author", cover_url=second_url))
+    db.commit()
+    analyses = 0
+    real_analyze = export_service._analyze_local_cover
+
+    def count_analysis(path):
+        nonlocal analyses
+        analyses += 1
+        return real_analyze(path)
+
+    monkeypatch.setattr(export_service, "_analyze_local_cover", count_analysis)
+    archive, _ = create_backup(db, user_id, "source")
+    try:
+        manifest, _library, covers = inspect_archive(archive)
+        assert analyses == 2
+        assert manifest.record_counts.cover_files == 1
+        assert len(covers) == 1
+    finally:
+        archive.unlink(missing_ok=True)
+
+
+def test_export_reanalyzes_a_file_when_its_stat_identity_changes(db, monkeypatch):
+    populated(db)
+    path = Path(settings.COVERS_DIR) / "uploaded" / "one.png"
+    objects = {}
+    cache = {}
+    analyses = 0
+    real_analyze = export_service._analyze_local_cover
+
+    def count_analysis(candidate):
+        nonlocal analyses
+        analyses += 1
+        return real_analyze(candidate)
+
+    monkeypatch.setattr(export_service, "_analyze_local_cover", count_analysis)
+    export_service._cover_reference("/covers/uploaded/one.png", objects, local_cover_cache=cache)
+    path.write_bytes(cover_bytes("blue"))
+    export_service._cover_reference("/covers/uploaded/one.png", objects, local_cover_cache=cache)
+    assert analyses == 2
+    assert len(objects) == 2
+
+
+def test_export_eager_loads_targeted_relationships_without_true_lazy_loads(db):
+    user_id, _other_id, _contents = populated(db)
+    relationship_lazy_loads = []
+    select_count = 0
+
+    def observe_orm(execute_state):
+        if execute_state.is_relationship_load and execute_state.lazy_loaded_from is not None:
+            relationship_lazy_loads.append(execute_state.lazy_loaded_from)
+
+    def observe_sql(_conn, _cursor, statement, _parameters, _context, _executemany):
+        nonlocal select_count
+        if statement.lstrip().upper().startswith("SELECT"):
+            select_count += 1
+
+    event.listen(db, "do_orm_execute", observe_orm)
+    event.listen(db.bind, "before_cursor_execute", observe_sql)
+    db.expire_all()
+    try:
+        archive, _ = create_backup(db, user_id, "source")
+    finally:
+        event.remove(db, "do_orm_execute", observe_orm)
+        event.remove(db.bind, "before_cursor_execute", observe_sql)
+    try:
+        assert relationship_lazy_loads == []
+        assert select_count <= 12
+    finally:
+        archive.unlink(missing_ok=True)
+
+
+def test_export_uses_stored_cover_entries_and_deflated_json(db):
+    user_id, _other_id, _contents = populated(db)
+    archive, _ = create_backup(db, user_id, "source")
+    try:
+        # Default inspection remains the full, external-archive validation path.
+        inspect_archive(archive)
+        with zipfile.ZipFile(archive) as zf:
+            assert zf.getinfo("manifest.json").compress_type == zipfile.ZIP_DEFLATED
+            assert zf.getinfo("library.json").compress_type == zipfile.ZIP_DEFLATED
+            assert all(zf.getinfo(name).compress_type == zipfile.ZIP_STORED for name in zf.namelist() if name.startswith("covers/"))
+    finally:
+        archive.unlink(missing_ok=True)
 
 
 @pytest.mark.parametrize("reference_kind,relative", [

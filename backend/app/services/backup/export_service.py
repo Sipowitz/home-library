@@ -6,11 +6,12 @@ import os
 import tempfile
 import uuid
 import zipfile
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ... import models
 from ...core.config import settings
@@ -22,6 +23,25 @@ from ..providers.cover_snapshot_service import source_url_for_candidate, valid_p
 
 def _archive_id() -> str:
     return str(uuid.uuid4())
+
+
+@dataclass(frozen=True)
+class _LocalCoverContent:
+    sha256: str
+    size: int
+    media_type: str
+    extension: str
+
+
+def _analyze_local_cover(path: Path) -> _LocalCoverContent:
+    media_type, extension = validate_image(path)
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+            size += len(chunk)
+    return _LocalCoverContent(digest.hexdigest(), size, media_type, extension)
 
 
 def _local_path(url: str, *, allow_candidate_cache: bool = False) -> tuple[Path, str] | None:
@@ -50,7 +70,13 @@ def _local_path(url: str, *, allow_candidate_cache: bool = False) -> tuple[Path,
     return candidate, origin
 
 
-def _cover_reference(url: str | None, objects: dict[str, dict], *, allow_candidate_cache: bool = False) -> dict | None:
+def _cover_reference(
+    url: str | None,
+    objects: dict[str, dict],
+    *,
+    allow_candidate_cache: bool = False,
+    local_cover_cache: dict[tuple[Path, int, int, int, int], _LocalCoverContent] | None = None,
+) -> dict | None:
     if not url:
         return None
     local = _local_path(url, allow_candidate_cache=allow_candidate_cache)
@@ -62,16 +88,20 @@ def _cover_reference(url: str | None, objects: dict[str, dict], *, allow_candida
     path, origin = local
     if not path.is_file():
         raise BackupError(409, "BACKUP_FILE_MISSING", "A referenced local cover file is missing")
-    media_type, extension = validate_image(path)
-    digest = hashlib.sha256()
-    size = 0
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-            size += len(chunk)
-    sha = digest.hexdigest()
-    objects.setdefault(sha, {"path": path, "size": size, "media_type": media_type, "extension": extension})
-    return {"kind": "local", "object_sha256": sha, "media_type": media_type, "origin": origin}
+    try:
+        stat_result = path.stat()
+    except OSError as exc:
+        raise BackupError(409, "BACKUP_FILE_MISSING", "A referenced local cover file is missing") from exc
+    cache = local_cover_cache if local_cover_cache is not None else {}
+    cache_key = (path, stat_result.st_dev, stat_result.st_ino, stat_result.st_size, stat_result.st_mtime_ns)
+    content = cache.get(cache_key)
+    if content is None:
+        content = _analyze_local_cover(path)
+        cache[cache_key] = content
+    objects.setdefault(content.sha256, {
+        "path": path, "size": content.size, "media_type": content.media_type, "extension": content.extension,
+    })
+    return {"kind": "local", "object_sha256": content.sha256, "media_type": content.media_type, "origin": origin}
 
 
 def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
@@ -82,7 +112,16 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
     categories = db.query(models.Category).filter(models.Category.owner_id == user_id).order_by(models.Category.id).all()
     locations = db.query(models.Location).filter(models.Location.owner_id == user_id).order_by(models.Location.id).all()
     series = db.query(models.Series).filter(models.Series.owner_id == user_id).order_by(models.Series.id).all()
-    books = db.query(models.Book).filter(models.Book.owner_id == user_id).order_by(models.Book.id).all()
+    books = (
+        db.query(models.Book)
+        .options(
+            selectinload(models.Book.metadata_snapshots).selectinload(models.ProviderMetadataSnapshot.normalized_records),
+            selectinload(models.Book.cover_snapshots),
+        )
+        .filter(models.Book.owner_id == user_id)
+        .order_by(models.Book.id)
+        .all()
+    )
     preferences = db.query(models.UserPreferences).filter(models.UserPreferences.user_id == user_id).one_or_none()
     category_ids = {row.id: _archive_id() for row in categories}
     location_ids = {row.id: _archive_id() for row in locations}
@@ -95,6 +134,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
         raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Series hierarchy leaves this user backup")
     book_ids = {row.id: _archive_id() for row in books}
     objects: dict[str, dict] = {}
+    local_cover_cache: dict[tuple[Path, int, int, int, int], _LocalCoverContent] = {}
     book_data = []
     snapshots = []
     normalized = []
@@ -111,7 +151,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
             for candidate in book.uploaded_cover_candidates_json:
                 if not isinstance(candidate, dict) or not isinstance(candidate.get("url"), str):
                     raise BackupError(400, "BACKUP_REFERENCE_INVALID", "Uploaded cover candidate state is invalid")
-                candidates.append({"provider": str(candidate.get("provider", "upload")), "label": str(candidate.get("label", "Custom Upload")), "cover": _cover_reference(candidate["url"], objects)})
+                candidates.append({"provider": str(candidate.get("provider", "upload")), "label": str(candidate.get("label", "Custom Upload")), "cover": _cover_reference(candidate["url"], objects, local_cover_cache=local_cover_cache)})
         book_data.append({
             "archive_id": book_ids[book.id], "title": book.title, "author": book.author,
             "subtitle": book.subtitle, "publisher": book.publisher, "language": book.language,
@@ -120,7 +160,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
             "description": book.description, "read": bool(book.read), "read_at": book.read_at,
             "is_checked_out": bool(book.is_checked_out),
             "category_archive_id": category_ids.get(book.category_id), "location_archive_id": location_ids.get(book.location_id),
-            "cover": _cover_reference(book.cover_url, objects), "uploaded_cover_candidates": candidates,
+            "cover": _cover_reference(book.cover_url, objects, local_cover_cache=local_cover_cache), "uploaded_cover_candidates": candidates,
             "date_added": book.date_added, "last_metadata_refresh_at": book.last_metadata_refresh_at,
             "last_cover_refresh_at": book.last_cover_refresh_at,
             "metadata_evidence_signature": book.metadata_evidence_signature,
@@ -168,9 +208,9 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
                 # restore publishes them to permanent SHA-256 storage.
                 if isinstance(url, str) and url.startswith("/covers/candidate-cache/"):
                     local = _local_path(url, allow_candidate_cache=True)
-                    cover = _cover_reference(url, objects, allow_candidate_cache=True) if local and local[0].is_file() else None
+                    cover = _cover_reference(url, objects, allow_candidate_cache=True, local_cover_cache=local_cover_cache) if local and local[0].is_file() else None
                 else:
-                    cover = _cover_reference(url, objects) if isinstance(url, str) else None
+                    cover = _cover_reference(url, objects, local_cover_cache=local_cover_cache) if isinstance(url, str) else None
                 snapshot_candidates.append({"provider": str(candidate.get("provider") or snapshot.provider),
                     "label": candidate.get("label"), "source_url": source_url, "cover": cover})
             cover_snapshots.append({"book_archive_id": book_ids[book.id], "provider": snapshot.provider,
@@ -208,7 +248,7 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
         "locations": [{"archive_id": location_ids[row.id], "name": row.name, "parent_archive_id": location_ids.get(row.parent_id)} for row in locations],
         "series": [{
             "archive_id": series_ids[row.id], "name": row.name, "node_type": row.node_type, "author": row.author,
-            "description": row.description, "cover": _cover_reference(row.cover_url, objects),
+            "description": row.description, "cover": _cover_reference(row.cover_url, objects, local_cover_cache=local_cover_cache),
             "parent_archive_id": series_ids.get(row.parent_id),
         } for row in series],
         "series_memberships": [{
@@ -244,8 +284,8 @@ def create_backup(db: Session, user_id: int, username: str) -> tuple[Path, str]:
             zf.writestr("manifest.json", json.dumps(manifest.model_dump(mode="json"), separators=(",", ":"), ensure_ascii=False))
             zf.writestr("library.json", library_bytes)
             for item in files[1:]:
-                zf.write(objects[item.sha256]["path"], item.path)
-        inspect_archive(output)
+                zf.write(objects[item.sha256]["path"], item.path, compress_type=zipfile.ZIP_STORED)
+        inspect_archive(output, validate_cover_images=False)
         return output, f"library-backup-{datetime.now(timezone.utc).strftime('%Y-%m-%d_%H-%M-%S')}.lbak"
     except Exception:
         output.unlink(missing_ok=True)

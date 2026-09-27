@@ -43,10 +43,10 @@ def archive_bytes(library=None, *, version=1, extra=None, mutate_manifest=None):
     return stream.getvalue()
 
 
-def inspect(tmp_path, content):
+def inspect(tmp_path, content, **kwargs):
     path = tmp_path / "test.lbak"
     path.write_bytes(content)
-    return inspect_archive(path)
+    return inspect_archive(path, **kwargs)
 
 
 def assert_code(tmp_path, content, code):
@@ -163,6 +163,26 @@ def test_missing_referenced_cover_rejected(tmp_path):
 @pytest.mark.parametrize("content", [b"not an image", b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"])
 def test_invalid_or_unsupported_archived_cover_is_rejected(tmp_path, content):
     assert_code(tmp_path, archive_with_local_cover(content), "BACKUP_IMAGE_INVALID")
+
+
+def test_trusted_inspection_skips_only_cover_image_decoding(tmp_path):
+    content = archive_with_local_cover(b"not an image")
+    with pytest.raises(BackupError) as raised:
+        inspect(tmp_path, content)
+    assert raised.value.code == "BACKUP_IMAGE_INVALID"
+    _manifest, _library, covers = inspect(tmp_path, content, validate_cover_images=False)
+    assert len(covers) == 1
+
+
+def test_trusted_inspection_still_checks_checksums_and_references(tmp_path):
+    with pytest.raises(BackupError) as checksum:
+        inspect(tmp_path, archive_bytes(mutate_manifest=lambda m: m["files"][0].update(sha256="0" * 64)), validate_cover_images=False)
+    assert checksum.value.code == "BACKUP_CHECKSUM_MISMATCH"
+    library = entity_library()
+    library["books"][0]["category_archive_id"] = "missing"
+    with pytest.raises(BackupError) as reference:
+        inspect(tmp_path, archive_bytes(library), validate_cover_images=False)
+    assert reference.value.code == "BACKUP_REFERENCE_INVALID"
 
 
 def test_passwords_and_api_keys_are_not_part_of_schema(tmp_path):
