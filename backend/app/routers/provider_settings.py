@@ -23,6 +23,7 @@ from app.services.provider_settings_service import (
     get_all_provider_settings,
     update_provider_setting,
 )
+from app.services.providers.manager import test_provider_connection
 
 router = APIRouter(
     prefix="/provider-settings",
@@ -70,6 +71,21 @@ def update_provider(
         )
 
     return _response(provider)
+
+
+@router.post(
+    "/{provider_name}/test-connection",
+    response_model=schemas.ProviderConnectionTestResponse,
+)
+async def test_connection(
+    provider_name: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin_user),
+):
+    result = await test_provider_connection(db, provider_name)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Registered provider not found")
+    return result
 
 
 def _response(provider):

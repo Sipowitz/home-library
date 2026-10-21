@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Existing cover refresh API error responses are untyped. */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import { refreshCovers, uploadCover } from "../../api/books";
 import type { CoverCandidate, CoverRefreshResponse } from "../../api/books";
@@ -33,6 +33,17 @@ export function CoverBrowserModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open]);
 
   async function handleUpload(file: File) {
     if (!bookId) return;

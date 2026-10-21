@@ -43,6 +43,58 @@ it("shows a top-level confirmation over Book Edit and Cancel returns to editing"
   expect(screen.getByRole("button", { name: "Delete Book" })).toBeTruthy();
 });
 
+it("closes ordinary Book View with Escape and retains the close action", () => {
+  const onClose = vi.fn();
+  const props = { openedInCollection: false, editing: false, editData: null, setEditing: vi.fn(), setEditData: vi.fn(), onClose, onSave: vi.fn(), onDelete: vi.fn().mockResolvedValue(undefined) };
+  render(<BookPanel {...props} book={book} />);
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(onClose).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(screen.getByRole("button", { name: "Close book details" }));
+  expect(onClose).toHaveBeenCalledTimes(2);
+});
+
+it("lets the delete confirmation own Escape without closing the parent panel", () => {
+  const onClose = vi.fn();
+  render(
+    <BookPanel
+      book={book}
+      openedInCollection={false}
+      editing
+      editData={book}
+      setEditing={vi.fn()}
+      setEditData={vi.fn()}
+      onClose={onClose}
+      onSave={vi.fn()}
+      onDelete={vi.fn().mockResolvedValue(undefined)}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete Book" }));
+  fireEvent.keyDown(document, { key: "Escape" });
+
+  expect(onClose).not.toHaveBeenCalled();
+  expect(screen.queryByRole("dialog", { name: "Delete Book?" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Delete Book" })).toBeTruthy();
+});
+
+it("keeps the existing view-to-edit and edit-close transitions", () => {
+  const setEditing = vi.fn();
+  const setEditData = vi.fn();
+  const props = { openedInCollection: false, editData: book, setEditing, setEditData, onClose: vi.fn(), onSave: vi.fn(), onDelete: vi.fn().mockResolvedValue(undefined) };
+  const view = render(<BookPanel {...props} book={book} editing={false} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit book" }));
+  expect(setEditing).toHaveBeenCalledWith(true);
+  expect(setEditData).toHaveBeenCalledWith(book);
+
+  view.rerender(<BookPanel {...props} book={book} editing />);
+  fireEvent.click(screen.getByRole("button", { name: "Close book details" }));
+  expect(setEditing).toHaveBeenCalledWith(false);
+  expect(setEditData).toHaveBeenLastCalledWith(book);
+});
+
 it("offers Take Out only for located books and Return to Shelf for out books", () => {
   const takeOut = vi.fn(); const returnToShelf = vi.fn();
   const props = { openedInCollection: false, editing: false, editData: null, setEditing: vi.fn(), setEditData: vi.fn(), onClose: vi.fn(), onSave: vi.fn(), onDelete: vi.fn().mockResolvedValue(undefined), onTakeOut: takeOut, onReturnToShelf: returnToShelf };

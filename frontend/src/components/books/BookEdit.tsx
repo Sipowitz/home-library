@@ -54,6 +54,8 @@ type Props = {
 
   onComparisonOpenChange?: (open: boolean) => void;
 
+  onOverlayOpenChange?: (open: boolean) => void;
+
 };
 
 function reviewLabel(status: ReviewStatus | undefined, pending: boolean) {
@@ -109,6 +111,7 @@ export function BookEdit({
   onDelete,
   onComparisonClose,
   onComparisonOpenChange,
+  onOverlayOpenChange,
 }: Props) {
   const [providers, setProviders] = useState<ProviderResult[]>([]);
 
@@ -154,6 +157,12 @@ export function BookEdit({
   useEffect(() => {
     onComparisonOpenChange?.(showMetadataPanel);
   }, [onComparisonOpenChange, showMetadataPanel]);
+
+  useEffect(() => {
+    onOverlayOpenChange?.(coverModalOpen || showMetadataPanel || showEditionPicker);
+  }, [coverModalOpen, onOverlayOpenChange, showEditionPicker, showMetadataPanel]);
+
+  useEffect(() => () => onOverlayOpenChange?.(false), [onOverlayOpenChange]);
 
   const selectedCategoryId = editData?.category_id ?? null;
   const { preferences } = usePreferencesContext();
@@ -306,6 +315,17 @@ export function BookEdit({
     setCatalogCoverCandidate(null);
     setSelectedCatalogCover(null);
   }
+
+  useEffect(() => {
+    if (!showEditionPicker) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") cancelEditionPicker();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showEditionPicker]);
 
   async function handleRefreshMetadata(lookupIsbn?: string) {
     if (!editData?.id || isRefreshing) {

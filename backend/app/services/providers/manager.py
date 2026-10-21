@@ -1,9 +1,13 @@
+import asyncio
 import time
+from types import SimpleNamespace
 
 from sqlalchemy.orm import Session
 
 from app.core.logging import logger
 from app.services.provider_settings_service import get_enabled_provider_settings
+from app.services.provider_settings_service import get_all_provider_settings
+from app.services.providers.http_client import safe_detail
 
 from app.services.providers.google_books import (
     GoogleBooksProvider,
@@ -26,6 +30,65 @@ PROVIDER_MAP = {
     "openlibrary": OpenLibraryProvider,
     "isbndb": ISBNdbProvider,
 }
+
+CONNECTION_TEST_ISBN = "9780306406157"
+CONNECTION_TEST_MAX_TIMEOUT_SECONDS = 10.0
+
+
+def _connection_error_category(provider, result: dict | None) -> str | None:
+    """Map diagnostics we actually received; do not guess beyond the interface."""
+    if result is not None and not has_usable_provider_evidence(result):
+        return "no_metadata"
+    diagnostic = getattr(provider, "last_diagnostic", None)
+    if diagnostic == "configuration":
+        return "missing_credentials"
+    if diagnostic in {"authentication", "rate_limited", "timeout", "transport", "server_error"}:
+        return diagnostic
+    detail = getattr(provider, "last_error", None) or ""
+    if diagnostic == "provider_error" and "malformed" in detail.casefold():
+        return "invalid_response"
+    return diagnostic
+
+
+async def test_provider_connection(db: Session, provider_name: str) -> dict | None:
+    """Run one uncached, no-retry lookup without consulting provider enablement."""
+    setting = next((item for item in get_all_provider_settings(db) if item.provider_name == provider_name), None)
+    provider_class = PROVIDER_MAP.get(provider_name)
+    if setting is None or provider_class is None:
+        return None
+
+    # A detached view prevents this diagnostic request from changing persisted
+    # configuration while retaining the configured credential and timeout.
+    timeout_seconds = min(max(float(setting.timeout_seconds), 1.0), CONNECTION_TEST_MAX_TIMEOUT_SECONDS)
+    test_settings = SimpleNamespace(api_key=setting.api_key, timeout_seconds=timeout_seconds, max_retries=0)
+    provider = provider_class(test_settings)
+    start = time.perf_counter()
+    result = None
+    try:
+        result = await asyncio.wait_for(
+            provider.fetch_book_by_isbn(CONNECTION_TEST_ISBN, force_refresh=True),
+            timeout=timeout_seconds + 1,
+        )
+    except asyncio.TimeoutError:
+        provider.record_request_failure("Provider connection test timed out", "timeout")
+    except Exception as exc:
+        logger.exception("Provider connection test for %s raised %s", provider_name, type(exc).__name__)
+        provider.record_request_failure(f"Provider exception ({type(exc).__name__})", "provider_error")
+
+    success = has_usable_provider_evidence(result)
+    category = None if success else _connection_error_category(provider, result)
+    message = None if success else safe_detail(
+        getattr(provider, "last_error", None)
+        or ("No usable metadata was returned" if category == "no_metadata" else "Provider did not return metadata")
+    )
+    return {
+        "success": success,
+        "provider_id": provider_name,
+        "duration_ms": int((time.perf_counter() - start) * 1000),
+        "http_status": getattr(provider, "last_http_status", None),
+        "error_category": category,
+        "message": message,
+    }
 
 
 def _get_enabled_providers(

@@ -19,6 +19,7 @@ class BookProvider(ABC):
         self.settings = settings
         self.last_error: str | None = None
         self.last_diagnostic: str | None = None
+        self.last_http_status: int | None = None
         # Successful response body for the current metadata lookup only.
         self.raw_response: dict | None = None
 
@@ -44,6 +45,7 @@ class BookProvider(ABC):
     ) -> dict | None:
         self.last_error = None
         self.last_diagnostic = None
+        self.last_http_status = None
         return await get_json(
             url,
             params=params,
@@ -52,6 +54,7 @@ class BookProvider(ABC):
             max_retries=self.get_max_retries(),
             not_found_as_empty=not_found_as_empty,
             on_failure=self.record_request_failure,
+            on_response=lambda status: setattr(self, "last_http_status", status),
         )
 
     @abstractmethod

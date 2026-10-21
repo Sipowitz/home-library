@@ -20,6 +20,11 @@ def _safe_detail(value: object) -> str:
     return re.sub(r"(?i)(authorization|api[_-]?key|key|token)=?\s*[^\s&,:]+", r"\1=[redacted]", text)
 
 
+def safe_detail(value: object) -> str:
+    """Sanitize provider diagnostics before they leave the server."""
+    return _safe_detail(value)
+
+
 def _http_failure_detail(response: httpx.Response) -> str:
     labels = {
         400: "Bad request",
@@ -64,6 +69,7 @@ async def get_json(
     not_found_as_empty: bool = False,
     sleep: Callable[[float], Awaitable[None]] | None = None,
     on_failure: Callable[[str, str], None] | None = None,
+    on_response: Callable[[int], None] | None = None,
 ) -> dict | None:
     sleep = sleep or asyncio.sleep
     attempts = max_retries + 1
@@ -86,6 +92,8 @@ async def get_json(
                         on_failure(f"Transport error ({type(exc).__name__})", "transport")
                     return None
             else:
+                if on_response:
+                    on_response(response.status_code)
                 if response.status_code == 404 and not_found_as_empty:
                     return {}
                 if response.status_code == 200:

@@ -90,6 +90,17 @@ export function MetadataComparisonPanel({
 
   const resolvedCoverUrl = resolveCoverUrl(coverUrl);
 
+  useEffect(() => {
+    if (!onClose) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose?.();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const handleRefresh = async () => {
     if (!onRefreshMetadata || isRefreshing) return;
 

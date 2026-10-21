@@ -1,9 +1,32 @@
 import { useEffect, useState } from "react";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 
 import { useProviderSettings } from "../../../hooks/useProviderSettings";
 import { ActionButton } from "../../ui/ActionButton";
+import { testProviderConnection } from "../../../api/providerSettings";
+import type { ProviderConnectionTest } from "../../../types/provider";
+
+function failureSummary(result: ProviderConnectionTest): string {
+  if (result.http_status === 429 || result.error_category === "rate_limited") {
+    return "The daily API quota has been exceeded.";
+  }
+  if (result.error_category === "missing_credentials") return "An API key is required to test this provider.";
+  if (result.error_category === "authentication") return "The provider rejected the configured API key.";
+  if (result.error_category === "timeout") return "The provider did not respond before the connection test timed out.";
+  if (result.error_category === "transport") return "The provider could not be reached.";
+  if (result.error_category === "server_error") return "The provider is currently unavailable.";
+  if (result.error_category === "invalid_response") return "The provider returned an invalid response.";
+  if (result.error_category === "no_metadata") return "The provider returned no metadata for the test book.";
+  return "The connection test could not be completed.";
+}
+
+function safeTechnicalDetails(message: string | null): string | null {
+  if (!message) return null;
+  return message
+    .replace(/authorization\s*[:=]\s*(?:bearer\s+)?[^\s&,:]+/gi, "Authorization=[redacted]")
+    .replace(/(api[_-]?key|key|token)\s*[:=]\s*[^\s&,:]+/gi, "$1=[redacted]");
+}
 
 export function ProviderSettingsPanel() {
   const { providers, loading, refreshProviders, updateProvider } =
@@ -12,6 +35,31 @@ export function ProviderSettingsPanel() {
   const [apiKeyValues, setApiKeyValues] = useState<Record<number, string>>({});
 
   const [showApiKeys, setShowApiKeys] = useState<Record<number, boolean>>({});
+  const [testing, setTesting] = useState<Record<string, boolean>>({});
+  const [testResults, setTestResults] = useState<Record<string, ProviderConnectionTest>>({});
+
+  const runConnectionTest = async (providerName: string) => {
+    setTesting((previous) => ({ ...previous, [providerName]: true }));
+    try {
+      const result = await testProviderConnection(providerName);
+      setTestResults((previous) => ({ ...previous, [providerName]: result }));
+    } catch (error: any) {
+      const response = error?.response?.data;
+      setTestResults((previous) => ({
+        ...previous,
+        [providerName]: {
+          success: false,
+          provider_id: providerName,
+          duration_ms: 0,
+          http_status: response?.http_status ?? null,
+          error_category: response?.error_category ?? null,
+          message: response?.message ?? response?.detail ?? "Connection test could not be completed.",
+        },
+      }));
+    } finally {
+      setTesting((previous) => ({ ...previous, [providerName]: false }));
+    }
+  };
 
   useEffect(() => {
     refreshProviders();
@@ -189,6 +237,29 @@ export function ProviderSettingsPanel() {
             {provider.provider_name === "isbndb" && <p className="mt-2 text-sm text-text-muted">
               {provider.has_api_key ? "API key configured" : "No stored API key configured"}
             </p>}
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <ActionButton
+              variant="secondary"
+              size="sm"
+              onClick={() => runConnectionTest(provider.provider_name)}
+              disabled={testing[provider.provider_name] === true}
+              aria-describedby={`provider-test-status-${provider.id}`}
+            >
+              {testing[provider.provider_name] ? <><LoaderCircle className="animate-spin" size={16} aria-hidden="true" /> Testing…</> : "Test Connection"}
+            </ActionButton>
+            <div id={`provider-test-status-${provider.id}`} className="mt-2 text-sm" role="status" aria-live="polite">
+              {testing[provider.provider_name] && <span className="text-text-muted">Testing {provider.provider_name}…</span>}
+              {!testing[provider.provider_name] && testResults[provider.provider_name] && (() => {
+                const result = testResults[provider.provider_name];
+                const details = [`${result.duration_ms} ms`, result.http_status ? `HTTP ${result.http_status}` : null].filter(Boolean).join(" · ");
+                const technicalDetails = safeTechnicalDetails(result.message);
+                return result.success
+                  ? <span className="text-success">Connection successful{details ? ` · ${details}` : ""}</span>
+                  : <div className="text-danger"><span>{failureSummary(result)}{details ? ` ${details}` : ""}</span>{technicalDetails && <details className="mt-1 text-text-muted"><summary className="cursor-pointer">Technical details</summary><p className="mt-1">{technicalDetails}</p></details>}</div>;
+              })()}
+            </div>
           </div>
         </div>
       ))}

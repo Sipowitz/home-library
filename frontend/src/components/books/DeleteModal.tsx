@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ActionButton } from "../ui/ActionButton";
@@ -14,6 +14,17 @@ type Props = {
 
 export function DeleteModal({ open, book, hasCollections, openedInCollection, onClose, onDelete }: Props) {
   const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!open || isDeleting) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isDeleting, onClose, open]);
 
   if (!open) return null;
 

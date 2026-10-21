@@ -81,6 +81,20 @@ it("accents suggested covers, labels them, and keeps them inert", () => {
   expect(onSelect).toHaveBeenCalledWith(normal);
 });
 
+it("uses an accessible native button for a book card without redundantly announcing its cover", () => {
+  const onSelect = vi.fn();
+  const coveredBook = { ...book, title: "The Accessible Book", author: "Ada Reader", cover_url: "/covers/objects/sha256/ab/cover.jpg" };
+  render(<BookGridView books={[coveredBook]} onSelect={onSelect} />);
+
+  const card = screen.getByRole("button", { name: "Open book: The Accessible Book by Ada Reader" });
+  expect(card.tagName).toBe("BUTTON");
+  expect(card.className).toContain("focus-visible:ring-2");
+  expect(card.querySelector("img")?.getAttribute("alt")).toBe("");
+
+  fireEvent.click(card);
+  expect(onSelect).toHaveBeenCalledWith(coveredBook);
+});
+
 it("renders literal backend positions only in grouped display and never for Suggested or unassigned books", () => {
   const assigned = { ...book, id: 30, title: "Assigned", location_id: 7, location_position: 23, location_total: 27 };
   const suggested = { ...book, id: 31, title: "Suggested", location_id: 7, location_position: 12, location_total: 27 };

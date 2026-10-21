@@ -139,6 +139,15 @@ class ProviderSettingResponse(
         from_attributes = True
 
 
+class ProviderConnectionTestResponse(BaseModel):
+    success: bool
+    provider_id: str
+    duration_ms: int = Field(ge=0, le=300_000)
+    http_status: Optional[int] = Field(default=None, ge=100, le=599)
+    error_category: Optional[str] = Field(default=None, max_length=64)
+    message: Optional[str] = Field(default=None, max_length=1000)
+
+
 # -------------------
 # 🏷️ CATEGORY SCHEMAS
 # -------------------

@@ -31,6 +31,15 @@ export interface ProviderSettingUpdate {
   max_retries?: number;
 }
 
+export interface ProviderConnectionTest {
+  success: boolean;
+  provider_id: string;
+  duration_ms: number;
+  http_status: number | null;
+  error_category: string | null;
+  message: string | null;
+}
+
 export interface ProviderResult {
   provider: string;
 

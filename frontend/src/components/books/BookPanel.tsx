@@ -56,6 +56,7 @@ export function BookPanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [hasCollections, setHasCollections] = useState(false);
   const [metadataComparisonOpen, setMetadataComparisonOpen] = useState(false);
+  const [editOverlayOpen, setEditOverlayOpen] = useState(false);
   const [failedBackdropUrl, setFailedBackdropUrl] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -69,6 +70,25 @@ export function BookPanel({
   }, [book?.id]);
 
   useEffect(() => {}, [book]);
+
+  useEffect(() => {
+    if (!book) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape" || confirmDelete || editOverlayOpen) return;
+
+      if (editing) {
+        if (!book) return;
+        setEditing(false);
+        setEditData(book);
+      } else {
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [book, confirmDelete, editOverlayOpen, editing, onClose, setEditData, setEditing]);
 
   function handleEdit() {
     if (!book) return;
@@ -228,6 +248,7 @@ export function BookPanel({
               onDelete={() => setConfirmDelete(true)}
               onComparisonClose={handleComparisonClose}
               onComparisonOpenChange={setMetadataComparisonOpen}
+              onOverlayOpenChange={setEditOverlayOpen}
             />
           )}
         </div>
